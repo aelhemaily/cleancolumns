@@ -1,0 +1,1295 @@
+
+
+/* Base styles */
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  background-color: #f8fafc;
+  padding: 40px;
+  margin: 0;
+  color: #334155;
+  line-height: 1.5;
+}
+
+.container {
+  max-width: 1000px;
+  margin: auto;
+  background: #fff;
+  padding: 35px;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e2e8f0;
+}
+
+/* Typography */
+h2 {
+  margin-top: 0;
+  font-size: 24px;
+  color: #1e293b;
+  font-weight: 600;
+  margin-bottom: 20px;
+  letter-spacing: -0.01em;
+}
+
+label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #475569;
+  display: inline-block;
+  margin-right: 10px;
+  margin-bottom: 0;
+  vertical-align: middle;
+}
+
+/* Form elements - inline layout fixes */
+select, input[type="text"] {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Find the existing select styles and replace with this: */
+select {
+  padding: 10px 30px 10px 12px;
+  font-size: 14px;
+  font-family: monospace;
+  border: 2px solid #475569;
+  border-radius: 0px;
+  background-color: #ffffff;
+  color: #475569;
+  box-shadow: -4px 4px 0 #15191f;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+  margin-right: 10px;
+  transition: all 0.2s ease;
+  vertical-align: middle;
+}
+
+select:focus {
+  border-color: #475569;
+  box-shadow: -2px 2px 0 #000000;
+  outline: none;
+  transform: translateY(-1px);
+}
+
+select:hover {
+  box-shadow: -2px 2px 0 #000000;
+  transform: translateY(-1px);
+}
+
+input[type="text"] {
+  padding: 10px 14px;
+  font-size: 14px;
+  margin: 0 10px 0 0;
+  width: 180px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+input[type="text"]:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  outline: none;
+}
+
+textarea {
+  width: 100%;
+  height: 180px;
+  font-family: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 14px;
+  padding: 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  resize: vertical;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+  margin-top: 15px;
+}
+
+textarea:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  outline: none;
+}
+
+/* Buttons - consistent styling */
+button {
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 500;
+  background-color: #ffffff;
+  color: #475569;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 8px 0 0;
+}
+
+/* Convert button can be displayed inline with the select */
+#convertBtn {
+  background-color: #ffffff;
+  color: #475569;
+  font-family: monospace;
+  border: 2px solid #475569;
+  padding: 10px 22px;
+  border-radius: 0px;
+  box-shadow: -4px 4px 0 #15191f;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  vertical-align: middle;
+}
+
+#convertBtn:hover {
+  box-shadow: -2px 2px 0 #000000;
+  background-color: #f4f4f4;
+  transform: translateY(-1px);
+}
+
+#convertBtn:active {
+  box-shadow: -1px 1px 0 #000000;
+  transform: translate(-3px, 3px);
+}
+
+/* Copy table button styled to match convertBtn */
+.copy-all-btn {
+  background-color: #ffffff;
+  color: #475569;
+  font-family: monospace;
+  border: 2px solid #475569;
+  padding: 10px 22px;
+  border-radius: 0px;
+  box-shadow: -4px 4px 0 #15191f;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin: 12px 8px 12px 0;
+}
+
+.copy-all-btn:hover {
+  box-shadow: -2px 2px 0 #000000;
+  background-color: #f4f4f4;
+  transform: translateY(-1px);
+}
+
+.copy-all-btn:active {
+  box-shadow: -1px 1px 0 #000000;
+  transform: translate(-3px, 3px);
+}
+
+/* Table styles */
+table {
+  width: auto;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin-top: 12px;
+  table-layout: fixed;
+  overflow: hidden;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid #e2e8f0;
+}
+
+th, td {
+  border: 1px solid #e2e8f0;
+  padding: 10px 14px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+th {
+  /* Colors (now using CSS variables) */
+  background-color: var(--header-bg) !important;
+  color: var(--header-text) !important;
+  border-bottom: 3px solid var(--header-border) !important;
+  
+  /* Font styling */
+  font-weight: 700; /* Bolder than before */
+  font-size: 14px;
+  letter-spacing: 0.5px; /* Slightly more spaced */
+  text-transform: uppercase; /* Optional: makes headers ALL CAPS */
+  
+  /* Spacing & borders */
+  padding: 14px 16px; /* Slightly more padding than before */
+  position: relative;
+  border-right: 1px solid var(--header-border);
+  
+  /* Shadow effect */
+  box-shadow: 0 2px 3px rgba(0,0,0,0.05);
+  
+  /* Smooth transitions */
+  transition: all 0.2s ease;
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] th {
+  box-shadow: 0 2px 3px rgba(0,0,0,0.2);
+  border-right-color: #475569;
+}
+
+td {
+  background-color: #ffffff;
+  color: #334155;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 14px;
+  transition: background-color 0.15s ease;
+}
+
+/* Zebra striping - alternate row colors */
+tr:nth-child(odd) td {
+  background-color: var(--zebra-odd);
+}
+
+tr:nth-child(even) td {
+  background-color: var(--zebra-even);
+}
+
+/* Header stays the same */
+tr:first-child td,
+tr:first-child th {
+  background-color: var(--th-bg) !important;
+}
+
+/* Hover effect (will override zebra) */
+tr:hover td {
+  background-color: var(--hover-bg) !important;
+}
+
+tr:hover td {
+  background-color: #f8fafc;
+}
+
+/* Warning message */
+#parseWarning {
+  font-weight: 500;
+  background-color: #fee2e2;
+  padding: 12px 16px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #b91c1c;
+  margin: 12px 0;
+  font-size: 14px;
+  box-shadow: 0 1px 3px rgba(185, 28, 28, 0.1);
+}
+
+/* Copy button */
+.copy-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  margin-right: 8px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  transition: color 0.2s ease;
+  height: 24px;
+  width: 24px;
+}
+
+.copy-btn:hover {
+  color: #3b82f6;
+}
+
+/* Toast notification - Changed to green */
+#toast {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  background-color: #1eac52; /* lime-500 */
+  color: #0f172a;            /* slate-900 for contrast */
+  font-family: monospace;
+  padding: 10px 18px;
+  border: 2px solid #0f172a;
+  border-radius: 0;
+  opacity: 0;
+  pointer-events: none;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 4px 4px 0 #0f172a;
+  transform: translateY(10px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  z-index: 1000;
+}
+
+#toast.show {
+  opacity: 0.8;
+  transform: translateY(0);
+}
+
+#error-toast {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  background-color: #ca5454; /* Red background */
+  color: #ffffff;            /* White text for contrast */
+  font-family: monospace;
+  padding: 10px 18px;
+  border: 2px solid #352d2d; /* Darker red border */
+  border-radius: 0;
+  opacity: 0;
+  pointer-events: none;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 4px 4px 0 #0c0c0c;
+  transform: translateY(10px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  z-index: 1000;
+}
+
+#error-toast.show {
+  opacity: 0.8;
+  transform: translateY(0);
+}
+
+#error-toast.hide {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+
+/* SVG icon in copy button */
+.copy-btn svg {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.2s ease;
+}
+
+.copy-btn:hover svg {
+  transform: scale(1.1);
+}
+
+.copy-btn:hover svg path {
+  fill: #3b82f6;
+}
+
+/* Form controls group - for keeping elements on same line */
+.form-group {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  margin-right: 10px;
+  margin-bottom: 0;
+}
+
+.form-group select, 
+.form-group input[type="text"],
+.form-group button {
+  margin-right: 10px;
+}
+
+/* Column widths - kept the same */
+th:nth-child(1), td:nth-child(1) {
+  width: 7%;
+}
+
+th:nth-child(2), td:nth-child(2) {
+  width: 7%;
+}
+
+th:nth-child(3), td:nth-child(3) {
+  width: 7%;
+}
+
+th:nth-child(4), td:nth-child(4) {
+  width: 7%;
+}
+
+th:nth-child(5), td:nth-child(5) {
+  width: 7%;
+}
+
+th:nth-child(6), td:nth-child(6) {
+  width: 7%;
+}
+
+.copy-btn {
+  background: none;
+  border: 1px solid #475569;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 2px;
+
+}
+
+.copy-btn:hover {
+  box-shadow: -1px 2px 0 #000000;
+  transform: translateY(-1px);
+}
+
+.copy-btn:active {
+  box-shadow: -1px 2px 0 #000000;
+  transform: translate(-2px, 2px);
+}
+.line-buttons {
+  margin: 10px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px;
+  border-bottom: 1px solid #eee;
+}
+
+.line-buttons button {
+  background-color: #2196F3;
+  color: white;
+  padding: 5px 10px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-left: 5px;
+}
+
+.line-buttons button:hover {
+  background-color: #1976D2;
+}
+
+.line-buttons button.greyed-out {
+  background-color: #B0BEC5;
+  cursor: not-allowed;
+}
+
+.line-buttons.merged {
+  background-color: #e8f5e9;
+}
+
+#rbcPreprocessor {
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  margin-bottom: 20px;
+}
+
+  select {
+   
+    border-radius: 6px;
+    border: 1px solid #010101;
+    background-color: #d7dee8;
+  }
+
+  /* ==================== */
+/* Dark Mode Variables  */
+/* ==================== */
+:root {
+  --bg-color: #f8fafc;
+  --text-color: #334155;
+  --container-bg: #fff;
+  --container-border: #e2e8f0;
+  --shadow-color: rgba(0, 0, 0, 0.08);
+  --heading-color: #1e293b;
+  --label-color: #475569;
+  --select-border: #cbd5e1;
+  --select-focus: #3b82f6;
+  --th-bg: #f1f5f9;
+  --th-border: #cbd5e1;
+  --td-bg: #ffffff;
+  --td-border: #e2e8f0;
+  --hover-bg: #e6f0ff; /* Changed to a light blue */
+  --input-bg: #ffffff;
+--zebra-odd: #ffffff; /* White stays same */
+--zebra-even: #f5f5f5; /* Slightly darker gray */
+--header-bg: #e2e8f0; /* Light slate-200 */
+  --header-text: #1e293b; /* Dark slate-800 */
+  --header-border: #94a3b8; /* Slate-400 */
+}
+
+[data-theme="dark"] {
+  --bg-color: #1a1a1a;
+  --text-color: #e0e0e0;
+  --container-bg: #2d2d2d;
+  --container-border: #444;
+  --shadow-color: rgba(0, 0, 0, 0.3);
+  --heading-color: #f0f0f0;
+  --label-color: #b0b0b0;
+  --select-border: #555;
+  --select-focus: #4a90e2;
+  --th-bg: #3a3a3a;
+  --th-border: #444;
+  --td-bg: #2d2d2d;
+  --td-border: #444;
+ --hover-bg: #3a4a6b; /* Darker blue for dark mode */
+  --input-bg: #3a3a3a;
+--zebra-odd: #2d2d2d; /* Dark gray stays same */
+--zebra-even: #3a3a3a; /* Slightly lighter gray */
+--header-bg: #334155; /* Dark slate-700 */
+  --header-text: #f8fafc; /* Light slate-50 */
+  --header-border: #04042c; /* Slate-600 */
+}
+
+/* Dark Mode Element Styles */
+[data-theme="dark"] body {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+}
+
+[data-theme="dark"] .container {
+  background: var(--container-bg);
+  border-color: var(--container-border);
+  box-shadow: 0 10px 30px var(--shadow-color);
+}
+
+[data-theme="dark"] h2 {
+  color: var(--heading-color);
+}
+
+[data-theme="dark"] label {
+  color: var(--label-color);
+}
+
+[data-theme="dark"] select {
+  border-color: var(--select-border);
+  background-color: var(--input-bg);
+  color: var(--text-color);
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b0b0b0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+}
+
+[data-theme="dark"] input[type="text"],
+[data-theme="dark"] textarea {
+  background-color: var(--input-bg);
+  color: var(--text-color);
+  border-color: var(--select-border);
+}
+
+[data-theme="dark"] th {
+  background-color: var(--th-bg);
+  color: var(--label-color);
+  border-bottom-color: var(--th-border);
+}
+
+[data-theme="dark"] td {
+  background-color: var(--td-bg);
+  color: var(--text-color);
+  border-bottom-color: var(--td-border);
+}
+
+[data-theme="dark"] tr:hover td {
+  background-color: var(--hover-bg);
+}
+
+/* Dark Mode Toggle Button */
+#darkModeToggle {
+  position: fixed;
+  
+  bottom: 30px; /* Distance from bottom of screen */
+  left: 0px;
+  background-color: var(--container-bg);
+  color: var(--text-color);
+  border: 1px solid var(--select-border);
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 10px var(--shadow-color);
+  z-index: 1000;
+  transition: all 0.3s ease;
+  opacity: 0.7;
+}
+
+
+#darkModeToggle:hover {
+  transform: scale(1.1);
+}
+
+/* Return to Top Button */
+#returnToTop {
+  position: fixed;
+  bottom: 20px; /* Moved closer to bottom */
+  right: 0px; /* Small gap from right edge */
+  background-color: var(--container-bg);
+  color: var(--text-color);
+  border: 1px solid var(--select-border);
+  border-radius: 50%;
+  width: 30px; /* Smaller but proportional */
+  height: 30px; /* Must match width */
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 6px var(--shadow-color); /* Smaller shadow */
+  z-index: 1000;
+  transition: all 0.2s ease;
+  opacity: 0.7;
+  padding: 0; /* Ensure no extra spacing */
+}
+
+#returnToTop i {
+  font-size: 16px; /* Smaller icon */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#returnToTop:hover {
+  transform: scale(1.1);
+  opacity: 1;
+}
+
+#returnToTop.show {
+  display: flex;
+}
+
+/* Smooth transitions for theme change */
+body, .container, h2, label, select, input, textarea, th, td {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Context Menu Styles */
+.context-menu {
+  position: absolute;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  z-index: 1000;
+  display: none;
+  min-width: 180px;
+  padding: 6px 0;
+  font-size: 14px;
+}
+
+.menu-item {
+  padding: 8px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #334155;
+  transition: all 0.2s;
+}
+
+.menu-item:hover {
+  background: #f1f5f9;
+}
+
+.menu-item[data-action^="delete"] {
+  color: #ef4444;
+}
+
+.menu-item[data-action^="delete"]:hover {
+  background: #fee2e2;
+}
+
+.menu-divider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 6px 0;
+}
+
+[data-theme="dark"] .context-menu {
+  background: #2d2d2d;
+  border-color: #444;
+}
+
+[data-theme="dark"] .menu-item {
+  color: #e0e0e0;
+}
+
+[data-theme="dark"] .menu-item:hover {
+  background: #3a3a3a;
+}
+
+[data-theme="dark"] .menu-divider {
+  background: #444;
+}
+
+/* Drag and Drop Styles */
+td[draggable="true"] {
+  cursor: grab;
+  transition: all 0.2s ease;
+}
+
+td[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+
+
+.drop-target {
+  outline: 2px dashed #3b82f6;
+  background-color: #eff6ff !important;
+}
+
+
+
+.drag-ghost {
+  position: absolute;
+  background: white;
+  border: 1px solid #e2e8f0;
+  padding: 8px;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.8;
+  transform: rotate(3deg);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  display: none;
+}
+
+
+
+[data-theme="dark"] .drop-target {
+  outline-color: #60a5fa;
+  background-color: #1e3a8a !important;
+}
+
+
+
+[data-theme="dark"] .drag-ghost {
+  background: #2d2d2d;
+  border-color: #444;
+}
+
+/* Excel-like cell selection styles */
+td.selected-cell, th.selected-cell {
+  position: relative;
+  border: 2px solid #3b82f6 !important;
+  outline: none;
+  background-color: #f0f7ff !important;
+}
+
+[data-theme="dark"] td.selected-cell, 
+[data-theme="dark"] th.selected-cell {
+  border-color: #60a5fa !important;
+  background-color: #1e3a8a !important;
+}
+
+td.selected-cell input {
+  background: white;
+  color: black;
+  border: none;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  outline: none;
+}
+
+/* Add to your styles.css */
+#output table {
+    overflow-anchor: none; /* Prevents scroll anchoring */
+}
+
+.selected-cell {
+    contain: content; /* Improves rendering performance */
+}
+
+/* Undo/Redo buttons */
+.undo-redo-btn {
+  background-color: #ffffff;
+  color: #475569;
+  font-family: monospace;
+  border: 2px solid #475569;
+  padding: 10px;
+  border-radius: 0px;
+  box-shadow: -4px 4px 0 #15191f;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin: 12px 8px 12px 0;
+  width: 40px;
+}
+
+.undo-redo-btn:hover {
+  box-shadow: -2px 2px 0 #000000;
+  background-color: #f4f4f4;
+  transform: translateY(-1px);
+}
+
+.undo-redo-btn:active {
+  box-shadow: -1px 1px 0 #000000;
+  transform: translate(-3px, 3px);
+}
+
+.undo-redo-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+#output table {
+  transition: none !important;
+}
+
+[data-theme="dark"] #convertBtn,
+[data-theme="dark"] .undo-redo-btn,
+[data-theme="dark"] .copy-all-btn {
+  background-color: #1a1a1a; /* Pure black */
+  color: #ffffff; /* White text */
+  border: 2px solid #3a3a3a; /* Slightly lighter border */
+  box-shadow: -4px 4px 0 #000000;
+}
+
+[data-theme="dark"] #convertBtn:hover,
+[data-theme="dark"] .undo-redo-btn:hover,
+[data-theme="dark"] .copy-all-btn:hover {
+  background-color: #2d2d2d; /* Slightly lighter on hover */
+}
+
+/* Add this to your existing column width styles */
+th:nth-child(1), td:nth-child(1) {
+  width: 5%; /* Adjust width as needed */
+  min-width: 40px; /* Ensure it doesn't get too narrow */
+  text-align: center;
+  background-color: var(--th-bg);
+  font-weight: 600;
+  color: var(--label-color);
+}
+
+th::after {
+  content: "";
+  position: absolute;
+  bottom: -3px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--select-focus);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+tr:first-child:hover th::after {
+  opacity: 0.7;
+}
+/* Toolbar styles */
+.toolbar {
+  display: none;
+  margin-left: auto; /* Push to far right */
+  margin-right: 0;
+  padding: 8px;
+  background: #d7dee8;
+  vertical-align: middle;
+  position: relative;
+  z-index: 100;
+  border-radius: 0px; /* Removed rounded corners */
+  border: 2px solid #475569;
+  box-shadow: -4px 4px 0 #15191f; /* 3D shadow matching other elements */
+  font-family: monospace;
+}
+
+.toolbar-btn {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #eaeef3;
+  border: 2px solid #475569;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin: 0 3px;
+  font-weight: bold;
+  box-shadow: 0 4px 0 #475569;
+}
+
+.toolbar-btn:hover {
+  background: #ffffff;
+  transform: translateY(-1px);
+}
+
+.toolbar-btn:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #475569;
+}
+
+.toolbar.show {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
+/* Ensure toolbar is right-aligned in its container */
+.form-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 15px;
+  width: 100%;
+}
+
+.toolbar-separator {
+  height: 26px;
+  width: 2px;
+  background: #475569;
+  margin: 0 8px;
+  box-shadow: 1px 0 0 rgba(12, 12, 12, 0.5);
+}
+
+[data-theme="dark"] .toolbar {
+  background: #2d2d2d;
+  border: 2px solid #3a3a3a;
+  box-shadow: -4px 4px 0 #000000; /* Updated dark mode shadow */
+}
+
+[data-theme="dark"] .toolbar-btn {
+  background-color: #3a3a3a;
+  color: #ffffff;
+  border: 2px solid #000000;
+  box-shadow: 0 4px 0 #000000;
+}
+
+[data-theme="dark"] .toolbar-btn:hover {
+  background: #4a4a4a;
+}
+
+.toolbar.show {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.toolbar-separator {
+  height: 24px;
+  width: 1px;
+  background: var(--container-border);
+  margin: 0 4px;
+}
+
+
+
+.toolbar-btn:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* Make toolbar inline with convert button */
+.form-row {
+  display: flex;
+  align-items: flex-end;
+  margin-bottom: 15px;
+}
+
+#copyTableBtn {
+  display: inline-block !important;
+}
+
+/* Sample button styles */
+.sample-btn-container {
+  display: flex;
+  align-items: center;
+  margin-left: auto; /* Pushes to the right */
+  padding-left: 10px;
+}
+
+.sample-btn {
+  padding: 10px 14px;
+  background-color: #ffffff;
+  color: #475569;
+  border: 2px solid #475569;
+  border-radius: 0px;
+  box-shadow: -4px 4px 0 #15191f;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: monospace;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px; /* Match other form controls */
+}
+
+.sample-btn:hover {
+  box-shadow: -2px 2px 0 #000000;
+  background-color: #f4f4f4;
+  transform: translateY(-1px);
+}
+
+.sample-btn:active {
+  box-shadow: -1px 1px 0 #000000;
+  transform: translate(-3px, 3px);
+}
+
+.sample-btn .sample-text {
+  display: none;
+}
+
+.sample-btn:hover .sample-text {
+  display: inline;
+}
+
+/* Image modal styles (unchanged from previous) */
+.image-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.image-modal.show {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.image-modal-content {
+  position: relative;
+  max-width: 90%;
+  max-height: 90%;
+}
+
+.image-modal img {
+  max-width: 100%;
+  max-height: 90vh;
+  border: 3px solid #fff;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.close-modal {
+  position: absolute;
+  top: -15px;
+  right: -15px;
+  width: 40px;
+  height: 40px;
+  background-color: #fff;
+  color:#000000;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  font-size: 20px;
+  font-weight: bold;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.close-modal:hover {
+  color: #030247;
+  box-shadow: 0 0 8px 2px #1d1a1a;
+  transform: rotate(90deg);
+  transition: transform 0.4s ease, box-shadow 0.4s ease, color 0.4s ease;
+}
+
+
+
+[data-theme="dark"] .sample-btn {
+  background-color: #1a1a1a;
+  color: #ffffff;
+  border: 2px solid #3a3a3a;
+  box-shadow: -4px 4px 0 #000000;
+}
+
+[data-theme="dark"] .sample-btn:hover {
+  background-color: #2d2d2d;
+}
+
+.controls-row {
+  display: flex;
+  align-items: center;
+  gap: 12px; /* space between controls */
+  margin-bottom: 15px;
+}
+
+.sample-btn-container {
+  margin-left: auto; /* push sample button all the way right */
+}
+
+/* Inline CSS for demonstration - move to styles.css if you prefer */
+    .top-controls {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+    /* Align sample button container to the right */
+    .sample-btn-container {
+      margin-left: auto; /* pushes this container to the far right */
+    }
+    
+    /* Enhanced 3D Modal with Layered Borders */
+.image-modal-content {
+  background: var(--container-bg);
+  border: 2px solid var(--container-border);
+  position: relative;
+  padding: 4px;
+  border-radius: 0;
+}
+
+/* Main 3D Shadow Effect */
+.image-modal-content::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border: 2px solid var(--container-border);
+  transform: translate(-8px, 8px);
+  z-index: -1;
+  background: var(--shadow-color);
+}
+
+/* Secondary shadow for extra depth */
+.image-modal-content::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border: 1px solid var(--container-border);
+  transform: translate(-4px, 4px);
+  z-index: -1;
+  background: var(--shadow-color);
+  opacity: 0.7;
+}
+
+.image-modal img {
+  border: none;
+  box-shadow: none;
+  max-height: 80vh;
+  display: block;
+  background: var(--container-bg);
+  border: 1px solid var(--td-border);
+}
+
+.close-modal {
+  background: var(--th-bg);
+  color: var(--text-color);
+  border: 2px solid var(--container-border);
+  box-shadow: -4px 4px 0 var(--shadow-color);
+  font-size: 18px;
+  font-weight: bold;
+  transition: all 0.15s ease;
+}
+
+.close-modal:hover {
+  transform: translate(-3px, 3px);
+  box-shadow: -1px 1px 0 var(--shadow-color);
+  background: var(--hover-bg);
+}
+
+/* ===== SUPERCHARGED LIGHT MODE ===== */
+[data-theme="light"] .image-modal-content {
+  border: 3px solid #334155; /* Darker border */
+  box-shadow: -8px 8px 0 #cbd5e1, /* Base shadow */
+              -12px 12px 0 #e2e8f0; /* Secondary shadow */
+}
+
+[data-theme="light"] .image-modal-content::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border: 3px solid #64748b; /* Mid-tone border */
+  transform: translate(-6px, 6px);
+  z-index: -1;
+  background: #f1f5f9;
+}
+
+[data-theme="light"] .image-modal-content::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border: 2px solid #94a3b8; /* Lighter border */
+  transform: translate(-12px, 12px);
+  z-index: -2;
+  background: #f8fafc;
+}
+
+[data-theme="light"] .image-modal img {
+  border: 1px solid #e2e8f0;
+  background: white;
+}
+
+[data-theme="light"] .close-modal {
+  background: white;
+  color: #334155;
+  border: 3px solid #475569;
+  box-shadow: -5px 5px 0 #cbd5e1;
+}
+
+[data-theme="light"] .close-modal:hover {
+  box-shadow: -2px 2px 0 #cbd5e1;
+}
+
+/* Add this to your styles.css file */
+#undoBtn[disabled], 
+#redoBtn[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+#undoBtn.disabled,
+#redoBtn.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* This ensures the buttons can't be clicked when disabled */
+#undoBtn[disabled]:hover, 
+#redoBtn[disabled]:hover,
+#undoBtn.disabled:hover,
+#redoBtn.disabled:hover {
+  background-color: inherit;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Add this at the end of your styles.css */
+/* ===== CELL MOVEMENT ANIMATION ===== */
+@keyframes cellMovement {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+
+.moved-cell {
+  animation: cellMovement 0.3s ease-out;
+  z-index: 1;
+  position: relative;
+}
+
+[data-theme="dark"] .moved-cell {
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+}
+
+[data-theme="light"] .moved-cell {
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+}
+
+/* Remove animation after it plays */
+.moved-cell {
+  animation-fill-mode: forwards;
+}
+
+/* Makes inputs/textareas resizable with default OS handle */
+input[type="text"], 
+textarea {
+  resize: both;       /* ← Allows diagonal resizing */
+  overflow: auto;     /* ← Required for resize to work */
+  min-width: 120px;   /* ← Adjust as needed */
+  min-height: 40px;   /* ← Adjust as needed */
+}
+
+/* Optional: Slightly smaller year input */
+#yearInput {
+  min-width: 80px;    /* ← Smaller width */
+}

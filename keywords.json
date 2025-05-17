@@ -1,0 +1,35 @@
+{
+  "debit": [
+    "ATM W/D",
+    "CASH WITHDRA",
+    "WITHDRAW",
+    "FEE",
+    "SERVICE CHARGE",
+    "MONTHLY PLAN FEE",
+    "OVERDRAFT FEE",
+    "O.D.P. FEE",
+    "SEND E-TFR",
+    "TFR-TO",
+    "PAYMENT TO",
+    "NSF FEE",
+    "BILL PAYMENT",
+    "PURCHASE",
+    "PAYMENT",
+    "SENT",
+    "e-transfer sent"
+  ],
+  "credit": [
+    "DEPOSIT",
+    "TFR-FR",
+    "E-TFR",
+    "PAYMENT - THANK YOU",
+    "REFUND",
+    "INTEREST RECEIVED",
+    "REMITTANCE",
+    "GC DEPOSIT",
+    "TRANSFER FR",
+    "RECEIVED",
+    "CREDIT",
+    "NSF"
+  ]
+}
