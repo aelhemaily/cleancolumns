@@ -206,13 +206,15 @@ if (exportWordBtn) {
       td: ['account', 'card', 'inPerson'],
       firstontario: ['account'],
       meridian: ['account'],
-      triangle: ['card']
+      triangle: ['card'],
+      bmo: ['account', 'card', 'loc']
     };
 
     const allTypes = {
       account: 'Account',
       card: 'Card',
-      inPerson: 'In-Person'
+      inPerson: 'In-Person',
+      loc: 'LOC'
     };
 
     const allowed = allowedTypes[bank] || ['account', 'card'];
@@ -667,6 +669,94 @@ function setupCellSelection(table) {
     });
 }
 
+function setupColumnResizing(table) {
+  const headers = table.querySelectorAll('th');
+  let isResizing = false;
+  let currentResizeHeader = null;
+  let startX = 0;
+  let startWidth = 0;
+
+  // Set initial widths if they're not set, and add resize handles
+  headers.forEach((header, index) => {
+    if (!header.style.width) {
+      header.style.width = '150px'; // Default width
+    }
+
+    const resizeHandle = document.createElement('div');
+    resizeHandle.classList.add('resize-handle');
+    header.appendChild(resizeHandle);
+
+    resizeHandle.addEventListener('mousedown', (e) => {
+      isResizing = true;
+      currentResizeHeader = header;
+      startX = e.clientX;
+      startWidth = header.offsetWidth;
+      resizeHandle.classList.add('active');
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    
+     // Fit to content on initial load and table update
+    const fitContent = () => {
+        let maxWidth = 'auto';
+        const tableRows = table.querySelectorAll('tr');
+        tableRows.forEach(row => {
+            const cell = row.cells[index];
+            if (cell) {
+                cell.style.width = ''; // Reset width to auto
+                const cellWidth = cell.offsetWidth;
+                maxWidth = Math.max(maxWidth, cellWidth);
+            }
+        });
+        header.style.width = `${maxWidth}px`;
+        tableRows.forEach(row => {
+            const cell = row.cells[index];
+            if (cell) {
+               cell.style.width = `${maxWidth}px`;
+            }
+        });
+    };
+      fitContent();
+
+    //Mutation Observer to detect changes in table content
+    const observer = new MutationObserver(fitContent);
+    observer.observe(table, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+    });
+    
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isResizing) return;
+
+    const width = startWidth + (e.clientX - startX);
+    currentResizeHeader.style.width = `${width}px`;
+
+    // Update all cells in this column
+    const colIndex = Array.from(currentResizeHeader.parentElement.children).indexOf(currentResizeHeader);
+    const rows = table.querySelectorAll('tr');
+    rows.forEach(row => {
+      const cell = row.children[colIndex];
+      if (cell) {
+        cell.style.width = `${width}px`;
+      }
+    });
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (isResizing) {
+      isResizing = false;
+      document.querySelectorAll('.resize-handle.active').forEach(handle => {
+        handle.classList.remove('active');
+      });
+      saveState(); // Save the new column widths
+    }
+  });
+}
+
+
 function moveSelection(cell) {
   if (!cell) return;
   
@@ -745,6 +835,7 @@ function createCopyColumnButtons() {
     const table = document.querySelector('#output table');
     if (!table) return;
 
+    
     // Remove old buttons if they exist
     const firstRow = table.rows[0];
     if (firstRow && [...firstRow.querySelectorAll('.copy-btn')].length === firstRow.cells.length) {
@@ -770,6 +861,7 @@ function createCopyColumnButtons() {
     setupCellSelection(table);
     setupTableContextMenu(table);
     setupCellDragAndDrop(table);
+     setupColumnResizing(table);
 
     // Select first cell
     if (table.rows.length > 1) {

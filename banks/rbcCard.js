@@ -11,7 +11,6 @@ function processRBCCardData() {
   const headerRow = document.createElement('tr');
   const rows = [];
 
-  // Create table headers
   headers.forEach((header, index) => {
     const thCopy = document.createElement('th');
     const div = document.createElement('div');
@@ -33,69 +32,95 @@ function processRBCCardData() {
   table.appendChild(headerRow);
 
   let currentTransaction = null;
+  let buffer = [];
+  let currentAltDate = '';
+  let altBuffer = [];
+  let altBalance = '';
 
-  // Helper: strict date check
   function isValidMonthAbbreviation(month) {
     return ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'].includes(month);
   }
 
-  // Process each line
+  function flushBufferedAltFormat() {
+    if (altBuffer.length === 0 || !currentAltDate) return;
+
+    let temp = [];
+    altBuffer.forEach(line => {
+      temp.push(line);
+      const amountMatch = line.match(/-?\$[\d,]+\.\d{2}/);
+      if (amountMatch) {
+        processBufferedTransaction(currentAltDate, temp, rows, altBalance);
+        temp = [];
+        altBalance = '';
+      }
+    });
+
+    if (temp.length > 0) {
+      processBufferedTransaction(currentAltDate, temp, rows, altBalance);
+    }
+
+    altBuffer = [];
+    altBalance = '';
+  }
+
+  function flushBufferIfNeeded() {
+    if (!currentTransaction || buffer.length === 0) return;
+
+    processBufferedTransaction(currentTransaction.date, buffer, rows, '');
+    buffer = [];
+    currentTransaction = null;
+  }
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
 
-    // Stricter date match logic
     const dateMatch = line.match(/^([A-Z]{3})\s+(\d{2})\s+([A-Z]{3})\s+(\d{2})/);
     if (dateMatch) {
-      const month1 = dateMatch[1], day1 = parseInt(dateMatch[2], 10);
-      const month2 = dateMatch[3], day2 = parseInt(dateMatch[4], 10);
+      flushBufferIfNeeded();
 
-      if (isValidMonthAbbreviation(month1) && isValidMonthAbbreviation(month2) &&
-          day1 >= 1 && day1 <= 31 && day2 >= 1 && day2 <= 31) {
+      const [_, m1, d1, m2, d2] = dateMatch;
+      if (isValidMonthAbbreviation(m1) && isValidMonthAbbreviation(m2)) {
+        const date1 = yearInput ? `${m1} ${d1} ${yearInput}` : `${m1} ${d1}`;
+        const date2 = yearInput ? `${m2} ${d2} ${yearInput}` : `${m2} ${d2}`;
+        const fullDate = `${date1} ${date2}`;
 
-        // Process any pending multi-line transaction
-        if (currentTransaction) {
-          processTransaction(currentTransaction, rows);
-        }
-
-        // Format dates - add year if specified
-        const date1 = yearInput ? `${month1} ${day1} ${yearInput}` : `${month1} ${day1}`;
-        const date2 = yearInput ? `${month2} ${day2} ${yearInput}` : `${month2} ${day2}`;
-        const date = `${date1} ${date2}`;
-
-        currentTransaction = {
-          date: date,
-          descriptionParts: [],
-          amount: null
-        };
-
-        // Add the main description line (remove dates)
-        let descPart = line.replace(/^([A-Z]{3})\s+(\d{2})\s+([A-Z]{3})\s+(\d{2})/, '').trim();
-        if (descPart) {
-          currentTransaction.descriptionParts.push(descPart);
-        }
-
-        continue; // already handled this line
+        currentTransaction = { date: fullDate };
+        const rest = line.replace(dateMatch[0], '').trim();
+        buffer = rest ? [rest] : [];
+        continue;
       }
     }
 
-    // Not a new transaction line — part of a multiline description or amount
-    if (currentTransaction) {
-      const amountMatch = line.match(/(-?\$[\d,]+\.\d{2})/);
-      if (amountMatch) {
-        currentTransaction.amount = amountMatch[1].replace(/\$/g, '').replace(/,/g, '');
-      } else if (!line.match(/^[-$0-9]/)) {
-        currentTransaction.descriptionParts.push(line);
+    const altDateMatch = line.match(/^([A-Za-z]{3,})\s+(\d{1,2}),\s*(\d{4})$/);
+    if (altDateMatch) {
+      flushBufferIfNeeded();
+      flushBufferedAltFormat();
+      currentAltDate = `${altDateMatch[1]} ${altDateMatch[2]} ${altDateMatch[3]}`;
+
+      const nextLine = lines[i + 1] ? lines[i + 1].trim() : '';
+      const nextNextLine = lines[i + 2] ? lines[i + 2].trim() : '';
+      const dollarMatch = nextLine.match(/^\$[\d,]+\.\d{2}$/);
+      const hasNextDescription = nextNextLine && !nextNextLine.match(/^-?\$[\d,]+\.\d{2}$/);
+
+      if (dollarMatch && !hasNextDescription) {
+        altBalance = nextLine.replace('$', '').replace(/,/g, '');
+        i++; // skip balance line
       }
+      continue;
     }
+
+    if (currentAltDate) {
+      altBuffer.push(line);
+      continue;
+    }
+
+    buffer.push(line);
   }
 
-  // Process the last transaction if any
-  if (currentTransaction) {
-    processTransaction(currentTransaction, rows);
-  }
+  flushBufferIfNeeded();
+  flushBufferedAltFormat();
 
-  // Generate table rows
   rows.forEach(row => {
     const tr = document.createElement('tr');
     row.forEach(cell => {
@@ -109,20 +134,26 @@ function processRBCCardData() {
   outputDiv.appendChild(table);
   table.dataset.rows = JSON.stringify(rows);
 
-  function processTransaction(txn, rows) {
-    const description = txn.descriptionParts.join(' ');
-    let debit = '';
-    let credit = '';
+  function processBufferedTransaction(date, lines, rows, balance) {
+    const full = lines.join(' ');
+    const amountMatches = [...full.matchAll(/-?\$[\d,]+\.\d{2}/g)];
+    if (amountMatches.length === 0) return;
 
-    if (txn.amount) {
-      if (txn.amount.startsWith('-')) {
-        credit = txn.amount.replace('-', '');
-      } else {
-        debit = txn.amount;
-      }
+    const lastAmount = amountMatches[amountMatches.length - 1][0];
+    const amount = lastAmount.replace('$', '').replace(/,/g, '');
+    const description = full.replace(lastAmount, '').trim();
+
+    let debit = '', credit = '', bal = balance || '';
+
+    if (!description) {
+      bal = amount;
+    } else if (amount.startsWith('-')) {
+      credit = amount.slice(1);
+    } else {
+      debit = amount;
     }
 
-    rows.push([txn.date, description, debit, credit, '']);
+    rows.push([date, description, debit, credit, bal]);
   }
 }
 

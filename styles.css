@@ -188,17 +188,18 @@ table {
   width: auto;
   border-collapse: separate;
   border-spacing: 0;
-  margin-top: 12px;
+  margin: 12px auto;
   table-layout: fixed;
   overflow: hidden;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  border: 1px solid #e2e8f0;
+  border: 1px solid #212122;
+  
 }
 
 th, td {
-  border: 1px solid #e2e8f0;
-  padding: 10px 14px;
+  border: 0.1px solid #0c2844;
+  padding: 10px 35px;
   text-align: center;
   white-space: nowrap;
 }
@@ -388,7 +389,7 @@ tr:hover td {
   margin-right: 10px;
 }
 
-/* Column widths - kept the same */
+/* Column widths - kept the same 
 th:nth-child(1), td:nth-child(1) {
   width: 1%;
 }
@@ -411,7 +412,7 @@ th:nth-child(5), td:nth-child(5) {
 
 th:nth-child(6), td:nth-child(6) {
   width: 5%;
-}
+}*/
 
 .copy-btn {
   background: none;
@@ -592,7 +593,7 @@ th {
 /* Dark Mode Toggle Button */
 #darkModeToggle {
   position: fixed;
-  
+  margin-left: 10px;
   bottom: 30px; /* Distance from bottom of screen */
   left: 0px;
   background-color: var(--container-bg);
@@ -600,8 +601,8 @@ th {
   border: 1px solid var(--select-border);
   border-color: #000000;
   border-radius: 50%;
-  width: 30px;
-  height: 30px;
+  width: 50px;
+  height: 50px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -610,6 +611,8 @@ th {
   z-index: 1000;
   transition: all 0.3s ease;
   opacity: 0.7;
+    border: 2px solid #475569;
+  box-shadow: -2px 2px 0 #15191f;
 }
 
 
@@ -870,19 +873,22 @@ tr:first-child:hover th::after {
 }
 /* Toolbar styles */
 .toolbar {
-  display: none;
-  margin-left: auto; /* Push to far right */
-  margin-right: 0;
+  
+  position: fixed;
+  bottom: 100px;
+  left: 0;
+  display: flex;
+  flex-direction: column; /* vertical layout */
   padding: 8px;
   background: #d7dee8;
-  vertical-align: middle;
-  position: relative;
   z-index: 100;
-  border-radius: 0px; /* Removed rounded corners */
+  border-radius: 0px;
   border: 2px solid #475569;
-  box-shadow: -4px 4px 0 #15191f; /* 3D shadow matching other elements */
+  box-shadow: -4px 4px 0 #15191f;
   font-family: monospace;
+  margin-left:10px;
 }
+
 
 .toolbar-btn {
   width: 34px;
@@ -927,13 +933,6 @@ tr:first-child:hover th::after {
   width: 100%;
 }
 
-.toolbar-separator {
-  height: 26px;
-  width: 2px;
-  background: #475569;
-  margin: 0 8px;
-  box-shadow: 1px 0 0 rgba(12, 12, 12, 0.5);
-}
 
 [data-theme="dark"] .toolbar {
   background: #2d2d2d;
@@ -959,11 +958,13 @@ tr:first-child:hover th::after {
 }
 
 .toolbar-separator {
-  height: 24px;
-  width: 1px;
-  background: var(--container-border);
-  margin: 0 4px;
+  height: 26px;
+  width: 2px;
+  background: #475569;
+  margin: 0 8px;
+  box-shadow: 1px 0 0 rgba(12, 12, 12, 0.5);
 }
+
 
 
 
@@ -1298,3 +1299,139 @@ textarea {
   min-width: 80px;    /* ← Smaller width */
 }
 
+/* Add below existing menu-item styles */
+.menu-item[data-action^="insert"] i {
+  color: #3b82f6;
+  width: 16px;
+  text-align: center;
+}
+/* Force consistent header styling */
+.header-cell {
+  background-color: var(--header-bg) !important;
+  color: var(--header-text) !important;
+  border-bottom: 3px solid var(--header-border) !important;
+  font-weight: 700;
+  padding: 14px 16px;
+  position: relative;
+}
+
+/* Force consistent data cell styling */
+.data-cell {
+  background-color: var(--zebra-odd);
+  border: 1px solid var(--td-border);
+  padding: 10px 14px;
+}
+
+/* Disable pointer events during lock */
+body.locked * {
+  pointer-events: none !important;
+}
+
+
+/* Column resizing styles */
+th, td {
+  position: relative;
+}
+
+.resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 5px;
+  height: 100%;
+  background: transparent;
+  cursor: col-resize;
+  z-index: 1;
+}
+
+.resize-handle:hover,
+.resize-handle.active {
+  background: #3b82f6;
+}
+
+[data-theme="dark"] .resize-handle:hover,
+[data-theme="dark"] .resize-handle.active {
+  background: #60a5fa;
+}
+
+
+.resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 5px;
+  height: 100%;
+  background: transparent;
+  cursor: col-resize;
+  z-index: 1;
+}
+
+.resize-handle:hover,
+.resize-handle.active {
+  background: #3b82f6;
+  width: 8px; /* Slightly wider when active */
+}
+
+[data-theme="dark"] .resize-handle:hover,
+[data-theme="dark"] .resize-handle.active {
+  background: #60a5fa;
+}
+
+th {
+  position: relative;
+  min-width: 50px; /* Prevent columns from getting too narrow */
+}
+
+.resize-handle {
+  position: absolute;
+  top: 0;
+  width: 5px;
+  height: 100%;
+  background: transparent;
+  cursor: col-resize;
+  z-index: 1;
+}
+
+.resize-handle.right {
+  right: 0;
+}
+
+.resize-handle.left {
+  left: 0;
+}
+
+.resize-handle:hover,
+.resize-handle.active {
+  background: #3b82f6;
+  width: 8px;
+}
+
+[data-theme="dark"] .resize-handle:hover,
+[data-theme="dark"] .resize-handle.active {
+  background: #60a5fa;
+}
+
+th {
+  position: relative;
+  min-width: 50px; /* Prevent columns from getting too narrow */
+}
+
+/* Add to styles.css */
+#output {
+  margin-left: 50px; /* Adjust based on toolbar width */
+  min-width: calc(100% - 60px); /* Ensures table doesn't get cut off */
+  overflow-x: auto; /* Allows horizontal scrolling if table is too wide */
+}
+
+/* Replace existing .toolbar-separator with this */
+.toolbar-separator {
+  width: 30px; /* Horizontal length */
+  height: 2px; /* Thickness */
+  background: #475569;
+  margin: 8px 0; /* Space above & below */
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
+}
+
+.toolbar {
+  display: none;
+}
