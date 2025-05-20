@@ -50,18 +50,28 @@ function processData() {
 
   const lines = input.split('\n').map(l => l.trim()).filter(Boolean);
   let lastBalance = null;
+  let buffer = []; // Added buffer for multi-line transactions
 
-  lines.forEach(line => {
-    const dateMatch = line.match(/^([A-Za-z]{3}\s?\d{1,2},\s?\d{4})/);
-    if (!dateMatch) return;
+  const flushBuffer = () => {
+    if (buffer.length === 0) return;
+
+    const fullLine = buffer.join(' ');
+    const dateMatch = fullLine.match(/^([A-Za-z]{3}\s?\d{1,2},\s?\d{4})/);
+    if (!dateMatch) {
+      buffer = [];
+      return;
+    }
 
     const rawDate = dateMatch[1];
     const date = normalizeDate(rawDate);
 
-    let rest = line.slice(rawDate.length).trim();
+    let rest = fullLine.slice(rawDate.length).trim();
 
     const balanceMatch = rest.match(/\$[\d,]+\.\d{2}$/);
-    if (!balanceMatch) return;
+    if (!balanceMatch) {
+      buffer = [];
+      return;
+    }
 
     const balanceStr = balanceMatch[0];
     const balanceNum = parseFloat(balanceStr.replace(/[\$,]/g, ''));
@@ -69,7 +79,10 @@ function processData() {
     rest = rest.slice(0, rest.lastIndexOf(balanceStr)).trim();
 
     const amountMatch = rest.match(/[\d,]+\.\d{2}$/);
-    if (!amountMatch) return;
+    if (!amountMatch) {
+      buffer = [];
+      return;
+    }
 
     const amountStr = amountMatch[0];
     const amountNum = parseFloat(amountStr.replace(/,/g, ''));
@@ -129,7 +142,18 @@ function processData() {
       tr.appendChild(td);
     });
     table.appendChild(tr);
+    
+    buffer = [];
+  };
+
+  lines.forEach(line => {
+    if (/^[A-Za-z]{3}\s?\d{1,2},\s?\d{4}/.test(line)) {
+      flushBuffer(); // Process previous transaction
+    }
+    buffer.push(line); // Add to current transaction
   });
+
+  flushBuffer(); // Process last transaction
 
   outputDiv.appendChild(table);
   table.dataset.rows = JSON.stringify(rows);

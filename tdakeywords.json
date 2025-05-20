@@ -1,4 +1,4 @@
 {
-  "debit": ["purchases", "tim horton", "pizza"],
+  "debit": ["purchases", "tim horton", "pizza", "SEND E-TFR"],
   "credit": ["mobile", "gst", "returned"]
 }

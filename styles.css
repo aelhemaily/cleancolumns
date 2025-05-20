@@ -390,11 +390,11 @@ tr:hover td {
 
 /* Column widths - kept the same */
 th:nth-child(1), td:nth-child(1) {
-  width: 7%;
+  width: 1%;
 }
 
 th:nth-child(2), td:nth-child(2) {
-  width: 7%;
+  width: 5%;
 }
 
 th:nth-child(3), td:nth-child(3) {
@@ -402,15 +402,15 @@ th:nth-child(3), td:nth-child(3) {
 }
 
 th:nth-child(4), td:nth-child(4) {
-  width: 7%;
+  width: 5%;
 }
 
 th:nth-child(5), td:nth-child(5) {
-  width: 7%;
+  width: 5%;
 }
 
 th:nth-child(6), td:nth-child(6) {
-  width: 7%;
+  width: 5%;
 }
 
 .copy-btn {
@@ -419,10 +419,19 @@ th:nth-child(6), td:nth-child(6) {
   cursor: pointer;
   transition: all 0.2s ease;
   position: absolute;
-  left: 0;
-  right: 0;
-  top: 2px;
+  left: 4px;
+  top: 4px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
+/* Ensure headers have relative positioning */
+th {
+  position: relative;
+  padding-left: 30px; /* Make room for the button */
 }
 
 .copy-btn:hover {
@@ -589,6 +598,7 @@ th:nth-child(6), td:nth-child(6) {
   background-color: var(--container-bg);
   color: var(--text-color);
   border: 1px solid var(--select-border);
+  border-color: #000000;
   border-radius: 50%;
   width: 30px;
   height: 30px;
@@ -615,6 +625,7 @@ th:nth-child(6), td:nth-child(6) {
   background-color: var(--container-bg);
   color: var(--text-color);
   border: 1px solid var(--select-border);
+  border-color: #000000;
   border-radius: 50%;
   width: 30px; /* Smaller but proportional */
   height: 30px; /* Must match width */
@@ -839,15 +850,8 @@ td.selected-cell input {
   background-color: #2d2d2d; /* Slightly lighter on hover */
 }
 
-/* Add this to your existing column width styles */
-th:nth-child(1), td:nth-child(1) {
-  width: 5%; /* Adjust width as needed */
-  min-width: 40px; /* Ensure it doesn't get too narrow */
-  text-align: center;
-  background-color: var(--th-bg);
-  font-weight: 600;
-  color: var(--label-color);
-}
+
+
 
 th::after {
   content: "";
@@ -1293,3 +1297,4 @@ textarea {
 #yearInput {
   min-width: 80px;    /* ← Smaller width */
 }
+

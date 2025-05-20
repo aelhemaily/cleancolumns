@@ -1,4 +1,5 @@
 document.addEventListener('DOMContentLoaded', async () => {
+  
   let history = [];
   let historyIndex = -1;
   let isUndoing = false;
@@ -204,7 +205,7 @@ if (exportWordBtn) {
       tangerine: ['account'],
       td: ['account', 'card', 'inPerson'],
       firstontario: ['account'],
-      meridian: ['card'],
+      meridian: ['account'],
       triangle: ['card']
     };
 
@@ -294,13 +295,45 @@ if (exportWordBtn) {
 
   if (typeof processData === 'function') {
     processData();
-    document.getElementById('toolbar').classList.add('show'); // Add this line
-    createCopyColumnButtons();
+    document.getElementById('toolbar').classList.add('show');
+    createCopyColumnButtons(); // First, build the full table
+    checkAndRemoveEmptyBalanceColumn(); // ✅ Now check & remove empty Balance column
     saveState();
   } else {
     console.warn('Parsing script not yet loaded.');
   }
 });
+
+// ADD THIS NEW FUNCTION
+function checkAndRemoveEmptyBalanceColumn() {
+  const table = document.querySelector('#output table');
+  if (!table) return;
+
+  // Find the Balance column index
+  const headers = Array.from(table.rows[0].cells).map(cell => cell.textContent.trim());
+  const balanceIndex = headers.findIndex(header => header.toLowerCase() === 'balance');
+  
+  if (balanceIndex === -1) return; // No Balance column found
+
+  // Check if all balance cells are empty
+  let hasBalanceData = false;
+  for (let i = 1; i < table.rows.length; i++) {
+    const balanceCell = table.rows[i].cells[balanceIndex];
+    if (balanceCell && balanceCell.textContent.trim() !== '') {
+      hasBalanceData = true;
+      break;
+    }
+  }
+
+  // Remove the column if no balance data exists
+  if (!hasBalanceData) {
+    Array.from(table.rows).forEach(row => {
+      if (row.cells[balanceIndex]) {
+        row.deleteCell(balanceIndex);
+      }
+    });
+  }
+}
 
   window.bankUtils.copyColumn = function (columnIndex) {
     const table = document.querySelector('#output table');
@@ -472,44 +505,61 @@ function restoreState() {
   const state = history[historyIndex];
   if (!table || !state) return;
 
-  // Clear current selection
-  if (selectedCell) {
-    selectedCell.classList.remove('selected-cell');
-    selectedCell = null;
-  }
-
-  // Restore table state
+  // Restore entire table contents
   table.innerHTML = state.html;
-  addNumberedColumn(table); // Re-add numbers when undoing/redoing
-  
-  // Rebuild interactivity
-  const headers = table.querySelectorAll('th');
-  headers.forEach((header, index) => {
-    if (!header.querySelector('.copy-btn')) {
-      const button = document.createElement('button');
-      button.className = 'copy-btn';
-      button.innerHTML = '<i class="fa-solid fa-copy"></i>';
-      button.addEventListener('click', (e) => {
-        e.stopPropagation();
-        window.bankUtils.copyColumn(index);
-      });
-      header.insertBefore(button, header.firstChild);
+
+  // Rebuild numbered column, copy buttons, interactivity
+  addNumberedColumn(table);
+  createCopyColumnButtons();
+
+  requestAnimationFrame(() => {
+    if (state.selection) {
+      const { row, col } = state.selection;
+      const targetRow = table.rows[row];
+      const targetCell = targetRow?.cells[col];
+
+      if (targetCell) {
+        selectCell(targetCell); // Apply your visual/highlight selection
+
+        // Ensure the cell is in view inside the table
+        const cellRect = targetCell.getBoundingClientRect();
+        const tableRect = table.getBoundingClientRect();
+
+        if (cellRect.top < tableRect.top || cellRect.bottom > tableRect.bottom) {
+          table.scrollTop = targetCell.offsetTop - table.offsetTop - 20;
+        }
+
+        // Ensure the cell is in view in the window
+        const scrollY = window.scrollY;
+        const absoluteCellTop = cellRect.top + scrollY;
+        const viewportHeight = window.innerHeight;
+
+        if (absoluteCellTop < 100) {
+          window.scrollTo({
+            top: absoluteCellTop - 100,
+            behavior: 'smooth'
+          });
+        } else if (absoluteCellTop > scrollY + viewportHeight - 100) {
+          window.scrollTo({
+            top: absoluteCellTop - viewportHeight + 100,
+            behavior: 'smooth'
+          });
+        }
+      } else {
+        // Fallback: select first body cell if saved cell is missing
+        const fallback = table.rows[1]?.cells[1];
+        if (fallback) selectCell(fallback);
+      }
+    } else {
+      // Fallback: select first data cell
+      const fallback = table.rows[1]?.cells[1];
+      if (fallback) selectCell(fallback);
     }
   });
 
-  setupCellSelection(table);
-  setupTableContextMenu(table);
-  setupCellDragAndDrop(table);
-
-  // Restore selection after a small delay
-  setTimeout(() => {
-    if (state.selection && table.rows[state.selection.row]?.cells[state.selection.col]) {
-      selectCell(table.rows[state.selection.row].cells[state.selection.col]);
-    }
-  }, 10);
-  
   updateUndoRedoButtons();
 }
+
 // ======== END UNDO/REDO ======== //
 
  
@@ -823,15 +873,23 @@ function setupCellDragAndDrop(table) {
                 e.preventDefault();
                 e.target.classList.remove('drop-target');
                 
-                if (draggedCell && draggedCell !== e.target) {
-                    const temp = document.createElement('div');
-                    temp.innerHTML = e.target.innerHTML;
-                    e.target.innerHTML = draggedCell.innerHTML;
-                    draggedCell.innerHTML = temp.innerHTML;
-                    
-                    showToast('Cells swapped', 'success');
-                    saveState();
-                }
+               if (draggedCell && draggedCell !== e.target) {
+  const temp = document.createElement('div');
+  temp.innerHTML = e.target.innerHTML;
+  e.target.innerHTML = draggedCell.innerHTML;
+  draggedCell.innerHTML = temp.innerHTML;
+
+  // Track selected cell (we land on the drop target)
+  lastSelection = {
+    row: e.target.parentElement.rowIndex,
+    col: e.target.cellIndex
+  };
+
+  selectCell(e.target); // update selection visually
+  showToast('Cells swapped', 'success');
+  saveState();
+}
+
             });
         }
     });

@@ -33,10 +33,13 @@ function processTangerineData() {
   table.appendChild(headerRow);
 
   let lastBalance = null;
+  let buffer = [];
 
-  // Process each line
-  lines.forEach(line => {
-    if (!line.trim()) return;
+  const flushBuffer = () => {
+    if (buffer.length === 0) return;
+
+    const line = buffer.join(' ');
+    buffer = [];
 
     // Extract date (format: "01 Nov 2023")
     const dateMatch = line.match(/^(\d{1,2}\s+[A-Za-z]{3})(?:\s+(\d{4}))?/i);
@@ -64,11 +67,12 @@ function processTangerineData() {
     let amount = amountMatch ? amountMatch[1].replace(/,/g, '') : '0.00';
     const amountValue = parseFloat(amount);
 
-    // Clean description
+    // Get description by removing ONLY the specific amounts we've already extracted
     let description = line
       .replace(/^\d{1,2}\s+[A-Za-z]{3}(?:\s+\d{4})?/i, '') // Remove date
-      .replace(/\([\d,]+\.\d{2}\)|[\d,]+\.\d{2}$/, '') // Remove balance
-      .replace(/[\d,]+\.\d{2}(?=\s*\(?[\d,]+\.\d{2}\)?)/, '') // Remove amount
+      .replace(new RegExp(amountMatch ? amountMatch[0] : '', 'g'), '') // Remove amount
+      .replace(balanceMatch ? balanceMatch[0] : '', '') // Remove balance
+      .replace(/\s+/g, ' ') // Collapse multiple spaces
       .trim();
 
     // Determine debit/credit
@@ -123,7 +127,18 @@ function processTangerineData() {
     }
 
     rows.push([date, description, debit, credit, balance.startsWith('-') ? `(${balance.substring(1)})` : balance]);
+  };
+
+  lines.forEach(line => {
+    if (!line.trim()) return;
+
+    if (/^\d{1,2}\s+[A-Za-z]{3}/i.test(line)) {
+      flushBuffer(); // Process previous transaction
+    }
+    buffer.push(line); // Add to current transaction
   });
+
+  flushBuffer(); // Process last transaction
 
   // Generate table rows
   rows.forEach(row => {

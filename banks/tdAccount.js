@@ -1,7 +1,7 @@
 function processData() {
   const input = document.getElementById('inputText').value.trim();
   const yearInput = document.getElementById('yearInput').value.trim();
-  const lines = input.split('\n').filter(l => l.trim());
+  const lines = input.split('\n').map(line => line.trim()).filter(Boolean);
   const outputDiv = document.getElementById('output');
   outputDiv.innerHTML = '';
 
@@ -9,6 +9,7 @@ function processData() {
   const rows = [];
   let currentBalance = null;
   let isOverdraft = false;
+  let buffer = []; // Added buffer for multi-line transactions
 
   const table = document.createElement('table');
 
@@ -71,7 +72,12 @@ function processData() {
   const transactionRegex = /^(.+?)\s+([\d,]+\.\d{2})\s+([A-Z]{3}\d{1,2})(?:\s+([\d,]+\.\d{2})(OD)?)?/;
   const dateRegex = /^([A-Z]{3})(\d{1,2})$/;
 
-  lines.forEach(line => {
+  const flushBuffer = () => {
+    if (buffer.length === 0) return;
+
+    const line = buffer.join(' ');
+    buffer = [];
+
     // Check for BALANCE FORWARD or STARTING BALANCE line
     const balanceForwardMatch = line.match(balanceForwardRegex);
     if (balanceForwardMatch) {
@@ -159,7 +165,16 @@ function processData() {
       credit,
       currentBalance !== null ? formatBalance(currentBalance, isOverdraft) : ''
     ]);
+  };
+
+  lines.forEach(line => {
+    if (transactionRegex.test(line) || balanceForwardRegex.test(line)) {
+      flushBuffer(); // Process previous transaction
+    }
+    buffer.push(line); // Add to current transaction
   });
+
+  flushBuffer(); // Process last transaction
 
   // Add rows to the table
   rows.forEach(row => {

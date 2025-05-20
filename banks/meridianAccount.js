@@ -1,4 +1,4 @@
-function parseLines(text, yearInput) {
+function parseLines(text) {
   if (!text) return [];
   
   const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
@@ -6,8 +6,8 @@ function parseLines(text, yearInput) {
   let currentTransaction = null;
 
   lines.forEach(line => {
-    // Check if line starts with a date pattern (e.g., "Jun 19 Jun 19")
-    const dateMatch = line.match(/^([A-Za-z]{3} \d{1,2} [A-Za-z]{3} \d{1,2})/);
+    // Check if line starts with a date pattern (e.g., "30-Apr-2023")
+    const dateMatch = line.match(/^(\d{2}-[A-Za-z]{3}-\d{4})/);
     
     if (dateMatch) {
       // If we have a current transaction being built, push it before starting new one
@@ -15,30 +15,22 @@ function parseLines(text, yearInput) {
         transactions.push(currentTransaction);
       }
       
-      // Extract the amount if it exists in this line
-      const amountMatch = line.match(/-?\d{1,3}(?:,\d{3})*\.\d{2}$/);
-      const amount = amountMatch ? amountMatch[0].replace(/,/g, '') : null;
+      // Extract amounts (balance forward has different format)
+      const isBalanceForward = line.includes('Balance Forward');
+      const amountMatch = line.match(/-?\d{1,3}(?:,\d{3})*\.\d{2}/g);
+      const amounts = amountMatch ? amountMatch.map(m => m.replace(/,/g, '')) : [];
       
       // Start new transaction
       currentTransaction = {
         rawDate: dateMatch[1],
-        descriptionParts: [line.replace(dateMatch[1], '').replace(amount || '', '').trim()],
-        amount: amount
+        descriptionParts: [line.replace(dateMatch[1], '').replace(/-?\d{1,3}(?:,\d{3})*\.\d{2}/g, '').trim()],
+        amount: isBalanceForward ? null : (amounts.length > 0 ? amounts[0] : null),
+        balance: amounts.length > 0 ? amounts[isBalanceForward ? 0 : 1] : null,
+        isBalanceForward: isBalanceForward
       };
     } else if (currentTransaction) {
-      // Check if this line contains an amount
-      const amountMatch = line.match(/-?\d{1,3}(?:,\d{3})*\.\d{2}$/);
-      if (amountMatch) {
-        currentTransaction.amount = amountMatch[0].replace(/,/g, '');
-        // Add any text before the amount to description
-        const textBeforeAmount = line.replace(amountMatch[0], '').trim();
-        if (textBeforeAmount) {
-          currentTransaction.descriptionParts.push(textBeforeAmount);
-        }
-      } else {
-        // Just add to description
-        currentTransaction.descriptionParts.push(line);
-      }
+      // Add to description for multi-line transactions
+      currentTransaction.descriptionParts.push(line.replace(/-?\d{1,3}(?:,\d{3})*\.\d{2}/g, '').trim());
     }
   });
 
@@ -48,16 +40,13 @@ function parseLines(text, yearInput) {
   }
 
   return transactions.map(t => {
-    if (!t.amount) return null;
+    // Skip if no amount and not balance forward
+    if (!t.amount && !t.isBalanceForward) return null;
     
-    let date = t.rawDate;
-    if (yearInput) {
-      const parts = date.split(' ');
-      date = `${parts[0]} ${parts[1]} ${yearInput} ${parts[2]} ${parts[3]} ${yearInput}`;
-    }
+    let date = t.rawDate; // Meridian dates are already complete
     
-    const isCredit = t.amount.startsWith('-');
-    const cleanAmount = t.amount.replace(/-/g, '');
+    const isDebit = t.amount && t.amount.startsWith('-');
+    const cleanAmount = t.amount ? t.amount.replace(/-/g, '') : '';
     const description = t.descriptionParts.filter(p => p).join(' ').replace(/\s+/g, ' ').trim();
 
     return {
@@ -66,36 +55,34 @@ function parseLines(text, yearInput) {
       row: [
         date,
         description,
-        isCredit ? '' : cleanAmount, // Debit amount
-        isCredit ? cleanAmount : '', // Credit amount
-        '' // Balance (empty)
+        isDebit ? cleanAmount : '', // Debit amount (negative)
+        isDebit ? '' : (t.isBalanceForward ? '' : cleanAmount), // Credit amount (positive, empty for balance forward)
+        t.balance || '' // Balance
       ]
     };
   }).filter(Boolean);
 }
 
 function parseDate(text) {
-  // Takes date format like "Jun 20 Jun 21" and uses the second date (posting date)
-  const parts = text.split(' ');
-  return new Date(`${parts[2]} ${parts[3]}, 2000`);
+  // Takes date format like "30-Apr-2023"
+  return new Date(text);
 }
 
-function processTriangleCardData() {
-  const yearInput = document.getElementById('yearInput').value.trim();
+function processData() {
   const input = document.getElementById('inputText').value.trim();
   const outputDiv = document.getElementById('output');
   outputDiv.innerHTML = '';
   
   if (!input) {
-    window.bankUtils.showToast("Please insert bank statement data!", "error");
+    showToast("Please insert bank statement data!", "error");
     return;
   }
   
   // Parse transactions
-  const items = parseLines(input, yearInput);
+  const items = parseLines(input);
   
   if (items.length === 0) {
-    window.bankUtils.showToast("No valid transactions found!", "error");
+    showToast("No valid transactions found!", "error");
     return;
   }
   
@@ -105,20 +92,18 @@ function processTriangleCardData() {
   const headers = ['#', 'Date', 'Description', 'Debit', 'Credit', 'Balance'];
   const table = document.createElement('table');
   
-  // Header row with copy buttons
+  // Header row with CIBC-style copy buttons
   const headerRow = document.createElement('tr');
   headers.forEach(header => {
     const th = document.createElement('th');
     th.textContent = header;
     
-    // Add copy button to each header except the # column
     if (header !== '#') {
       const button = document.createElement('button');
       button.className = 'copy-btn';
       button.innerHTML = '<i class="fa-solid fa-copy"></i>';
       button.addEventListener('click', (e) => {
         e.stopPropagation();
-        // Adjust index for # column
         const colIndex = headers.indexOf(header);
         window.bankUtils.copyColumn(colIndex);
       });
@@ -156,7 +141,7 @@ function processTriangleCardData() {
   
   // Show the toolbar
   document.getElementById('toolbar').classList.add('show');
-  window.bankUtils.saveState();
+  saveState();
 }
 
-window.processData = processTriangleCardData;
+window.processData = processData;
