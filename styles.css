@@ -145,6 +145,7 @@ button {
   cursor: pointer;
   transition: all 0.2s ease;
   vertical-align: middle;
+  margin-left: 60px;
 }
 
 #convertBtn:hover {
@@ -1297,6 +1298,7 @@ textarea {
 /* Optional: Slightly smaller year input */
 #yearInput {
   min-width: 80px;    /* ← Smaller width */
+  min-height: 25px;
 }
 
 /* Add below existing menu-item styles */
@@ -1434,4 +1436,9 @@ th {
 
 .toolbar {
   display: none;
+}
+
+#paymentText, #inputText {
+  margin-left:60px;
+  width: 95%!important;
 }

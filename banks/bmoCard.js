@@ -4,48 +4,114 @@ function processData() {
   const outputDiv = document.getElementById('output');
   outputDiv.innerHTML = '';
 
-  // Remove existing warning if any
-  let warning = document.getElementById('parseWarning');
-  if (warning) {
-    warning.remove();
-  }
-
-  const transactions = parseBankStatement(input, yearInput);
-
-  if (transactions.length === 0) {
-    // Show red warning message
-    warning = document.createElement('div');
-    warning.id = 'parseWarning';
-    warning.textContent = '⚠️ Unexpected data format, please reload page!';
-    outputDiv.appendChild(warning);
-    return;
-  }
-
   const headers = ['Date', 'Description', 'Debit', 'Credit', 'Balance'];
   const rows = [];
-
   const table = document.createElement('table');
-  const headerRow = document.createElement('tr');
 
+  // Copy buttons row
+  const copyRow = document.createElement('tr');
+  headers.forEach((_, index) => {
+    const th = document.createElement('th');
+    const div = document.createElement('div');
+    div.className = 'copy-col';
+    const btn = document.createElement('button');
+    btn.textContent = 'Copy';
+    btn.className = 'copy-btn';
+    btn.onclick = () => window.bankUtils.copyColumn(index);
+    div.appendChild(btn);
+    th.appendChild(div);
+    copyRow.appendChild(th);
+  });
+  table.appendChild(copyRow);
+
+  // Header row
+  const headerRow = document.createElement('tr');
   headers.forEach(header => {
     const th = document.createElement('th');
     th.textContent = header;
     headerRow.appendChild(th);
   });
-
   table.appendChild(headerRow);
+
+  const lines = input.split('\n').map(l => l.trim()).filter(Boolean);
+  const transactions = [];
+  const datePattern = /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?\s+\d{1,2}/i;
+  const amountPattern = /^\d{1,3}(,\d{3})*\.\d{2}$/;
+  const fullLinePattern = /^((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?\s+\d{1,2})\s+((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?\s+\d{1,2})\s+(.*?)\s+([\d,]+\.\d{2})(\s+CR)?$/i;
+
+  let buffer = [];
+  const currentYear = yearInput || new Date().getFullYear();
+
+  const flushBuffer = () => {
+    if (buffer.length === 0) return;
+
+    const full = buffer.join(' ');
+    const fullMatch = fullLinePattern.exec(full);
+    if (fullMatch) {
+      const [, date1, date2, desc, amountRaw, crTag] = fullMatch;
+      const amount = parseFloat(amountRaw.replace(/,/g, ''));
+      const type = crTag ? 'credit' : 'debit';
+
+      transactions.push({
+        startDate: `${date1} ${currentYear}`,
+        endDate: `${date2} ${currentYear}`,
+        description: desc.trim(),
+        amount,
+        type
+      });
+      buffer = [];
+      return;
+    }
+
+    const dateMatch = buffer[0]?.match(datePattern);
+    if (!dateMatch) {
+      buffer = [];
+      return;
+    }
+
+    let startDate = `${dateMatch[0]} ${currentYear}`;
+    let endDate = '';
+    let description = '';
+    let amount = null;
+    let type = 'debit';
+
+    for (let i = 1; i < buffer.length; i++) {
+      const line = buffer[i];
+
+      if (amountPattern.test(line)) {
+        amount = parseFloat(line.replace(/,/g, ''));
+      } else if (line.toUpperCase() === 'CR') {
+        type = 'credit';
+      } else {
+        description += (description ? ' ' : '') + line;
+      }
+    }
+
+    if (amount !== null) {
+      transactions.push({ startDate, endDate, description: description.trim(), amount, type });
+    }
+
+    buffer = [];
+  };
+
+  lines.forEach(line => {
+    if (datePattern.test(line) || fullLinePattern.test(line)) {
+      flushBuffer();
+    }
+    buffer.push(line);
+  });
+
+  flushBuffer(); // Final flush
 
   transactions.forEach(tx => {
     const { startDate, endDate, description, amount, type } = tx;
     let debit = '', credit = '';
-
     if (type === 'credit') {
       credit = amount.toFixed(2);
-    } else if (type === 'debit') {
+    } else {
       debit = amount.toFixed(2);
     }
-
-    const row = [startDate + ' ' + endDate, description, debit, credit, ''];
+    const row = [startDate + (endDate ? ' to ' + endDate : ''), description, debit, credit, ''];
     rows.push(row);
 
     const tr = document.createElement('tr');
@@ -61,101 +127,4 @@ function processData() {
   table.dataset.rows = JSON.stringify(rows);
 }
 
-function parseBankStatement(inputText, yearInput) {
-  const lines = inputText.split('\n');
-  const transactions = [];
-  const datePattern = /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\. \d{1,2} (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\. \d{1,2}/;
-
-  let currentTransaction = null;
-  let descriptionBuffer = '';
-
-  function parseAmount(line) {
-    const tokens = line.trim().split(/\s+/);
-    let amount = null;
-    let type = '';
-
-    if (tokens[tokens.length - 1] && /\bCR\b/i.test(tokens[tokens.length - 1])) {
-      type = 'credit';
-      tokens.pop();
-    } else {
-      type = 'debit';
-    }
-
-    const numericToken = tokens[tokens.length - 1].replace(/,/g, '');
-
-    if (!isNaN(numericToken) && parseFloat(numericToken) < 1000000) {
-      amount = parseFloat(numericToken);
-      return {
-        amount,
-        type,
-        cleanedLine: tokens.slice(0, -1).join(' ')
-      };
-    }
-    return null;
-  }
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-
-    if (datePattern.test(line)) {
-      if (currentTransaction && currentTransaction.amount !== null) {
-        currentTransaction.description = descriptionBuffer.trim();
-        transactions.push(currentTransaction);
-        descriptionBuffer = '';
-      }
-
-      const match = line.match(datePattern);
-      if (match && match.length > 0) {
-        const parts = match[0].split(' ');
-        const startDate = parts[0] + ' ' + parts[1] + ' ' + yearInput;
-        const endDate = parts.length === 4 ? parts[2] + ' ' + parts[3] + ' ' + yearInput : startDate;
-        const rest = line.replace(datePattern, '').trim();
-
-        currentTransaction = {
-          startDate,
-          endDate,
-          description: '',
-          amount: null,
-          type: ''
-        };
-
-        const amountInfo = parseAmount(rest);
-        if (amountInfo) {
-          currentTransaction.amount = amountInfo.amount;
-          currentTransaction.type = amountInfo.type;
-          currentTransaction.description = amountInfo.cleanedLine.trim();
-          transactions.push(currentTransaction);
-          currentTransaction = null;
-          descriptionBuffer = '';
-        } else {
-          descriptionBuffer = rest + ' ';
-        }
-      }
-    } else if (currentTransaction) {
-      const amountInfo = parseAmount(line);
-      if (amountInfo) {
-        currentTransaction.amount = amountInfo.amount;
-        currentTransaction.type = amountInfo.type;
-        if (amountInfo.cleanedLine) {
-          descriptionBuffer += amountInfo.cleanedLine + ' ';
-        }
-        currentTransaction.description = descriptionBuffer.trim();
-        transactions.push(currentTransaction);
-        currentTransaction = null;
-        descriptionBuffer = '';
-      } else {
-        descriptionBuffer += line + ' ';
-      }
-    }
-  }
-
-  if (currentTransaction && currentTransaction.amount !== null) {
-    currentTransaction.description = descriptionBuffer.trim();
-    transactions.push(currentTransaction);
-  }
-
-  return transactions;
-}
-
-// Export the processData function globally for the main script to use
 window.processData = processData;

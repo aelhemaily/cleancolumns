@@ -1,83 +1,69 @@
 function parseLines(text, yearInput) {
   if (!text) return [];
-  
+
   const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
   const transactions = [];
   let currentTransaction = null;
 
-  lines.forEach(line => {
-    // Check if line starts with a date pattern (e.g., "Jun 19 Jun 19")
-    const dateMatch = line.match(/^([A-Za-z]{3} \d{1,2} [A-Za-z]{3} \d{1,2})/);
-    
-    if (dateMatch) {
-      // If we have a current transaction being built, push it before starting new one
-      if (currentTransaction) {
-        transactions.push(currentTransaction);
-      }
-      
-      // Extract the amount if it exists in this line
-      const amountMatch = line.match(/-?\d{1,3}(?:,\d{3})*\.\d{2}$/);
-      const amount = amountMatch ? amountMatch[0].replace(/,/g, '') : null;
-      
-      // Start new transaction
-      currentTransaction = {
-        rawDate: dateMatch[1],
-        descriptionParts: [line.replace(dateMatch[1], '').replace(amount || '', '').trim()],
-        amount: amount
-      };
-    } else if (currentTransaction) {
-      // Check if this line contains an amount
-      const amountMatch = line.match(/-?\d{1,3}(?:,\d{3})*\.\d{2}$/);
-      if (amountMatch) {
-        currentTransaction.amount = amountMatch[0].replace(/,/g, '');
-        // Add any text before the amount to description
-        const textBeforeAmount = line.replace(amountMatch[0], '').trim();
-        if (textBeforeAmount) {
-          currentTransaction.descriptionParts.push(textBeforeAmount);
-        }
+  const isDateLine = (line) => /^[A-Za-z]{3} \d{1,2}$/.test(line);
+  const isAmountLine = (line) => /^-?\d{1,3}(?:,\d{3})*\.\d{2}$/.test(line);
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (isDateLine(line)) {
+      if (!currentTransaction) {
+        currentTransaction = { dates: [line], descriptionParts: [], amount: null };
+      } else if (currentTransaction.dates.length < 2) {
+        currentTransaction.dates.push(line);
       } else {
-        // Just add to description
+        if (currentTransaction.amount !== null) {
+          transactions.push(currentTransaction);
+        }
+        currentTransaction = { dates: [line], descriptionParts: [], amount: null };
+      }
+    } else if (isAmountLine(line)) {
+      if (currentTransaction) {
+        currentTransaction.amount = line.replace(/,/g, '');
+      }
+    } else {
+      if (currentTransaction) {
         currentTransaction.descriptionParts.push(line);
       }
     }
-  });
+  }
 
-  // Push the last transaction if it exists
-  if (currentTransaction) {
+  if (currentTransaction && currentTransaction.amount !== null) {
     transactions.push(currentTransaction);
   }
 
   return transactions.map(t => {
-    if (!t.amount) return null;
-    
-    let date = t.rawDate;
+    const [startDate, endDate] = t.dates;
+    let fullDate = `${startDate} ${endDate}`;
     if (yearInput) {
-      const parts = date.split(' ');
-      date = `${parts[0]} ${parts[1]} ${yearInput} ${parts[2]} ${parts[3]} ${yearInput}`;
+      fullDate = `${startDate} ${yearInput} ${endDate} ${yearInput}`;
     }
-    
-    const isCredit = t.amount.startsWith('-');
+    const description = t.descriptionParts.join(' ').replace(/\s+/g, ' ').trim();
+    const isDebit = !t.amount.startsWith('-');
     const cleanAmount = t.amount.replace(/-/g, '');
-    const description = t.descriptionParts.filter(p => p).join(' ').replace(/\s+/g, ' ').trim();
+
+    const row = [
+      fullDate,
+      description,
+      isDebit ? cleanAmount : '',
+      isDebit ? '' : cleanAmount
+    ];
 
     return {
-      rawDate: t.rawDate,
-      parsedDate: parseDate(t.rawDate),
-      row: [
-        date,
-        description,
-        isCredit ? '' : cleanAmount, // Debit amount
-        isCredit ? cleanAmount : '', // Credit amount
-        '' // Balance (empty)
-      ]
+      rawDate: fullDate,
+      parsedDate: parseDate(startDate, yearInput),
+      row
     };
-  }).filter(Boolean);
+  });
 }
 
-function parseDate(text) {
-  // Takes date format like "Jun 20 Jun 21" and uses the second date (posting date)
-  const parts = text.split(' ');
-  return new Date(`${parts[2]} ${parts[3]}, 2000`);
+function parseDate(dayMonth, year) {
+  const [month, day] = dayMonth.split(' ');
+  return new Date(`${month} ${day}, ${year}`);
 }
 
 function processTriangleCardData() {
@@ -85,78 +71,135 @@ function processTriangleCardData() {
   const input = document.getElementById('inputText').value.trim();
   const outputDiv = document.getElementById('output');
   outputDiv.innerHTML = '';
-  
+
   if (!input) {
     window.bankUtils.showToast("Please insert bank statement data!", "error");
     return;
   }
-  
-  // Parse transactions
+
   const items = parseLines(input, yearInput);
-  
+
   if (items.length === 0) {
     window.bankUtils.showToast("No valid transactions found!", "error");
     return;
   }
-  
-  // Sort by date
+
   items.sort((a, b) => a.parsedDate - b.parsedDate);
-  
-  const headers = ['#', 'Date', 'Description', 'Debit', 'Credit', 'Balance'];
+
+  const headers = ['#', 'Date', 'Description', 'Debit', 'Credit'];
   const table = document.createElement('table');
-  
-  // Header row with copy buttons
+
   const headerRow = document.createElement('tr');
   headers.forEach(header => {
     const th = document.createElement('th');
     th.textContent = header;
-    
-    // Add copy button to each header except the # column
+
     if (header !== '#') {
       const button = document.createElement('button');
       button.className = 'copy-btn';
       button.innerHTML = '<i class="fa-solid fa-copy"></i>';
       button.addEventListener('click', (e) => {
         e.stopPropagation();
-        // Adjust index for # column
         const colIndex = headers.indexOf(header);
         window.bankUtils.copyColumn(colIndex);
       });
       th.insertBefore(button, th.firstChild);
     }
-    
+
     headerRow.appendChild(th);
   });
   table.appendChild(headerRow);
-  
-  // Add transactions to table with numbered rows
+
   items.forEach(({ row }, index) => {
     const tr = document.createElement('tr');
-    // Add row number
     const numberCell = document.createElement('td');
     numberCell.textContent = index + 1;
     tr.appendChild(numberCell);
-    
-    // Add the rest of the cells
+
     row.forEach(cell => {
       const td = document.createElement('td');
       td.textContent = cell;
+      td.draggable = true; // Make all data cells draggable
       tr.appendChild(td);
     });
     table.appendChild(tr);
   });
-  
+
   outputDiv.appendChild(table);
-  
-  // Store raw data for potential export
+
+  // Set up drag and drop functionality
+  setupDragAndDrop(table);
+
   table.dataset.rows = JSON.stringify(items.map((item, index) => [
-    index + 1, // Row number
-    ...item.row // Original row data
+    index + 1,
+    ...item.row
   ]));
-  
-  // Show the toolbar
+
   document.getElementById('toolbar').classList.add('show');
   window.bankUtils.saveState();
+}
+
+function setupDragAndDrop(table) {
+  let draggedCell = null;
+
+  // Make only data cells (not headers) draggable
+  const cells = table.querySelectorAll('td:not(:first-child)'); // Exclude number column
+  cells.forEach(cell => {
+    // Only make draggable if it's not in the header row
+    if (cell.parentElement.rowIndex > 0) {
+      cell.draggable = true;
+      
+      cell.addEventListener('dragstart', (e) => {
+        draggedCell = e.target;
+        setTimeout(() => {
+          e.target.classList.add('dragging');
+        }, 0);
+      });
+
+      cell.addEventListener('dragend', (e) => {
+        e.target.classList.remove('dragging');
+      });
+    }
+  });
+
+  // Set up drop targets (only allow dropping on data cells)
+  table.querySelectorAll('td:not(:first-child)').forEach(cell => {
+    // Only allow drops on cells not in header row
+    if (cell.parentElement.rowIndex > 0) {
+      cell.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        if (draggedCell && draggedCell !== e.target) {
+          e.target.classList.add('drop-target');
+        }
+      });
+
+      cell.addEventListener('dragleave', (e) => {
+        e.target.classList.remove('drop-target');
+      });
+
+      cell.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.target.classList.remove('drop-target');
+        
+        if (draggedCell && draggedCell !== e.target) {
+          const temp = document.createElement('div');
+          temp.innerHTML = e.target.innerHTML;
+          e.target.innerHTML = draggedCell.innerHTML;
+          draggedCell.innerHTML = temp.innerHTML;
+
+          // Track selected cell (we land on the drop target)
+          lastSelection = {
+            row: e.target.parentElement.rowIndex,
+            col: e.target.cellIndex
+          };
+
+          window.bankUtils.selectCell(e.target); // update selection visually
+          window.bankUtils.showToast('Cells swapped', 'success');
+          window.bankUtils.saveState();
+        }
+      });
+    }
+  });
 }
 
 window.processData = processTriangleCardData;

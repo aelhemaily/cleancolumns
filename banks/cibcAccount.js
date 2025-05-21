@@ -72,6 +72,35 @@ function processData() {
   transactions.forEach(entry => {
     const { date, lines } = entry;
     const fullText = lines.join(' ').trim();
+    const isOpeningBalance = fullText.toLowerCase().includes('opening balance');
+    const isClosingBalance = fullText.toLowerCase().includes('closing balance');
+    
+    if (isOpeningBalance || isClosingBalance) {
+      const amountMatch = fullText.match(/-?\$?(\d{1,3}(?:,\d{3})*\.\d{2})/);
+      if (amountMatch) {
+        const amountStr = amountMatch[0];
+        const isNegative = amountStr.startsWith('-');
+        const cleanAmount = amountMatch[1].replace(/,/g, '');
+        const amount = parseFloat(cleanAmount) * (isNegative ? -1 : 1);
+        
+        // Remove the amount (with possible -$ prefix) from description
+        const descText = fullText.replace(amountStr, '').replace(/\s+/g, ' ').trim();
+        
+        const row = [date, descText, '', '', amount.toFixed(2)];
+        rows.push(row);
+
+        const tr = document.createElement('tr');
+        row.forEach(cell => {
+          const td = document.createElement('td');
+          td.textContent = cell;
+          tr.appendChild(td);
+        });
+        table.appendChild(tr);
+        previousBalance = amount;
+      }
+      return;
+    }
+
     const allAmounts = [...fullText.matchAll(/-?\d{1,3}(?:,\d{3})*\.\d{2}/g)].map(m => parseFloat(m[0].replace(/,/g, '')));
     if (allAmounts.length < 1) return;
 

@@ -249,7 +249,7 @@ if (exportWordBtn) {
     if (bankKey === 'rbcAccount') {
       const warning = document.createElement('div');
       warning.id = 'rbc-warning';
-      warning.textContent = '⚠️ For this bank format, please ensure opening and closing balances are always included!';
+      warning.textContent = '';
       warning.style.color = 'red';
       warning.style.marginTop = '15px';
       warning.style.marginBottom = '10px';
@@ -355,7 +355,8 @@ function checkAndRemoveEmptyBalanceColumn() {
     const table = document.querySelector('#output table');
     if (!table) return;
 
-    const rows = Array.from(table.querySelectorAll('tr'));
+    // Skip the header row by starting from index 1
+    const rows = Array.from(table.querySelectorAll('tr')).slice(1);
     const content = rows.map(row => 
       Array.from(row.cells).map(cell => cell.textContent.trim()).join('\t')
     ).join('\n');
@@ -1071,10 +1072,6 @@ function deleteTableRow(row) {
 }
 
  function deleteTableColumn(colIndex) {
-  if (colIndex === 0) {
-  showToast("Can't delete number column", 'error');
-  return;
-}
   saveState(); // Save BEFORE deletion
   const table = document.querySelector('#output table');
   if (!table) return;
