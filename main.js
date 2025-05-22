@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let history = [];
   let historyIndex = -1;
   let isUndoing = false;
+  let isInserting = false;
   let lastSelection = { row: 0, col: 0 }; // Track last selected cell position
   const bankSelector = document.getElementById('bankSelector');
   const typeSelector = document.getElementById('typeSelector');
@@ -207,7 +208,8 @@ if (exportWordBtn) {
       firstontario: ['account'],
       meridian: ['account'],
       triangle: ['card'],
-      bmo: ['account', 'card', 'loc']
+      bmo: ['account', 'card', 'loc'],
+      rbc: ['account', 'card', 'loc']
     };
 
     const allTypes = {
@@ -355,16 +357,17 @@ function checkAndRemoveEmptyBalanceColumn() {
     const table = document.querySelector('#output table');
     if (!table) return;
 
-    // Skip the header row by starting from index 1
+    // Skip the header row by starting from index 1 and skip first column (#)
     const rows = Array.from(table.querySelectorAll('tr')).slice(1);
     const content = rows.map(row => 
-      Array.from(row.cells).map(cell => cell.textContent.trim()).join('\t')
+        // Skip first cell by using slice(1)
+        Array.from(row.cells).slice(1).map(cell => cell.textContent.trim()).join('\t')
     ).join('\n');
 
     navigator.clipboard.writeText(content).then(() => {
-      showToast('Table copied!', 'success');
+        showToast('Table copied!', 'success');
     }).catch(err => {
-      console.error('Copy table failed:', err);
+        console.error('Copy table failed:', err);
     });
 };
 
@@ -586,16 +589,15 @@ function setupCellSelection(table) {
     });
 
        // Double click to edit
-    table.addEventListener('dblclick', (e) => {
-        const cell = e.target.closest('td');
-        if (!cell || cell.tagName === 'TH') return;
-        
-        // If already editing, don't do anything
-        if (cell.querySelector('input')) return;
-        
-        makeCellEditable(cell);
-        e.preventDefault();
-    });
+   table.addEventListener('dblclick', (e) => {
+    const cell = e.target.closest('td, th'); 
+    if (!cell) return;
+    
+    if (cell.querySelector('input')) return;
+    
+    makeCellEditable(cell);
+    e.preventDefault();
+});
 
     // Keyboard navigation handler
     table.addEventListener('keydown', (e) => {
@@ -776,8 +778,8 @@ function moveSelection(cell) {
 }
 
 function makeCellEditable(cell) {
-    if (!cell || cell.tagName === 'TH') return;
-    cell.draggable = false; 
+    if (!cell) return;
+    cell.draggable = false;
 
     const originalContent = cell.textContent.trim();
     cell.innerHTML = `<input type="text" value="${originalContent}" data-original="${originalContent}">`;
@@ -785,17 +787,15 @@ function makeCellEditable(cell) {
     input.focus();
     input.select();
     
-    // Handle mouse down on the input to prevent blur
     input.addEventListener('mousedown', (e) => {
-        e.stopPropagation(); // Prevent this from triggering cell selection changes
+        e.stopPropagation();
     });
     
-        // Handle Enter key to save
     input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
             e.stopPropagation();
-            input.blur(); // This will trigger the blur handler to save
+            input.blur();
         } else if (e.key === 'Escape') {
             e.preventDefault();
             e.stopPropagation();
@@ -804,7 +804,6 @@ function makeCellEditable(cell) {
         }
     });
     
-    // Handle blur (click outside) to save
     input.addEventListener('blur', () => {
         cell.textContent = input.value.trim();
         cell.draggable = true;
@@ -1038,6 +1037,88 @@ function setupCellDragAndDrop(table) {
       contextMenu.style.display = 'none';
 
       if (!targetRow || !targetCell) return;
+
+
+if (action === 'insert-col-left') {
+  if (isInserting) return;
+  isInserting = true;
+  setTimeout(() => { isInserting = false; }, 50);
+
+  const table = document.querySelector('#output table');
+  if (!table || !targetCell) return;
+
+  e.stopPropagation();
+  contextMenu.style.display = 'none';
+
+  const colIndex = targetCell.cellIndex;
+  const rowCount = table.rows.length;
+
+  for (let i = 0; i < rowCount; i++) {
+    const row = table.rows[i];
+    const cell = i === 0 ? document.createElement('th') : document.createElement('td');
+    cell.textContent = ''; // empty
+    row.insertBefore(cell, row.cells[colIndex]);
+  }
+
+  createCopyColumnButtons();
+  saveState();
+}
+
+if (action === 'insert-row-below') {
+  if (isInserting) return;
+  isInserting = true;
+  setTimeout(() => { isInserting = false; }, 50);
+
+  const table = document.querySelector('#output table');
+  if (!table || !targetRow) return;
+
+  const hasNumberColumn = table.rows[0]?.cells[0]?.textContent === '#';
+  const colCount = table.rows[0].cells.length;
+  const dataColCount = hasNumberColumn ? colCount - 1 : colCount;
+
+  const newRow = table.insertRow(targetRow.rowIndex + 1);
+
+  // Leave space for # column if present
+  const startIndex = hasNumberColumn ? 1 : 0;
+  for (let i = 0; i < colCount; i++) {
+    const cell = newRow.insertCell();
+    cell.textContent = '';
+  }
+
+  // ✅ Rebuild just the number column safely
+  Array.from(table.rows).forEach((row, i) => {
+    // If # column already exists, update it
+    if (hasNumberColumn) {
+      if (i === 0) {
+        row.cells[0].textContent = '#';
+      } else {
+        row.cells[0].textContent = i;
+      }
+    }
+  });
+
+  // If # column is missing, insert it properly
+  if (!hasNumberColumn) {
+    const headerRow = table.rows[0];
+    const th = document.createElement('th');
+    th.textContent = '#';
+    headerRow.insertBefore(th, headerRow.firstChild);
+
+    for (let i = 1; i < table.rows.length; i++) {
+      const row = table.rows[i];
+      const td = document.createElement('td');
+      td.textContent = i;
+      row.insertBefore(td, row.firstChild);
+    }
+  }
+
+  createCopyColumnButtons(); // restores resizers, styles, etc.
+  saveState();
+}
+
+
+
+
 
      // In the contextMenu.addEventListener('click', (e) => { ... } section
 // Add this case to the switch statement:

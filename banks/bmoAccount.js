@@ -39,7 +39,7 @@ function processData() {
 
   // Date pattern safeguard
   const isNewTransaction = (line) => {
-    const datePattern = /^[A-Za-z]{3} \d{1,2}(?!\d)/; // e.g., Jan 12
+    const datePattern = /^[A-Za-z]{3} \d{1,2}(?!\d)/;
     const validMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const match = line.match(datePattern);
     if (!match) return false;
@@ -69,21 +69,24 @@ function processData() {
       date += ` ${yearInput}`;
     }
 
-    const rest = line.replace(date, '').trim();
+    const rest = line.replace(dateMatch ? dateMatch[0] : '', '').trim();
     const amounts = [...rest.matchAll(/-?\d{1,3}(?:,\d{3})*\.\d{2}/g)].map(m => m[0].replace(/,/g, ''));
     let amount = '', balance = '', debit = '', credit = '';
 
+    const desc = rest.replace(/-?\d{1,3}(?:,\d{3})*\.\d{2}/g, '').trim();
+
     if (amounts.length === 1) {
-      // Single value means likely opening balance
       balance = amounts[0];
-      const desc = rest.replace(/-?\d{1,3}(?:,\d{3})*\.\d{2}/g, '').trim();
-      const row = [date, desc, '', '', balance];
-      rows.push(row);
       previousBalance = parseFloat(balance);
+      if (/opening balance/i.test(desc)) return; // Skip Opening balance row
     } else if (amounts.length >= 2) {
       amount = parseFloat(amounts[amounts.length - 2]);
       balance = parseFloat(amounts[amounts.length - 1]);
-      const desc = rest.replace(/-?\d{1,3}(?:,\d{3})*\.\d{2}/g, '').trim();
+
+      if (/closing totals/i.test(desc)) {
+        previousBalance = balance;
+        return; // Skip Closing totals row
+      }
 
       if (previousBalance !== null) {
         const delta = +(balance - previousBalance).toFixed(2);
@@ -92,11 +95,9 @@ function processData() {
         } else if (Math.abs(delta + amount) < 0.01) {
           debit = amount.toFixed(2);
         } else {
-          // fallback if uncertain
           debit = amount.toFixed(2);
         }
       } else {
-        // no previous balance, fallback
         debit = amount.toFixed(2);
       }
 

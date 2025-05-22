@@ -303,8 +303,8 @@ tr:hover td {
 /* Toast notification - Changed to green */
 #toast {
   position: fixed;
-  bottom: 30px;
-  right: 30px;
+  bottom: 60px;
+  right: 10px;
   background-color: #1eac52; /* lime-500 */
   color: #0f172a;            /* slate-900 for contrast */
   font-family: monospace;
@@ -595,15 +595,15 @@ th {
 #darkModeToggle {
   position: fixed;
   margin-left: 10px;
-  bottom: 30px; /* Distance from bottom of screen */
+  bottom: 10px; /* Distance from bottom of screen */
   left: 0px;
   background-color: var(--container-bg);
   color: var(--text-color);
   border: 1px solid var(--select-border);
   border-color: #000000;
   border-radius: 50%;
-  width: 50px;
-  height: 50px;
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -624,7 +624,6 @@ th {
 /* Return to Top Button */
 #returnToTop {
   position: fixed;
-  bottom: 20px; /* Moved closer to bottom */
   right: 0px; /* Small gap from right edge */
   background-color: var(--container-bg);
   color: var(--text-color);
@@ -642,6 +641,7 @@ th {
   transition: all 0.2s ease;
   opacity: 0.7;
   padding: 0; /* Ensure no extra spacing */
+  box-shadow: -2px 2px 0 #15191f;
 }
 
 #returnToTop i {
@@ -1441,4 +1441,71 @@ th {
 #paymentText, #inputText {
   margin-left:60px;
   width: 95%!important;
+}
+
+.header-cell {
+  background-color: var(--header-bg) !important;
+  color: var(--header-text) !important;
+  border-bottom: 3px solid var(--header-border) !important;
+  font-weight: 700;
+  padding: 14px 16px;
+  position: relative;
+}
+
+.data-cell {
+  background-color: var(--zebra-odd);
+  border: 1px solid var(--td-border);
+  padding: 10px 14px;
+}
+
+
+/* ======================= */
+/* Copyright Footer Styles */
+/* ======================= */
+.copyright-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--header-bg);
+  color: var(--header-text);
+  padding: 12px 0;
+  border-top: 2px solid var(--header-border);
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+  z-index: 100;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.copyright-content {
+  max-width: 1000px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+.divider {
+  opacity: 0.5;
+  user-select: none;
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] .copyright-bar {
+  background: #1e293b;
+  border-top-color: #0f172a;
+  box-shadow: 0 -2px 12px rgba(0,0,0,0.3);
+}
+
+/* Ensure content doesn't hide behind footer */
+body {
+  padding-bottom: 50px !important;
+}
+
+/* For output container specifically */
+#output {
+  padding-bottom: 20px;
 }

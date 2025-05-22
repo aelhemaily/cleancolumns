@@ -41,18 +41,27 @@ function processData() {
   while (i < lines.length) {
     const line = lines[i];
 
-    // Handle opening balance
-    if (line.includes('Opening balance')) {
+    const isBalanceLine = line.toLowerCase().includes('opening balance') ||
+                          line.toLowerCase().includes('balance forward') ||
+                          line.toLowerCase().includes('closing balance');
+
+    // Handle balance lines: skip them, but extract and use their date and balance if present
+    if (isBalanceLine) {
       const amountMatch = line.match(/(-?\d{1,3}(?:,\d{3})*\.\d{2})/);
       if (amountMatch) {
         currentBalance = parseFloat(amountMatch[0].replace(/,/g, ''));
-        rows.push(['Opening balance', '', '', '', formatBalance(currentBalance)]);
       }
-      i++;
-      continue;
+
+      // Check for date in balance line (e.g., "Jan 29 Balance forward")
+      const dateMatchInBalance = line.match(/(\d{1,2}\s[A-Za-z]{3})/);
+      if (dateMatchInBalance) {
+          currentDate = dateMatchInBalance[1]; // Set currentDate for subsequent dateless transactions
+      }
+      i++; // Move to the next line
+      continue; // Skip adding this balance line to the output rows
     }
 
-    // Check for date line (e.g. "02 Jan")
+    // Check for date line (e.g. "02 Jan") - This now only handles *non-balance* dated lines
     const dateMatch = line.match(/^(\d{1,2}\s[A-Za-z]{3})\s(.+)/);
     if (dateMatch) {
       currentDate = dateMatch[1];
@@ -62,7 +71,7 @@ function processData() {
       continue;
     }
 
-    // Handle continuation lines (no date)
+    // Handle continuation lines (no date) - This now only handles *non-balance* dateless lines
     if (currentDate) {
       processRbcTransaction(currentDate, [line]);
       i++;
@@ -82,6 +91,15 @@ function processData() {
     while (amountLineIndex < lines.length) {
       const currentLine = lines[amountLineIndex];
       const lineAmounts = currentLine.match(/(-?\d{1,3}(?:,\d{3})*\.\d{2})/g) || [];
+      
+      // If the current line is a balance line, stop collecting description parts for the current transaction
+      // and let the main loop handle the balance line.
+      const isCurrentLineBalance = currentLine.toLowerCase().includes('opening balance') ||
+                                   currentLine.toLowerCase().includes('balance forward') ||
+                                   currentLine.toLowerCase().includes('closing balance');
+      if (isCurrentLineBalance && lineAmounts.length === 0) { // If it's a balance line, and no amounts are found within it to process for *this* transaction.
+          break;
+      }
       
       if (lineAmounts.length > 0) {
         amounts = lineAmounts.map(a => parseFloat(a.replace(/,/g, '')));

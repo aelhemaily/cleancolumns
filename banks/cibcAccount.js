@@ -35,15 +35,33 @@ function processData() {
 
   let currentDate = '';
   const transactions = [];
-
   let tempLines = [];
   const validMonths = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
 
   lines.forEach((line) => {
     const dateMatch = line.match(/^([A-Za-z]{3})\s+\d{1,2}/);
-    const amountMatch = line.match(/-?\d{1,3}(?:,\d{3})*\.\d{2}/g);
     const isValidDateLine = dateMatch && validMonths.includes(dateMatch[1].toLowerCase());
+    const isBalanceLine = line.toLowerCase().includes('opening balance') ||
+                          line.toLowerCase().includes('balance forward') ||
+                          line.toLowerCase().includes('closing balance');
 
+    // If it's a balance line, filter it out but use its date for subsequent transactions if available
+    if (isBalanceLine) {
+      if (tempLines.length > 0) {
+        // If there are accumulated non-balance lines, push them with the current date
+        transactions.push({ date: currentDate, lines: [...tempLines] });
+        tempLines = []; // Clear tempLines
+      }
+      if (isValidDateLine) {
+        // Update currentDate with the date from the balance line
+        // This date will apply to subsequent dateless transactions
+        currentDate = dateMatch[0];
+        if (yearInput) currentDate += ` ${yearInput}`;
+      }
+      return; // Skip this balance line entirely; do not add it to transactions
+    }
+
+    // Now handle regular transaction lines
     if (isValidDateLine) {
       if (tempLines.length > 0) {
         transactions.push({ date: currentDate, lines: [...tempLines] });
@@ -57,11 +75,15 @@ function processData() {
       tempLines.push(line);
     }
 
+    // This condition is for multi-line transactions where the last line contains two amounts (transaction and balance)
+    const amountMatch = line.match(/-?\d{1,3}(?:,\d{3})*\.\d{2}/g);
     if (amountMatch && amountMatch.length === 2) {
       transactions.push({ date: currentDate, lines: [...tempLines] });
       tempLines = [];
     }
   });
+
+  // After the loop, push any remaining tempLines
   if (tempLines.length > 0) {
     transactions.push({ date: currentDate, lines: [...tempLines] });
   }
@@ -72,34 +94,7 @@ function processData() {
   transactions.forEach(entry => {
     const { date, lines } = entry;
     const fullText = lines.join(' ').trim();
-    const isOpeningBalance = fullText.toLowerCase().includes('opening balance');
-    const isClosingBalance = fullText.toLowerCase().includes('closing balance');
-    
-    if (isOpeningBalance || isClosingBalance) {
-      const amountMatch = fullText.match(/-?\$?(\d{1,3}(?:,\d{3})*\.\d{2})/);
-      if (amountMatch) {
-        const amountStr = amountMatch[0];
-        const isNegative = amountStr.startsWith('-');
-        const cleanAmount = amountMatch[1].replace(/,/g, '');
-        const amount = parseFloat(cleanAmount) * (isNegative ? -1 : 1);
-        
-        // Remove the amount (with possible -$ prefix) from description
-        const descText = fullText.replace(amountStr, '').replace(/\s+/g, ' ').trim();
-        
-        const row = [date, descText, '', '', amount.toFixed(2)];
-        rows.push(row);
-
-        const tr = document.createElement('tr');
-        row.forEach(cell => {
-          const td = document.createElement('td');
-          td.textContent = cell;
-          tr.appendChild(td);
-        });
-        table.appendChild(tr);
-        previousBalance = amount;
-      }
-      return;
-    }
+    // The balance lines are already filtered out earlier, so no need for 'isOpeningBalance' or 'isClosingBalance' checks here.
 
     const allAmounts = [...fullText.matchAll(/-?\d{1,3}(?:,\d{3})*\.\d{2}/g)].map(m => parseFloat(m[0].replace(/,/g, '')));
     if (allAmounts.length < 1) return;
@@ -117,7 +112,7 @@ function processData() {
       } else if (Math.abs(delta + amount) < 0.01) {
         debit = amount.toFixed(2);
       } else {
-        // Fallback to direction
+        // Fallback to direction (less reliable if delta doesn't match amount)
         if (delta < 0) debit = amount.toFixed(2);
         else credit = amount.toFixed(2);
       }

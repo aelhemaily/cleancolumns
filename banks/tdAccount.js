@@ -78,6 +78,8 @@ function processData() {
     const line = buffer.join(' ');
     buffer = [];
 
+    const balanceKeywordsToExclude = ['opening balance', 'balance forward', 'closing balance', 'starting balance'];
+
     // Check for BALANCE FORWARD or STARTING BALANCE line
     const balanceForwardMatch = line.match(balanceForwardRegex);
     if (balanceForwardMatch) {
@@ -85,13 +87,8 @@ function processData() {
       if (balance) {
         currentBalance = parseFloat(balance.replace(/,/g, ''));
         isOverdraft = odFlag === 'OD';
-        rows.push([
-          formatDate(date, yearInput),
-          balanceType,
-          '',
-          '',
-          formatBalance(currentBalance, isOverdraft)
-        ]);
+        // Do NOT push balance lines to rows array
+        return; // Skip adding this line to the table
       }
       return;
     }
@@ -105,20 +102,44 @@ function processData() {
     const newBalance = newBalanceStr ? parseFloat(newBalanceStr.replace(/,/g, '')) : null;
     const willBeOverdraft = newOdFlag === 'OD';
 
+    // Check for closing balance and other balance keywords in description
+    const isBalanceLineInDescription = balanceKeywordsToExclude.some(keyword => description.toLowerCase().includes(keyword));
+
+    if (isBalanceLineInDescription) {
+      if (newBalance !== null) {
+        currentBalance = newBalance;
+        isOverdraft = willBeOverdraft;
+      } else if (amount !== null) {
+        // If it's a balance line, the 'amount' could be the closing balance itself
+        currentBalance = amount;
+        isOverdraft = willBeOverdraft; // Assume OD flag based on newOdFlag for this line
+      }
+      return; // Skip adding this line to the table
+    }
+
     // Determine if this is a debit or credit
     let debit = '';
     let credit = '';
 
     if (currentBalance !== null && newBalance !== null) {
       // We have both current and new balance - most reliable method
+      // Corrected typo: isOver overdraft -> isOverdraft
       const balanceChange = newBalance - (isOverdraft ? -currentBalance : currentBalance);
       
-      if (balanceChange < 0) {
-        // Balance decreased (or overdraft increased) - this is a debit
-        debit = Math.abs(balanceChange).toFixed(2);
+      // Compare balanceChange with amount, allowing for slight floating point inaccuracies
+      if (Math.abs(balanceChange - amount) < 0.01) {
+        // Balance increased by amount = credit
+        credit = amount.toFixed(2);
+      } else if (Math.abs(balanceChange + amount) < 0.01) {
+        // Balance decreased by amount = debit
+        debit = amount.toFixed(2);
       } else {
-        // Balance increased (or overdraft decreased) - this is a credit
-        credit = balanceChange.toFixed(2);
+        // Fallback to direction only if precise match fails
+        if (balanceChange < 0) {
+          debit = amount.toFixed(2); // Amount is usually positive, so debit means balance decreased
+        } else {
+          credit = amount.toFixed(2);
+        }
       }
       currentBalance = newBalance;
       isOverdraft = willBeOverdraft;

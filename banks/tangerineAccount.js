@@ -41,6 +41,18 @@ function processTangerineData() {
     const line = buffer.join(' ');
     buffer = [];
 
+    // Check if this is a balance transaction we want to exclude
+    const isBalanceTransaction = /(opening balance|balance forward|closing balance)/i.test(line);
+    if (isBalanceTransaction) {
+      // Just update the lastBalance without adding to rows
+      const balanceMatch = line.match(/(?:\(([\d,]+\.\d{2})\)|([\d,]+\.\d{2}))$/);
+      if (balanceMatch) {
+        const balance = balanceMatch[1] ? `-${balanceMatch[1]}` : balanceMatch[2];
+        lastBalance = parseFloat(balance.replace(/,/g, ''));
+      }
+      return;
+    }
+
     // Extract date (format: "01 Nov 2023")
     const dateMatch = line.match(/^(\d{1,2}\s+[A-Za-z]{3})(?:\s+(\d{4}))?/i);
     let date = dateMatch ? dateMatch[1] : '';
@@ -79,8 +91,7 @@ function processTangerineData() {
     let debit = '';
     let credit = '';
 
-    // SPECIAL RULE: Put all 0.00 transactions in debit (including opening/closing balances)
-    if (amountValue === 0 || description.toLowerCase().includes('opening balance') || description.toLowerCase().includes('closing balance')) {
+    if (amountValue === 0) {
       debit = '0.00';
     } 
     else if (lastBalance !== null && balanceValue !== null) {
@@ -117,13 +128,6 @@ function processTangerineData() {
       if (lastBalance < 0) {
         balance = `(${Math.abs(lastBalance).toFixed(2)})`;
       }
-    }
-
-    // Handle opening/closing balance
-    if (description.toLowerCase().includes('opening balance') || description.toLowerCase().includes('closing balance')) {
-      if (balance) lastBalance = balanceValue;
-      rows.push([date, description, debit, credit, balance.startsWith('-') ? `(${balance.substring(1)})` : balance]);
-      return;
     }
 
     rows.push([date, description, debit, credit, balance.startsWith('-') ? `(${balance.substring(1)})` : balance]);

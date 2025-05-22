@@ -35,61 +35,62 @@ function processData() {
 
   const lines = input.split('\n').map(l => l.trim()).filter(Boolean);
   let buffer = [];
-  let lastBalance = null;
 
   const flushBuffer = () => {
     if (buffer.length === 0) return;
 
-    const full = buffer.join(' ');
-    const dateMatch = full.match(/\b(\d{2}\/\d{2}\/\d{4})\b/);
-    const amounts = [...full.matchAll(/-?\d{1,3}(?:,\d{3})*\.\d{2}/g)].map(m => m[0].replace(/,/g, ''));
+    const fullText = buffer.join(' ');
+    buffer = [];
 
-    if (!dateMatch || amounts.length < 2) {
-      buffer = [];
+    // Skip balance-related transactions
+    if (/(Opening Principal Balance|Closing Principal Balance|Balance Forward)/i.test(fullText)) {
       return;
     }
 
-    let date = dateMatch[1];
+    // Extract dates (could be one or two dates)
+    const dateMatches = [...fullText.matchAll(/([A-Za-z]{3}\s\d{2})/g)];
+    let dates = dateMatches.map(m => m[1]);
+    
+    // Apply year if provided
     if (yearInput) {
-      const parts = date.split('/');
-      date = `${parts[0]}/${parts[1]}/${yearInput}`;
+      dates = dates.map(date => `${date} ${yearInput}`);
     }
 
-    const amount = parseFloat(amounts[amounts.length - 2]);
-    const balance = parseFloat(amounts[amounts.length - 1]);
+    const formattedDate = dates.join(' '); // Space between dates, no dash
 
-    let description = full
-      .replace(dateMatch[0], '')
-      .replace(/-?\d{1,3}(?:,\d{3})*\.\d{2}/g, '')
+    // Extract amounts (transaction amount and balance)
+    const amountMatches = [...fullText.matchAll(/-?\$?\d{1,3}(?:,\d{3})*\.\d{2}/g)];
+    const amounts = amountMatches.map(m => m[0].replace(/\$/g, '').replace(/,/g, ''));
+
+    if (amounts.length < 2) return; // Skip if we don't have both transaction amount and balance
+
+    const transactionAmount = amounts[0];
+    const balanceAmount = amounts[1];
+
+    // Determine debit/credit (positive is debit, negative is credit)
+    let debit = '';
+    let credit = '';
+    if (transactionAmount.startsWith('-')) {
+      credit = transactionAmount.replace('-', '');
+    } else {
+      debit = transactionAmount;
+    }
+
+    // Get description by removing dates and amounts
+    let description = fullText
+      .replace(new RegExp(dateMatches.map(m => m[1]).join('|'), 'g'), '') // Remove original dates without year
+      .replace(/-?\$?\d{1,3}(?:,\d{3})*\.\d{2}/g, '')
       .replace(/\s+/g, ' ')
       .trim();
 
-    // --- START MODIFICATION ---
-    const balanceKeywords = ['opening balance', 'balance forward', 'closing balance'];
-    const isBalanceLine = balanceKeywords.some(keyword => description.toLowerCase().includes(keyword));
+    const row = [
+      formattedDate,
+      description,
+      debit,
+      credit,
+      balanceAmount
+    ];
 
-    if (isBalanceLine) {
-      buffer = []; // Clear buffer for next transaction
-      lastBalance = balance; // Still update the last balance for future calculations
-      return; // Skip adding this line to the table
-    }
-    // --- END MODIFICATION ---
-
-    let debit = '', credit = '';
-    if (lastBalance !== null) {
-      if (balance < lastBalance) {
-        debit = amount.toFixed(2);
-      } else {
-        credit = amount.toFixed(2);
-      }
-    } else {
-      // If no prior balance, default to debit
-      debit = amount.toFixed(2);
-    }
-
-    lastBalance = balance;
-
-    const row = [date, description, debit, credit, balance.toFixed(2)];
     rows.push(row);
 
     const tr = document.createElement('tr');
@@ -99,20 +100,17 @@ function processData() {
       tr.appendChild(td);
     });
     table.appendChild(tr);
-
-    buffer = [];
   };
 
   lines.forEach(line => {
-    if (/^\d{2}\/\d{2}\/\d{4}/.test(line)) {
+    // Check if line starts with a month abbreviation (e.g., "May")
+    if (/^[A-Za-z]{3}\s\d{2}/.test(line)) {
       flushBuffer();
-      buffer.push(line);
-    } else {
-      buffer.push(line);
     }
+    buffer.push(line);
   });
 
-  flushBuffer(); // Final flush
+  flushBuffer(); // Process the last transaction
 
   outputDiv.appendChild(table);
   table.dataset.rows = JSON.stringify(rows);

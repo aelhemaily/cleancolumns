@@ -3,64 +3,94 @@ function parseLines(text) {
   
   const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
   const transactions = [];
-  let currentTransaction = null;
+  let buffer = [];
+  let lastBalance = null;
 
-  lines.forEach(line => {
-    // Check if line starts with a date pattern (e.g., "30-Apr-2023")
-    const dateMatch = line.match(/^(\d{2}-[A-Za-z]{3}-\d{4})/);
+  const flushBuffer = () => {
+    if (buffer.length === 0) return;
+
+    const fullText = buffer.join(' ');
+    buffer = [];
+
+    // Check if this is a balance transaction we want to exclude
+    const isBalanceTransaction = /(opening balance|balance forward|closing balance)/i.test(fullText);
     
-    if (dateMatch) {
-      // If we have a current transaction being built, push it before starting new one
-      if (currentTransaction) {
-        transactions.push(currentTransaction);
+    // Extract date (format: "30-Apr-2023")
+    const dateMatch = fullText.match(/^(\d{2}-[A-Za-z]{3}-\d{4})/);
+    if (!dateMatch) return;
+
+    // Extract amounts
+    const amountMatch = fullText.match(/-?\d{1,3}(?:,\d{3})*\.\d{2}/g);
+    const amounts = amountMatch ? amountMatch.map(m => m.replace(/,/g, '')) : [];
+
+    // Skip balance transactions but still update lastBalance
+    if (isBalanceTransaction) {
+      if (amounts.length > 0) {
+        lastBalance = parseFloat(amounts[amounts.length - 1]);
       }
-      
-      // Extract amounts (balance forward has different format)
-      const isBalanceForward = line.includes('Balance Forward');
-      const amountMatch = line.match(/-?\d{1,3}(?:,\d{3})*\.\d{2}/g);
-      const amounts = amountMatch ? amountMatch.map(m => m.replace(/,/g, '')) : [];
-      
-      // Start new transaction
-      currentTransaction = {
-        rawDate: dateMatch[1],
-        descriptionParts: [line.replace(dateMatch[1], '').replace(/-?\d{1,3}(?:,\d{3})*\.\d{2}/g, '').trim()],
-        amount: isBalanceForward ? null : (amounts.length > 0 ? amounts[0] : null),
-        balance: amounts.length > 0 ? amounts[isBalanceForward ? 0 : 1] : null,
-        isBalanceForward: isBalanceForward
-      };
-    } else if (currentTransaction) {
-      // Add to description for multi-line transactions
-      currentTransaction.descriptionParts.push(line.replace(/-?\d{1,3}(?:,\d{3})*\.\d{2}/g, '').trim());
+      return;
     }
-  });
 
-  // Push the last transaction if it exists
-  if (currentTransaction) {
-    transactions.push(currentTransaction);
-  }
+    // Process regular transaction
+    const date = dateMatch[1];
+    const amount = amounts.length > 1 ? amounts[amounts.length - 2] : null;
+    const balance = amounts.length > 0 ? amounts[amounts.length - 1] : null;
 
-  return transactions.map(t => {
-    // Skip if no amount and not balance forward
-    if (!t.amount && !t.isBalanceForward) return null;
-    
-    let date = t.rawDate; // Meridian dates are already complete
-    
-    const isDebit = t.amount && t.amount.startsWith('-');
-    const cleanAmount = t.amount ? t.amount.replace(/-/g, '') : '';
-    const description = t.descriptionParts.filter(p => p).join(' ').replace(/\s+/g, ' ').trim();
+    // Get description by removing date and amounts
+    let description = fullText
+      .replace(dateMatch[0], '')
+      .replace(/-?\d{1,3}(?:,\d{3})*\.\d{2}/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
 
-    return {
-      rawDate: t.rawDate,
-      parsedDate: parseDate(t.rawDate),
+    // Determine debit/credit
+    let debit = '', credit = '';
+    const amountValue = amount ? parseFloat(amount) : 0;
+    const balanceValue = balance ? parseFloat(balance) : null;
+
+    if (lastBalance !== null && balanceValue !== null) {
+      const difference = balanceValue - lastBalance;
+      if (difference < 0) {
+        debit = Math.abs(difference).toFixed(2);
+      } else {
+        credit = difference.toFixed(2);
+      }
+    } else if (amount) {
+      if (amount.startsWith('-')) {
+        debit = amount.replace('-', '');
+      } else {
+        credit = amount;
+      }
+    }
+
+    // Update last balance
+    if (balanceValue !== null) {
+      lastBalance = balanceValue;
+    }
+
+    transactions.push({
+      rawDate: date,
+      parsedDate: parseDate(date),
       row: [
         date,
         description,
-        isDebit ? cleanAmount : '', // Debit amount (negative)
-        isDebit ? '' : (t.isBalanceForward ? '' : cleanAmount), // Credit amount (positive, empty for balance forward)
-        t.balance || '' // Balance
+        debit,
+        credit,
+        balance || ''
       ]
-    };
-  }).filter(Boolean);
+    });
+  };
+
+  lines.forEach(line => {
+    if (/^\d{2}-[A-Za-z]{3}-\d{4}/i.test(line)) {
+      flushBuffer();
+    }
+    buffer.push(line);
+  });
+
+  flushBuffer(); // Process any remaining buffer
+
+  return transactions;
 }
 
 function parseDate(text) {
@@ -92,7 +122,7 @@ function processData() {
   const headers = ['#', 'Date', 'Description', 'Debit', 'Credit', 'Balance'];
   const table = document.createElement('table');
   
-  // Header row with CIBC-style copy buttons
+  // Header row with copy buttons
   const headerRow = document.createElement('tr');
   headers.forEach(header => {
     const th = document.createElement('th');

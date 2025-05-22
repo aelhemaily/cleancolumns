@@ -48,10 +48,8 @@ function processData() {
       return;
     }
 
-    const [startMonth, startDay, endMonth, endDay] = match[0].split(' ');
-    const startDate = `${startMonth} ${startDay} ${yearInput || new Date().getFullYear()}`;
-    const endDate = `${endMonth} ${endDay} ${yearInput || new Date().getFullYear()}`;
-    const date = `${startDate} to ${endDate}`;
+    // Keep date as-is, no year appended
+    const date = match[0];
 
     const rest = fullLine.replace(dateRegex, '').trim();
     const amountMatch = rest.match(/-?\$[\d,]+\.\d{2}/);
@@ -68,7 +66,7 @@ function processData() {
     }
 
     const desc = rest.replace(/-?\$[\d,]+\.\d{2}/, '').trim();
-    
+
     // Check for duplicates
     const signature = `${desc.toLowerCase()}|${debit || credit}`;
     const isDuplicate = seen.has(signature);
@@ -77,7 +75,7 @@ function processData() {
     const row = [date, desc, debit, credit, balance];
     const tr = document.createElement('tr');
     if (isDuplicate) tr.style.backgroundColor = '#ffcccc';
-    
+
     row.forEach(cell => {
       const td = document.createElement('td');
       td.textContent = cell;

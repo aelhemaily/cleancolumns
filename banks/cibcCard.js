@@ -1,7 +1,8 @@
 let keywords = { debit: [], credit: [] };
+let categoryWords = [];
 
 // Load keywords.json
-fetch('keywords.json')
+fetch('../keywords.json')
   .then(response => response.json())
   .then(data => {
     keywords = {
@@ -11,7 +12,14 @@ fetch('keywords.json')
   })
   .catch(error => console.error('Failed to load keywords:', error));
 
-// Inject a second box for 'Your payments' if it doesn't exist
+// Load cibcCardCategories.json
+fetch('../cibcCardCategories.json')
+  .then(response => response.json())
+  .then(data => {
+    categoryWords = data.categories.map(k => k.toLowerCase());
+  })
+  .catch(error => console.error('Failed to load categories:', error));
+
 function injectPaymentBoxIfNeeded() {
   if (!document.getElementById('paymentText')) {
     const mainBox = document.getElementById('inputText');
@@ -28,15 +36,20 @@ function injectPaymentBoxIfNeeded() {
 
 injectPaymentBoxIfNeeded();
 
+function capitalizeCategory(cat) {
+  return cat
+    .split(' ')
+    .map(word => (word === 'and' ? 'and' : word.charAt(0).toUpperCase() + word.slice(1)))
+    .join(' ');
+}
+
 function parseLines(text, yearInput, isPayment = false) {
   const lines = text.split('\n').map(line =>
     line.replace(/Ý/g, '').trim()
   ).filter(Boolean);
 
-  // Detect if a line is the start of a new transaction
   const isNewTransaction = (line) => /^[A-Za-z]{3} \d{1,2} [A-Za-z]{3} \d{1,2}/.test(line);
 
-  // Merge multiline transactions
   const transactions = [];
   let current = '';
   lines.forEach(line => {
@@ -51,8 +64,7 @@ function parseLines(text, yearInput, isPayment = false) {
 
   return transactions.map(line => {
     const dateMatch = line.match(/^[A-Za-z]{3} \d{1,2} [A-Za-z]{3} \d{1,2}/);
-    const amountMatch = [...line.matchAll(/-?\d{1,3}(?:,\d{3})*\.\d{2}/g)].map(m => m[0].replace(/,/g, ''));
-
+    const amountMatch = [...line.matchAll(/-?\d{1,3}(?:,\d{3})*\.\d{2}(?:\*+)?/g)];
     if (!dateMatch || amountMatch.length === 0) return null;
 
     let date = dateMatch[0].trim();
@@ -61,26 +73,46 @@ function parseLines(text, yearInput, isPayment = false) {
       date = `${parts[0]} ${parts[1]} ${yearInput} ${parts[2]} ${parts[3]} ${yearInput}`;
     }
 
-    const amount = amountMatch[amountMatch.length - 1];
+    let amountRaw = amountMatch[amountMatch.length - 1][0];
+    const cleanAmount = amountRaw.replace(/\*+$/, '').replace(/,/g, '').replace(/-/g, '');
+
     let description = line.replace(dateMatch[0], '').trim();
-    amountMatch.forEach(a => description = description.replace(a, ''));
+    amountMatch.forEach(m => {
+      description = description.replace(m[0], '');
+    });
     description = description.replace(/-\s+/g, ' ').replace(/\s+/g, ' ').trim();
 
+    let category = '';
     const descLower = description.toLowerCase();
+
+    // Hardcoded categories for specific phrases
+    if (descLower.includes("payment thank you")) {
+      category = "Payment";
+    } else if (descLower.includes("regular purchases")) {
+      category = "Interest";
+    } else if (descLower.includes("cash advances")) {
+      category = "Interest";
+    } else {
+      const matchedCategory = categoryWords.find(cat => descLower.endsWith(cat));
+      if (matchedCategory) {
+        category = capitalizeCategory(matchedCategory);
+        const idx = description.toLowerCase().lastIndexOf(matchedCategory);
+        description = description.slice(0, idx).trim().replace(/\s+/g, ' ');
+      }
+    }
+
     const isSpecialCredit = isPayment ||
       descLower.includes("payment thank you") ||
       keywords.credit.some(k => descLower.includes(k));
 
-    const amountIsCredit = amount.startsWith('-') || amount.endsWith('-');
-    const cleanAmount = amount.replace(/-/g, '');
-
-    const debit = (!amountIsCredit && !isSpecialCredit) ? cleanAmount : '';
-    const credit = (amountIsCredit || isSpecialCredit) ? cleanAmount : '';
+    const isCredit = amountRaw.startsWith('-') || amountRaw.endsWith('-') || isSpecialCredit;
+    const debit = (!isCredit) ? cleanAmount : '';
+    const credit = isCredit ? cleanAmount : '';
 
     return {
       rawDate: dateMatch[0],
       parsedDate: parseDate(dateMatch[0]),
-      row: [date, description, debit, credit, '']
+      row: [date, description, category, debit, credit, '']
     };
   }).filter(Boolean);
 }
@@ -104,10 +136,9 @@ function processData() {
 
   allItems.sort((a, b) => a.parsedDate - b.parsedDate);
 
-  const headers = ['Date', 'Description', 'Debit', 'Credit', 'Balance'];
+  const headers = ['Date', 'Description', 'Category', 'Debit', 'Credit', 'Balance'];
   const table = document.createElement('table');
 
-  // Copy buttons row
   const copyRow = document.createElement('tr');
   headers.forEach((_, index) => {
     const th = document.createElement('th');
@@ -125,7 +156,6 @@ function processData() {
   });
   table.appendChild(copyRow);
 
-  // Header row
   const headerRow = document.createElement('tr');
   headers.forEach(header => {
     const th = document.createElement('th');
