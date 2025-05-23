@@ -6,7 +6,7 @@ function processData() {
   outputDiv.innerHTML = '';
 
   const headers = ['Date', 'Description', 'Debit', 'Credit', 'Balance'];
-  const rows = [];
+  const transactions = []; // Use a temporary array to store parsed transactions for sorting
   const table = document.createElement('table');
 
   // Copy buttons
@@ -51,6 +51,9 @@ function processData() {
 
     let [, , date1, date2, description, amountRaw] = match;
 
+    // Store the original date1 for sorting purposes
+    const originalDate1 = date1;
+
     if (yearInput) {
       date1 += ` ${yearInput}`;
       date2 += ` ${yearInput}`;
@@ -63,16 +66,11 @@ function processData() {
     const debit = isCredit ? '' : amount;
     const credit = isCredit ? amount : '';
 
-    const row = [date, description.trim(), debit, credit, ''];
-    rows.push(row);
-
-    const tr = document.createElement('tr');
-    row.forEach(cell => {
-      const td = document.createElement('td');
-      td.textContent = cell;
-      tr.appendChild(td);
+    // Push an object with the original date for sorting and the row data
+    transactions.push({
+      sortDate: new Date(`${originalDate1} ${yearInput || new Date().getFullYear()}`), // Use yearInput or current year for sorting
+      row: [date, description.trim(), debit, credit, '']
     });
-    table.appendChild(tr);
 
     buffer = [];
   };
@@ -86,8 +84,22 @@ function processData() {
 
   flushBuffer(); // Final flush
 
+  // Sort transactions by date in ascending order
+  transactions.sort((a, b) => a.sortDate.getTime() - b.sortDate.getTime());
+
+  // Add sorted rows to table
+  transactions.forEach(({ row }) => {
+    const tr = document.createElement('tr');
+    row.forEach(cell => {
+      const td = document.createElement('td');
+      td.textContent = cell;
+      tr.appendChild(td);
+    });
+    table.appendChild(tr);
+  });
+
   outputDiv.appendChild(table);
-  table.dataset.rows = JSON.stringify(rows);
+  table.dataset.rows = JSON.stringify(transactions.map(t => t.row)); // Store only the row data
 }
 
 window.processData = processData;

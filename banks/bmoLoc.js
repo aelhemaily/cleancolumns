@@ -11,16 +11,6 @@ function processData() {
   }
 
   const transactions = parseBmoLocStatement(input, yearInput);
-
-  if (transactions.length === 0) {
-    // Show red warning message
-    warning = document.createElement('div');
-    warning.id = 'parseWarning';
-    warning.textContent = '⚠️ Unexpected data format, please reload page!';
-    outputDiv.appendChild(warning);
-    return;
-  }
-
   const headers = ['Date', 'Description', 'Debit', 'Credit', 'Balance'];
   const rows = [];
 
@@ -45,7 +35,10 @@ function processData() {
       debit = amount.toFixed(2);
     }
 
-    const row = [startDate + (endDate !== startDate ? ' ' + endDate : ''), description, debit, credit, ''];
+    // Format the date column to include both dates, with year if provided
+    // IMPORTANT: Now, if endDate exists, it will always be appended with a space.
+    const dateColumn = startDate + (endDate ? ' ' + endDate : '');
+    const row = [dateColumn, description, debit, credit, ''];
     rows.push(row);
 
     const tr = document.createElement('tr');
@@ -59,6 +52,24 @@ function processData() {
 
   outputDiv.appendChild(table);
   table.dataset.rows = JSON.stringify(rows);
+
+  // Ensure toolbar and save state are updated after processing
+  document.getElementById('toolbar').classList.add('show');
+  if (typeof window.bankUtils.setupCellSelection === 'function') {
+    window.bankUtils.setupCellSelection(table);
+  }
+  if (typeof window.bankUtils.setupTableContextMenu === 'function') {
+    window.bankUtils.setupTableContextMenu(table);
+  }
+  if (typeof window.bankUtils.setupCellDragAndDrop === 'function') {
+    window.bankUtils.setupCellDragAndDrop(table);
+  }
+  if (typeof window.bankUtils.setupColumnResizing === 'function') {
+    window.bankUtils.setupColumnResizing(table);
+  }
+  if (typeof saveState === 'function') {
+    saveState();
+  }
 }
 
 function parseBmoLocStatement(inputText, yearInput) {
@@ -70,8 +81,11 @@ function parseBmoLocStatement(inputText, yearInput) {
     if (buffer.length === 0) return;
 
     const fullLine = buffer.join(' ');
+    // Updated linePattern to correctly capture both dates and the rest of the line
+    // It now expects a number, then two date patterns, then the rest of the description/amount
     const linePattern = /^\d+\s+([A-Za-z]{3,4}\.?\s*\d{1,2})\s+([A-Za-z]{3,4}\.?\s*\d{1,2})\s+(.+)$/;
     const match = fullLine.match(linePattern);
+
     if (!match) {
       buffer.length = 0;
       return;
@@ -79,15 +93,16 @@ function parseBmoLocStatement(inputText, yearInput) {
 
     let [, startDateRaw, endDateRaw, rest] = match;
 
-    // Normalize dates (add year if provided)
+    // Normalize dates: append year only if yearInput is provided
     function normalizeDate(dateStr) {
-      dateStr = dateStr.replace('.', '');
+      dateStr = dateStr.replace('.', ''); // Remove period if present
       return yearInput ? `${dateStr} ${yearInput}` : dateStr;
     }
 
     const startDate = normalizeDate(startDateRaw);
     const endDate = normalizeDate(endDateRaw);
 
+    // Amount pattern at the end of the 'rest' string, optionally followed by 'CR'
     let amountMatch = rest.match(/([\d,]+\.\d{2})(CR)?$/i);
     if (!amountMatch) {
       buffer.length = 0;
@@ -98,6 +113,7 @@ function parseBmoLocStatement(inputText, yearInput) {
     let amount = parseFloat(amountStr);
     let isCredit = !!amountMatch[2];
 
+    // Description is everything before the matched amount part
     let description = rest.slice(0, rest.length - amountMatch[0].length).trim();
 
     transactions.push({
@@ -113,15 +129,18 @@ function parseBmoLocStatement(inputText, yearInput) {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    // This regex checks if a line starts with a number, then a month and day, then another month and day
+    // This indicates the start of a new transaction line in your provided format.
     if (/^\d+\s+[A-Za-z]{3,4}\.?\s*\d{1,2}\s+[A-Za-z]{3,4}\.?\s*\d{1,2}/.test(line)) {
-      flushBuffer();
-      buffer.push(line);
+      flushBuffer(); // Flush previous transaction if any
+      buffer.push(line); // Start new buffer with this line
     } else {
+      // If it's not a new transaction line, it's part of the current transaction's description
       buffer.push(line);
     }
   }
 
-  flushBuffer();
+  flushBuffer(); // Final flush to process any remaining data in the buffer
   return transactions;
 }
 

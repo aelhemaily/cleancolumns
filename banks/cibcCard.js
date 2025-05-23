@@ -64,23 +64,31 @@ function parseLines(text, yearInput, isPayment = false) {
 
   return transactions.map(line => {
     const dateMatch = line.match(/^[A-Za-z]{3} \d{1,2} [A-Za-z]{3} \d{1,2}/);
-    const amountMatch = [...line.matchAll(/-?\d{1,3}(?:,\d{3})*\.\d{2}(?:\*+)?/g)];
-    if (!dateMatch || amountMatch.length === 0) return null;
+    // This regex captures all potential amounts, including those in description
+    const amountPattern = /-?\d{1,3}(?:,\d{3})*\.\d{2}(?:\*+)?/g;
+    const allAmountMatches = [...line.matchAll(amountPattern)];
+
+    if (!dateMatch || allAmountMatches.length === 0) return null;
 
     let date = dateMatch[0].trim();
     if (yearInput) {
       const parts = date.split(' ');
+      // Ensure year is appended to both date parts if present
       date = `${parts[0]} ${parts[1]} ${yearInput} ${parts[2]} ${parts[3]} ${yearInput}`;
     }
 
-    let amountRaw = amountMatch[amountMatch.length - 1][0];
+    // The actual transaction amount is the LAST matched amount in the line
+    const amountRaw = allAmountMatches[allAmountMatches.length - 1][0];
     const cleanAmount = amountRaw.replace(/\*+$/, '').replace(/,/g, '').replace(/-/g, '');
 
-    let description = line.replace(dateMatch[0], '').trim();
-    amountMatch.forEach(m => {
-      description = description.replace(m[0], '');
-    });
-    description = description.replace(/-\s+/g, ' ').replace(/\s+/g, ' ').trim();
+    // Get the description by taking everything BEFORE the last amount match
+    // This preserves numbers that are part of the description (e.g., "0.75")
+    let description = line.substring(0, allAmountMatches[allAmountMatches.length - 1].index).trim();
+    // Remove the date part from the beginning of the description
+    description = description.replace(dateMatch[0], '').trim();
+
+    // Clean up any extra spaces
+    description = description.replace(/\s+/g, ' ').trim();
 
     let category = '';
     const descLower = description.toLowerCase();
@@ -118,8 +126,10 @@ function parseLines(text, yearInput, isPayment = false) {
 }
 
 function parseDate(text) {
+  // This function is used for sorting, so it needs a consistent year.
+  // The display date is handled separately in parseLines.
   const [mon1, d1] = text.split(' ');
-  return new Date(`${mon1} ${d1}, 2000`);
+  return new Date(`${mon1} ${d1}, 2000`); // Use a dummy year for consistent sorting
 }
 
 function processData() {
@@ -179,6 +189,24 @@ function processData() {
 
   outputDiv.appendChild(table);
   table.dataset.rows = JSON.stringify(rows);
+
+  // Ensure toolbar and save state are updated after processing
+  document.getElementById('toolbar').classList.add('show');
+  if (typeof window.bankUtils.setupCellSelection === 'function') {
+    window.bankUtils.setupCellSelection(table);
+  }
+  if (typeof window.bankUtils.setupTableContextMenu === 'function') {
+    window.bankUtils.setupTableContextMenu(table);
+  }
+  if (typeof window.bankUtils.setupCellDragAndDrop === 'function') {
+    window.bankUtils.setupCellDragAndDrop(table);
+  }
+  if (typeof window.bankUtils.setupColumnResizing === 'function') {
+    window.bankUtils.setupColumnResizing(table);
+  }
+  if (typeof saveState === 'function') {
+    saveState();
+  }
 }
 
 window.processData = processData;

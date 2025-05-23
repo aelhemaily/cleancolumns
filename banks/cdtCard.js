@@ -1,6 +1,6 @@
 let keywords = { debit: [], credit: [] };
 
-// Load keywords.json
+// Load keywords.json (assuming it's in the same directory as the HTML file)
 fetch('keywords.json')
   .then(response => response.json())
   .then(data => {
@@ -28,95 +28,140 @@ function injectPaymentBoxIfNeeded() {
 
 injectPaymentBoxIfNeeded();
 
+// Helper to parse a date string (e.g., "Jul 01") into a Date object for sorting
+function parseDateForSorting(dateStr, year) {
+  const [mon, day] = dateStr.split(' ');
+  const monthNames = {
+    Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+    Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11
+  };
+  const currentYear = year ? parseInt(year, 10) : new Date().getFullYear();
+  return new Date(currentYear, monthNames[mon], parseInt(day, 10));
+}
+
 function parseLines(text, yearInput, isPayment = false) {
   const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
   const transactions = [];
-  let currentTransaction = null;
+  let currentTransactionBuffer = [];
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    
-    // Check if this is a new transaction
-    const transactionMatch = line.match(/^(?:\d+\s+)?([A-Za-z]{3}\s+\d{2})\s+([A-Za-z]{3}\s+\d{2})/);
-    const amountMatch = line.match(/-?[\d,]+\.\d{2}(?=\s*$| USD)/);
+  // Regex to detect a new transaction start (either format 1 or format 2 date patterns)
+  const newTransactionStartRegex = /^(?:\d+\s+)?([A-Za-z]{3}\s+\d{2})(?:\s+([A-Za-z]{3}\s+\d{2}))?/;
+  // Regex to find amounts, including negative and optional USD
+  const amountRegex = /(-?\s*\d{1,3}(?:,\d{3})*\.\d{2}(?:\s*USD)?)/g;
 
-    if (transactionMatch) {
-      // Save previous transaction if exists
-      if (currentTransaction) {
-        transactions.push(currentTransaction);
-      }
-      
-      // Format dates - only add year if specified in input field
-      const date1 = yearInput ? `${transactionMatch[1]} ${yearInput}` : transactionMatch[1];
-      const date2 = yearInput ? `${transactionMatch[2]} ${yearInput}` : transactionMatch[2];
-      const date = `${date1} ${date2}`;
+  lines.forEach((line, index) => {
+    const isNewTransactionLine = newTransactionStartRegex.test(line);
+    const hasAmount = amountRegex.test(line);
 
-      currentTransaction = {
-        date: date,
-        descriptionParts: [],
-        amount: amountMatch ? amountMatch[0].replace(/,/g, '') : null,
-        isPayment: isPayment
-      };
+    // If it's a new transaction line, or if it's a line with an amount and there's an existing buffer
+    // that needs to be flushed (e.g., multi-line description ending with amount)
+    if (isNewTransactionLine && currentTransactionBuffer.length > 0) {
+      // Flush the previous transaction
+      processBufferedTransaction(currentTransactionBuffer.join(' '), yearInput, isPayment, transactions);
+      currentTransactionBuffer = [];
+    } else if (!isNewTransactionLine && currentTransactionBuffer.length > 0 && hasAmount && index === lines.length -1) {
+        // This is a multi-line transaction that ends with an amount on the last line
+        currentTransactionBuffer.push(line);
+        processBufferedTransaction(currentTransactionBuffer.join(' '), yearInput, isPayment, transactions);
+        currentTransactionBuffer = [];
+        return;
+    }
 
-      // Add description part (remove ref, dates, and amount)
-      let descPart = line
-        .replace(/^\d+\s+/, '') // Remove reference number if present
-        .replace(/^[A-Za-z]{3}\s+\d{2}\s+[A-Za-z]{3}\s+\d{2}/, '') // Remove dates
-        .replace(/-?[\d,]+\.\d{2}(?:\s*USD)?(?:\s*@\s*[\d.]+)?(?:\s*[\d,]+\.\d{2})?/, '') // Remove amount/conv
-        .trim();
-      
-      if (descPart) {
-        currentTransaction.descriptionParts.push(descPart);
-      }
-    } else if (currentTransaction) {
-      // This is a continuation line for current transaction
-      if (amountMatch) {
-        // If this line has an amount, use it as the transaction amount
-        currentTransaction.amount = amountMatch[0].replace(/,/g, '');
-      } else {
-        // Check if this line might be a plain amount (like in EQUIFAX example)
-        const potentialAmount = line.trim();
-        if (/^-?\d+\.\d{2}$/.test(potentialAmount)) {
-          currentTransaction.amount = potentialAmount.replace(/,/g, '');
-        } else {
-          // Add the line to description
-          currentTransaction.descriptionParts.push(line);
-        }
-      }
+
+    currentTransactionBuffer.push(line);
+
+    // If the current line contains an amount and is not the start of a new dated transaction,
+    // and the next line is either a new dated transaction or the end of the input,
+    // then this buffer represents a complete transaction.
+    const nextLine = lines[index + 1];
+    const nextLineIsNewTransactionStart = nextLine && newTransactionStartRegex.test(nextLine);
+    const isLastLine = (index === lines.length - 1);
+
+    if (hasAmount && (nextLineIsNewTransactionStart || isLastLine)) {
+      processBufferedTransaction(currentTransactionBuffer.join(' '), yearInput, isPayment, transactions);
+      currentTransactionBuffer = [];
+    }
+  });
+
+  // Flush any remaining transaction in the buffer after the loop
+  if (currentTransactionBuffer.length > 0) {
+    processBufferedTransaction(currentTransactionBuffer.join(' '), yearInput, isPayment, transactions);
+  }
+
+  return transactions;
+}
+
+// Helper function to process a single buffered transaction string
+function processBufferedTransaction(fullText, yearInput, isPayment, transactionsArray) {
+  const newTransactionStartRegex = /^(?:\d+\s+)?([A-Za-z]{3}\s+\d{2})(?:\s+([A-Za-z]{3}\s+\d{2}))?/;
+  const amountRegex = /(-?\s*\d{1,3}(?:,\d{3})*\.\d{2}(?:\s*USD)?)/g;
+
+  const match = fullText.match(newTransactionStartRegex);
+  const allAmountMatches = [...fullText.matchAll(amountRegex)];
+
+  if (!match || allAmountMatches.length === 0) {
+    return; // Cannot parse as a transaction
+  }
+
+  // Extract dates
+  let date1Part = match[1];
+  let date2Part = match[2]; // This could be undefined for single-date format
+
+  // Store the first date for sorting purposes
+  const sortDate = parseDateForSorting(date1Part, yearInput);
+
+  // Apply year to display dates
+  let displayDate = '';
+  if (yearInput) {
+    if (date2Part) {
+      displayDate = `${date1Part} ${yearInput} ${date2Part} ${yearInput}`;
+    } else {
+      displayDate = `${date1Part} ${yearInput}`;
+    }
+  } else {
+    if (date2Part) {
+      displayDate = `${date1Part} ${date2Part}`;
+    } else {
+      displayDate = date1Part;
     }
   }
 
-  // Add the last transaction if exists
-  if (currentTransaction) {
-    transactions.push(currentTransaction);
+  // Determine the actual transaction amount
+  // The transaction amount is the LAST numeric value in the string
+  const rawAmountString = allAmountMatches[allAmountMatches.length - 1][0];
+  const amount = parseFloat(rawAmountString.replace(/[^0-9.-]/g, ''));
+
+  // Extract description: everything before the last amount, after removing dates and optional leading number
+  let description = fullText;
+  // Remove the last amount string from the text
+  const lastAmountIndex = fullText.lastIndexOf(rawAmountString);
+  if (lastAmountIndex !== -1) {
+    description = fullText.substring(0, lastAmountIndex).trim();
   }
 
-  return transactions.map(txn => {
-    const description = txn.descriptionParts.join(' ').replace(/\s+/g, ' ').trim();
-    let debit = '';
-    let credit = '';
+  // Remove the date parts and optional leading number from the description
+  description = description
+    .replace(new RegExp(`^(?:\\d+\\s+)?${date1Part.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}(?:\\s+${date2Part ? date2Part.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') : ''})?`, 'i'), '')
+    .trim();
 
-    if (txn.amount) {
-      const amount = parseFloat(txn.amount);
-      if (amount < 0 || txn.isPayment) {
-        credit = Math.abs(amount).toFixed(2);
-      } else {
-        debit = amount.toFixed(2);
-      }
-    }
+  // Normalize spaces
+  description = description.replace(/\s+/g, ' ').trim();
 
-    return {
-      rawDate: txn.date.split(' ').slice(0, 4).join(' '), // Get just the first two dates without year
-      parsedDate: parseDate(txn.date.split(' ').slice(0, 2).join(' ')), // Parse just the first date
-      row: [txn.date, description, debit, credit, '']
-    };
+  let debit = '';
+  let credit = '';
+
+  if (amount < 0 || isPayment || keywords.credit.some(kw => description.toLowerCase().includes(kw))) {
+    credit = Math.abs(amount).toFixed(2);
+  } else {
+    debit = amount.toFixed(2);
+  }
+
+  transactionsArray.push({
+    sortDate: sortDate,
+    row: [displayDate, description, debit, credit, '']
   });
 }
 
-function parseDate(text) {
-  const [mon, d] = text.split(' ');
-  return new Date(`${mon} ${d}, 2000`);
-}
 
 function processCTBCardData() {
   const yearInput = document.getElementById('yearInput').value.trim();
@@ -130,7 +175,8 @@ function processCTBCardData() {
     ...parseLines(paymentInput, yearInput, true)
   ];
 
-  allItems.sort((a, b) => a.parsedDate - b.parsedDate);
+  // Sort transactions by date in ascending order
+  allItems.sort((a, b) => a.sortDate.getTime() - b.sortDate.getTime());
 
   const headers = ['Date', 'Description', 'Debit', 'Credit', 'Balance'];
   const table = document.createElement('table');

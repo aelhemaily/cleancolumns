@@ -1,158 +1,117 @@
-function parseLines(text) {
-  if (!text) return [];
-  
-  const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
+function processData() {
+  const input = document.getElementById('inputText').value.trim();
+  const yearInput = document.getElementById('yearInput').value.trim();
+  const lines = input.split('\n').map(line => line.trim()).filter(Boolean);
+  const outputDiv = document.getElementById('output');
+  outputDiv.innerHTML = '';
+
+  const headers = ['Date', 'Description', 'Debit', 'Credit', 'Balance'];
+  const table = document.createElement('table');
+
+  const copyRow = document.createElement('tr');
+  const headerRow = document.createElement('tr');
+
+  headers.forEach((header, index) => {
+    const thCopy = document.createElement('th');
+    const div = document.createElement('div');
+    div.className = 'copy-col';
+    const btn = document.createElement('button');
+    btn.textContent = '📋';
+    btn.className = 'copy-btn';
+    btn.onclick = () => window.bankUtils.copyColumn(index);
+    div.appendChild(btn);
+    thCopy.appendChild(div);
+    copyRow.appendChild(thCopy);
+
+    const thHeader = document.createElement('th');
+    thHeader.textContent = header;
+    headerRow.appendChild(thHeader);
+  });
+
+  table.appendChild(copyRow);
+  table.appendChild(headerRow);
+
+  const dateRegex = /^(\d{2}-[A-Za-z]{3})(?:-\d{4})?/;
+  const amountRegex = /-?\d{1,3}(?:,\d{3})*\.\d{2}/;
   const transactions = [];
-  let buffer = [];
-  let lastBalance = null;
+  let currentDate = '';
+  let currentLines = [];
 
-  const flushBuffer = () => {
-    if (buffer.length === 0) return;
+  function pushTransaction() {
+    if (currentLines.length === 0) return;
+    transactions.push({ date: currentDate, lines: [...currentLines] });
+    currentLines = [];
+  }
 
-    const fullText = buffer.join(' ');
-    buffer = [];
+  lines.forEach((line) => {
+    const isBalanceLine = /opening balance|balance forward|closing balance/i.test(line);
+    const isDateLine = dateRegex.test(line);
+    const hasAmount = amountRegex.test(line);
 
-    // Check if this is a balance transaction we want to exclude
-    const isBalanceTransaction = /(opening balance|balance forward|closing balance)/i.test(fullText);
-    
-    // Extract date (format: "30-Apr-2023")
-    const dateMatch = fullText.match(/^(\d{2}-[A-Za-z]{3}-\d{4})/);
-    if (!dateMatch) return;
-
-    // Extract amounts
-    const amountMatch = fullText.match(/-?\d{1,3}(?:,\d{3})*\.\d{2}/g);
-    const amounts = amountMatch ? amountMatch.map(m => m.replace(/,/g, '')) : [];
-
-    // Skip balance transactions but still update lastBalance
-    if (isBalanceTransaction) {
-      if (amounts.length > 0) {
-        lastBalance = parseFloat(amounts[amounts.length - 1]);
+    if (isBalanceLine) {
+      pushTransaction();
+      if (isDateLine) {
+        const baseDate = line.match(dateRegex)[1];
+        currentDate = yearInput ? `${baseDate}-${yearInput}` : line.match(dateRegex)[0];
       }
       return;
     }
 
-    // Process regular transaction
-    const date = dateMatch[1];
-    const amount = amounts.length > 1 ? amounts[amounts.length - 2] : null;
-    const balance = amounts.length > 0 ? amounts[amounts.length - 1] : null;
-
-    // Get description by removing date and amounts
-    let description = fullText
-      .replace(dateMatch[0], '')
-      .replace(/-?\d{1,3}(?:,\d{3})*\.\d{2}/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-    // Determine debit/credit
-    let debit = '', credit = '';
-    const amountValue = amount ? parseFloat(amount) : 0;
-    const balanceValue = balance ? parseFloat(balance) : null;
-
-    if (lastBalance !== null && balanceValue !== null) {
-      const difference = balanceValue - lastBalance;
-      if (difference < 0) {
-        debit = Math.abs(difference).toFixed(2);
-      } else {
-        credit = difference.toFixed(2);
-      }
-    } else if (amount) {
-      if (amount.startsWith('-')) {
-        debit = amount.replace('-', '');
-      } else {
-        credit = amount;
-      }
+    if (isDateLine) {
+      pushTransaction();
+      const baseDate = line.match(dateRegex)[1];
+      currentDate = yearInput ? `${baseDate}-${yearInput}` : line.match(dateRegex)[0];
+      const rest = line.replace(dateRegex, '').trim();
+      if (rest) currentLines.push(rest);
+    } else if (hasAmount) {
+      pushTransaction();
+      currentLines.push(line);
+    } else {
+      currentLines.push(line);
     }
-
-    // Update last balance
-    if (balanceValue !== null) {
-      lastBalance = balanceValue;
-    }
-
-    transactions.push({
-      rawDate: date,
-      parsedDate: parseDate(date),
-      row: [
-        date,
-        description,
-        debit,
-        credit,
-        balance || ''
-      ]
-    });
-  };
-
-  lines.forEach(line => {
-    if (/^\d{2}-[A-Za-z]{3}-\d{4}/i.test(line)) {
-      flushBuffer();
-    }
-    buffer.push(line);
   });
 
-  flushBuffer(); // Process any remaining buffer
+  pushTransaction();
 
-  return transactions;
-}
+  const rows = [];
 
-function parseDate(text) {
-  // Takes date format like "30-Apr-2023"
-  return new Date(text);
-}
-
-function processData() {
-  const input = document.getElementById('inputText').value.trim();
-  const outputDiv = document.getElementById('output');
-  outputDiv.innerHTML = '';
-  
-  if (!input) {
-    showToast("Please insert bank statement data!", "error");
-    return;
-  }
-  
-  // Parse transactions
-  const items = parseLines(input);
-  
-  if (items.length === 0) {
-    showToast("No valid transactions found!", "error");
-    return;
-  }
-  
-  // Sort by date
-  items.sort((a, b) => a.parsedDate - b.parsedDate);
-  
-  const headers = ['#', 'Date', 'Description', 'Debit', 'Credit', 'Balance'];
-  const table = document.createElement('table');
-  
-  // Header row with copy buttons
-  const headerRow = document.createElement('tr');
-  headers.forEach(header => {
-    const th = document.createElement('th');
-    th.textContent = header;
+  transactions.forEach(({ date, lines }) => {
+    const fullText = lines.join(' ').trim();
+    const isCashCoinFee = /Cash & Coin Fee/i.test(fullText);
+    const amounts = [...fullText.matchAll(/-?\d{1,3}(?:,\d{3})*\.\d{2}/g)].map(m => parseFloat(m[0].replace(/,/g, '')));
     
-    if (header !== '#') {
-      const button = document.createElement('button');
-      button.className = 'copy-btn';
-      button.innerHTML = '<i class="fa-solid fa-copy"></i>';
-      button.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const colIndex = headers.indexOf(header);
-        window.bankUtils.copyColumn(colIndex);
+    if (amounts.length < 1) return;
+
+    // Special handling for Cash & Coin Fee with only one amount
+    if (isCashCoinFee && amounts.length === 1) {
+      const row = [date, fullText.replace(amountRegex, '').trim(), '', '', amounts[0].toFixed(2)];
+      rows.push(row);
+      
+      const tr = document.createElement('tr');
+      row.forEach(cell => {
+        const td = document.createElement('td');
+        td.textContent = cell;
+        tr.appendChild(td);
       });
-      th.insertBefore(button, th.firstChild);
+      table.appendChild(tr);
+      return;
     }
-    
-    headerRow.appendChild(th);
-  });
-  table.appendChild(headerRow);
-  
-  // Add transactions to table with numbered rows
-  items.forEach(({ row }, index) => {
+
+    const amount = amounts[0];
+    const balance = amounts.length > 1 ? amounts[1] : null;
+    const descText = fullText.replace(/-?\d{1,3}(?:,\d{3})*\.\d{2}/g, '').trim();
+
+    let debit = '', credit = '';
+    if (amount < 0) {
+      debit = (-amount).toFixed(2);
+    } else {
+      credit = amount.toFixed(2);
+    }
+
+    const row = [date, descText, debit, credit, balance !== null ? balance.toFixed(2) : ''];
+    rows.push(row);
+
     const tr = document.createElement('tr');
-    // Add row number
-    const numberCell = document.createElement('td');
-    numberCell.textContent = index + 1;
-    tr.appendChild(numberCell);
-    
-    // Add the rest of the cells
     row.forEach(cell => {
       const td = document.createElement('td');
       td.textContent = cell;
@@ -160,18 +119,9 @@ function processData() {
     });
     table.appendChild(tr);
   });
-  
+
   outputDiv.appendChild(table);
-  
-  // Store raw data for potential export
-  table.dataset.rows = JSON.stringify(items.map((item, index) => [
-    index + 1, // Row number
-    ...item.row // Original row data
-  ]));
-  
-  // Show the toolbar
-  document.getElementById('toolbar').classList.add('show');
-  saveState();
+  table.dataset.rows = JSON.stringify(rows);
 }
 
 window.processData = processData;

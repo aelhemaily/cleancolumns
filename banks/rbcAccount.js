@@ -65,8 +65,8 @@ function processData() {
     const dateMatch = line.match(/^(\d{1,2}\s[A-Za-z]{3})\s(.+)/);
     if (dateMatch) {
       currentDate = dateMatch[1];
-      const restOfLine = dateMatch[2];
-      processRbcTransaction(currentDate, [restOfLine]);
+      const restOfLine = dateMatch[2]; // This is the description part without the date
+      processRbcTransaction(currentDate, [restOfLine]); // Pass only the description part
       i++;
       continue;
     }
@@ -81,9 +81,9 @@ function processData() {
     i++; // Skip lines we can't process
   }
 
-  function processRbcTransaction(date, firstLines) {
-    // Collect all description parts
-    let descriptionParts = [...firstLines];
+  function processRbcTransaction(date, initialDescriptionParts) { // Renamed parameter for clarity
+    // Start description with the initial parts passed in (which should not contain the date)
+    let descriptionParts = [...initialDescriptionParts];
     let amountLineIndex = i;
     let amounts = [];
 
@@ -91,7 +91,7 @@ function processData() {
     while (amountLineIndex < lines.length) {
       const currentLine = lines[amountLineIndex];
       const lineAmounts = currentLine.match(/(-?\d{1,3}(?:,\d{3})*\.\d{2})/g) || [];
-      
+
       // If the current line is a balance line, stop collecting description parts for the current transaction
       // and let the main loop handle the balance line.
       const isCurrentLineBalance = currentLine.toLowerCase().includes('opening balance') ||
@@ -100,28 +100,27 @@ function processData() {
       if (isCurrentLineBalance && lineAmounts.length === 0) { // If it's a balance line, and no amounts are found within it to process for *this* transaction.
           break;
       }
-      
+
       if (lineAmounts.length > 0) {
         amounts = lineAmounts.map(a => parseFloat(a.replace(/,/g, '')));
-        
+
         // Check if this line has non-amount text to include in description
         const nonAmountText = currentLine.replace(/(-?\d{1,3}(?:,\d{3})*\.\d{2})/g, '').trim();
         if (nonAmountText.length > 0) {
-          if (amountLineIndex === i) {
-            // First line - replace existing description
+          if (amountLineIndex === i && descriptionParts.length === 1 && descriptionParts[0] === '') {
             descriptionParts[0] = nonAmountText;
           } else {
-            // Additional lines - append to description
             descriptionParts.push(nonAmountText);
           }
         }
         break;
       }
-      
+
+      // Only push if it's a continuation line that is not the start of the transaction
       if (amountLineIndex > i) {
         descriptionParts.push(currentLine);
       }
-      
+
       amountLineIndex++;
     }
 
@@ -129,49 +128,73 @@ function processData() {
 
     const amount = amounts[0];
     const newBalance = amounts.length > 1 ? amounts[1] : null;
-    const fullDescription = descriptionParts.join(' ').trim();
+    const fullDescription = descriptionParts.filter(Boolean).join(' ').trim();
 
-    // Determine debit/credit using balance changes (primary method)
     let debit = '', credit = '';
-    if (currentBalance !== null && newBalance !== null) {
+    let allocatedByKeywords = false;
+
+    // 1. Primary Method: Keyword Matching (prioritize full matches)
+    if (window.bankUtils?.keywords) {
+      const lowerCaseDescription = fullDescription.toLowerCase();
+      let bestDebitMatch = '';
+      let bestCreditMatch = '';
+
+      // Find the most specific debit keyword match
+      if (window.bankUtils.keywords.debit) {
+        window.bankUtils.keywords.debit.forEach(kw => {
+          if (lowerCaseDescription.includes(kw.toLowerCase()) && kw.length > bestDebitMatch.length) {
+            bestDebitMatch = kw;
+          }
+        });
+      }
+
+      // Find the most specific credit keyword match
+      if (window.bankUtils.keywords.credit) {
+        window.bankUtils.keywords.credit.forEach(kw => {
+          if (lowerCaseDescription.includes(kw.toLowerCase()) && kw.length > bestCreditMatch.length) {
+            bestCreditMatch = kw;
+          }
+        });
+      }
+
+      // Determine allocation based on best match
+      if (bestDebitMatch.length > 0 && bestDebitMatch.length >= bestCreditMatch.length) {
+        // If there's a debit match and it's as good or better than credit match
+        debit = amount.toFixed(2);
+        currentBalance = currentBalance !== null ? currentBalance - amount : null;
+        allocatedByKeywords = true;
+      } else if (bestCreditMatch.length > 0) {
+        // If there's a credit match (and it's better than debit, or no debit match)
+        credit = amount.toFixed(2);
+        currentBalance = currentBalance !== null ? currentBalance + amount : null;
+        allocatedByKeywords = true;
+      }
+    }
+
+    // 2. Secondary Method: Balance Tracking if not allocated by keywords
+    if (!allocatedByKeywords && currentBalance !== null && newBalance !== null) {
       const balanceChange = newBalance - currentBalance;
-      
-      // Precise balance-based classification
+
       if (Math.abs(balanceChange - amount) < 0.01) {
-        // Amount matches balance increase exactly = credit
         credit = amount.toFixed(2);
         currentBalance = newBalance;
       } else if (Math.abs(balanceChange + amount) < 0.01) {
-        // Amount matches balance decrease exactly = debit
         debit = amount.toFixed(2);
         currentBalance = newBalance;
-      } else {
-        // Fallback to direction only
-        if (balanceChange > 0) {
-          credit = amount.toFixed(2);
-          currentBalance = newBalance;
-        } else {
-          debit = amount.toFixed(2);
-          currentBalance = newBalance;
-        }
-      }
-    } 
-    // Fallback to keyword matching if balance comparison not available
-    else if (window.bankUtils?.keywords) {
-      const isCredit = window.bankUtils.keywords.credit.some(kw => 
-        fullDescription.toLowerCase().includes(kw.toLowerCase())
-      );
-      if (isCredit) {
+      } else if (balanceChange > 0) { // Fallback to direction only if precise match fails
         credit = amount.toFixed(2);
-        currentBalance = currentBalance !== null ? currentBalance + amount : null;
+        currentBalance = newBalance;
       } else {
         debit = amount.toFixed(2);
-        currentBalance = currentBalance !== null ? currentBalance - amount : null;
+        currentBalance = newBalance;
       }
-    } 
-    // Final fallback
-    else {
+      allocatedByKeywords = true; // Mark as allocated to prevent default fallback
+    }
+
+    // 3. Third Option: Default to Debit if all fails
+    if (!allocatedByKeywords) {
       debit = amount.toFixed(2);
+      currentBalance = currentBalance !== null ? currentBalance - amount : null;
     }
 
     rows.push([

@@ -48,8 +48,16 @@ function processData() {
       return;
     }
 
-    // Keep date as-is, no year appended
-    const date = match[0];
+    // Extract the two dates
+    let [fullDateString, date1Part, date2Part] = match[0].match(/([A-Za-z]{3} \d{1,2})\s+([A-Za-z]{3} \d{1,2})/);
+
+    // Append year if provided
+    let formattedDate = '';
+    if (yearInput) {
+      formattedDate = `${date1Part} ${yearInput} ${date2Part} ${yearInput}`;
+    } else {
+      formattedDate = `${date1Part} ${date2Part}`;
+    }
 
     const rest = fullLine.replace(dateRegex, '').trim();
     const amountMatch = rest.match(/-?\$[\d,]+\.\d{2}/);
@@ -72,7 +80,7 @@ function processData() {
     const isDuplicate = seen.has(signature);
     if (!isDuplicate) seen.add(signature);
 
-    const row = [date, desc, debit, credit, balance];
+    const row = [formattedDate, desc, debit, credit, balance];
     const tr = document.createElement('tr');
     if (isDuplicate) tr.style.backgroundColor = '#ffcccc';
 

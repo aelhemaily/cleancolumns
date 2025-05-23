@@ -9,7 +9,7 @@ function processData() {
   const rows = [];
   let currentBalance = null;
   let isOverdraft = false;
-  let buffer = []; // Added buffer for multi-line transactions
+  let buffer = []; // Buffer for multi-line transactions
 
   const table = document.createElement('table');
 
@@ -40,7 +40,8 @@ function processData() {
   });
   table.appendChild(headerRow);
 
-  // Default keywords (fallback)
+  // Default keywords (fallback) - these are not directly used for debit/credit in this version
+  // but kept for potential future use or consistency with other scripts.
   const defaultKeywords = {
     debit: [
       "ATM W/D", "CASH WITHDRA", "WITHDRAW", "FEE", "SERVICE CHARGE",
@@ -54,148 +55,156 @@ function processData() {
     ]
   };
 
-  // Load keywords from JSON file
-  let keywords = defaultKeywords;
-  if (window.bankUtils && window.bankUtils.loadKeywords) {
-    try {
-      const loadedKeywords = window.bankUtils.loadKeywords();
-      if (loadedKeywords && loadedKeywords.debit && loadedKeywords.credit) {
-        keywords = loadedKeywords;
-      }
-    } catch (e) {
-      console.warn('Error loading keywords.json, using defaults', e);
-    }
+  // Regular expressions for parsing
+  // This regex is for lines that contain a description, amount, date, and optionally a balance.
+  // It's designed to be flexible for multi-line descriptions.
+  // CORRECTED: Added optional '-' to the balance amount capture group (?:-?[\d,]+\.\d{2})
+  const transactionLinePattern = /^(.*?)\s+([\d,]+\.\d{2})\s+([A-Z]{3}\d{1,2})(?:\s+(-?[\d,]+\.\d{2})(OD)?)?$/i;
+  const balanceForwardRegex = /(BALANCE FORWARD|STARTING BALANCE)\s+([A-Z]{3}\d{1,2})(?:\s+(-?[\d,]+\.\d{2})(OD)?)?/i;
+  const dateRegex = /^([A-Z]{3})(\d{1,2})$/; // For parsing date strings like "JAN31"
+
+  // Helper function to format date (e.g., "JAN31" -> "Jan 31 2024")
+  function formatDate(dateStr, year) {
+    const match = dateStr.match(dateRegex);
+    if (!match) return dateStr;
+
+    const [, monthAbbr, day] = match;
+    const months = {
+      JAN: 'Jan', FEB: 'Feb', MAR: 'Mar', APR: 'Apr', MAY: 'May', JUN: 'Jun',
+      JUL: 'Jul', AUG: 'Aug', SEP: 'Sep', OCT: 'Oct', NOV: 'Nov', DEC: 'Dec'
+    };
+
+    const month = months[monthAbbr.toUpperCase()] || monthAbbr;
+    const dayPadded = day.padStart(2, '0');
+
+    // Only include year if provided
+    return year ? `${month} ${dayPadded} ${year}` : `${month} ${dayPadded}`;
   }
 
-  // Regular expressions for parsing
-  const balanceForwardRegex = /(BALANCE FORWARD|STARTING BALANCE)\s+([A-Z]{3}\d{1,2})(?:\s+([\d,]+\.\d{2})(OD)?)?/i;
-  const transactionRegex = /^(.+?)\s+([\d,]+\.\d{2})\s+([A-Z]{3}\d{1,2})(?:\s+([\d,]+\.\d{2})(OD)?)?/;
-  const dateRegex = /^([A-Z]{3})(\d{1,2})$/;
+  // Helper function to format balance (e.g., "123.45" or "-123.45")
+  function formatBalance(balance, overdraft) {
+    if (balance === null || isNaN(balance)) return '';
+    // Removed the 'OD' suffix. toFixed(2) will handle the negative sign if balance is negative.
+    return balance.toFixed(2);
+  }
 
   const flushBuffer = () => {
     if (buffer.length === 0) return;
 
-    const line = buffer.join(' ');
-    buffer = [];
-
-    const balanceKeywordsToExclude = ['opening balance', 'balance forward', 'closing balance', 'starting balance'];
+    const fullBufferedText = buffer.join(' '); // Combine all lines in the buffer
+    buffer = []; // Clear buffer after joining
 
     // Check for BALANCE FORWARD or STARTING BALANCE line
-    const balanceForwardMatch = line.match(balanceForwardRegex);
+    const balanceForwardMatch = fullBufferedText.match(balanceForwardRegex);
     if (balanceForwardMatch) {
-      const [, balanceType, date, balance, odFlag] = balanceForwardMatch;
-      if (balance) {
-        currentBalance = parseFloat(balance.replace(/,/g, ''));
+      const [, balanceType, dateStr, balanceAmountStr, odFlag] = balanceForwardMatch;
+      if (balanceAmountStr) {
+        currentBalance = parseFloat(balanceAmountStr.replace(/,/g, ''));
         isOverdraft = odFlag === 'OD';
-        // Do NOT push balance lines to rows array
-        return; // Skip adding this line to the table
+        // NEW RULE: If it's an overdraft and not already negative, make it negative.
+        if (isOverdraft && currentBalance > 0) {
+          currentBalance = -currentBalance;
+        }
       }
+      // Do NOT push balance lines to rows array, just update currentBalance
       return;
     }
 
-    // Process regular transaction lines
-    const transactionMatch = line.match(transactionRegex);
-    if (!transactionMatch) return;
-
-    const [, description, amountStr, date, newBalanceStr, newOdFlag] = transactionMatch;
-    const amount = parseFloat(amountStr.replace(/,/g, ''));
-    const newBalance = newBalanceStr ? parseFloat(newBalanceStr.replace(/,/g, '')) : null;
-    const willBeOverdraft = newOdFlag === 'OD';
-
-    // Check for closing balance and other balance keywords in description
-    const isBalanceLineInDescription = balanceKeywordsToExclude.some(keyword => description.toLowerCase().includes(keyword));
-
-    if (isBalanceLineInDescription) {
-      if (newBalance !== null) {
-        currentBalance = newBalance;
-        isOverdraft = willBeOverdraft;
-      } else if (amount !== null) {
-        // If it's a balance line, the 'amount' could be the closing balance itself
-        currentBalance = amount;
-        isOverdraft = willBeOverdraft; // Assume OD flag based on newOdFlag for this line
-      }
-      return; // Skip adding this line to the table
+    // Try to match the full transaction line pattern
+    const transactionMatch = fullBufferedText.match(transactionLinePattern);
+    if (!transactionMatch) {
+      // If it doesn't match the standard transaction pattern, it might be a multi-line description
+      // that doesn't have the amount/date at the very end, or an unparsable line.
+      // For now, we'll skip it, but this is where more complex multi-line logic would go.
+      return;
     }
 
-    // Determine if this is a debit or credit
+    // Extract parts from the transaction match
+    const [, rawDescriptionPart, amountStr, dateStr, newBalanceStr, newOdFlag] = transactionMatch;
+    const amount = parseFloat(amountStr.replace(/,/g, ''));
+    
+    let newBalance = newBalanceStr ? parseFloat(newBalanceStr.replace(/,/g, '')) : null;
+    const willBeOverdraft = newOdFlag === 'OD';
+
+    // NEW RULE: If it's an overdraft and not already negative, make it negative.
+    if (newBalance !== null && willBeOverdraft && newBalance > 0) {
+      newBalance = -newBalance;
+    }
+
+    // The description should be the rawDescriptionPart, which already excludes the final amount, date, and balance
+    let description = rawDescriptionPart.trim();
+    description = description.replace(/\s+/g, ' ').trim(); // Normalize spaces
+
     let debit = '';
     let credit = '';
 
+    // Determine if this is a debit or credit based on balance changes
     if (currentBalance !== null && newBalance !== null) {
-      // We have both current and new balance - most reliable method
-      // Corrected typo: isOver overdraft -> isOverdraft
-      const balanceChange = newBalance - (isOverdraft ? -currentBalance : currentBalance);
-      
-      // Compare balanceChange with amount, allowing for slight floating point inaccuracies
-      if (Math.abs(balanceChange - amount) < 0.01) {
+      // Use the actual balance change to determine debit/credit
+      const balanceBefore = isOverdraft ? -currentBalance : currentBalance;
+      const balanceAfter = willBeOverdraft ? -newBalance : newBalance;
+      const calculatedChange = balanceAfter - balanceBefore;
+
+      if (Math.abs(calculatedChange - amount) < 0.01) {
         // Balance increased by amount = credit
         credit = amount.toFixed(2);
-      } else if (Math.abs(balanceChange + amount) < 0.01) {
+      } else if (Math.abs(calculatedChange + amount) < 0.01) {
         // Balance decreased by amount = debit
         debit = amount.toFixed(2);
       } else {
-        // Fallback to direction only if precise match fails
-        if (balanceChange < 0) {
-          debit = amount.toFixed(2); // Amount is usually positive, so debit means balance decreased
+        // Fallback if precise match fails (e.g., for fees, interest, or complex transactions)
+        // Infer based on balance change direction
+        if (calculatedChange < 0) {
+          debit = amount.toFixed(2);
         } else {
           credit = amount.toFixed(2);
         }
       }
       currentBalance = newBalance;
       isOverdraft = willBeOverdraft;
-    } else if (currentBalance !== null) {
-      // No new balance provided - use keyword matching
-      const descLower = description.toLowerCase();
-      
-      // Check for credit keywords first
-      const isCredit = keywords.credit.some(keyword => 
-        descLower.includes(keyword.toLowerCase())
-      );
-      
-      if (isCredit) {
-        credit = amount.toFixed(2);
-        currentBalance = (isOverdraft ? -currentBalance : currentBalance) + amount;
-        isOverdraft = currentBalance < 0;
-        currentBalance = Math.abs(currentBalance);
-      } else {
-        // Default to debit (most transactions are debits)
-        debit = amount.toFixed(2);
-        currentBalance = (isOverdraft ? -currentBalance : currentBalance) - amount;
-        isOverdraft = currentBalance < 0;
-        currentBalance = Math.abs(currentBalance);
-      }
     } else {
-      // No balance context at all - use keyword matching
+      // If newBalance is not available, use keyword matching (or just assume debit if no keywords)
+      // This part of the logic is kept as per user's instruction to keep debit/credit allocation intact
       const descLower = description.toLowerCase();
-      const isCredit = keywords.credit.some(keyword => 
+      const isCreditByKeyword = defaultKeywords.credit.some(keyword =>
         descLower.includes(keyword.toLowerCase())
       );
-      
-      if (isCredit) {
+
+      if (isCreditByKeyword) {
         credit = amount.toFixed(2);
+        if (currentBalance !== null) { // Update estimated balance if possible
+          currentBalance = currentBalance + amount;
+          isOverdraft = currentBalance < 0;
+        }
       } else {
         debit = amount.toFixed(2);
+        if (currentBalance !== null) { // Update estimated balance if possible
+          currentBalance = currentBalance - amount;
+          isOverdraft = currentBalance < 0;
+        }
       }
     }
 
-    // Add the row
+    // Add the row to the table
     rows.push([
-      formatDate(date, yearInput),
-      description.trim(),
+      formatDate(dateStr, yearInput),
+      description,
       debit,
       credit,
-      currentBalance !== null ? formatBalance(currentBalance, isOverdraft) : ''
+      newBalance !== null ? formatBalance(newBalance, willBeOverdraft) : '' // Use empty string if no balance
     ]);
   };
 
+  // Iterate through lines to build transaction buffers
   lines.forEach(line => {
-    if (transactionRegex.test(line) || balanceForwardRegex.test(line)) {
+    // If the line matches the start of a new transaction or a balance forward, flush the buffer
+    if (transactionLinePattern.test(line) || balanceForwardRegex.test(line)) {
       flushBuffer(); // Process previous transaction
     }
-    buffer.push(line); // Add to current transaction
+    buffer.push(line); // Add current line to buffer
   });
 
-  flushBuffer(); // Process last transaction
+  flushBuffer(); // Process the last transaction in the buffer
 
   // Add rows to the table
   rows.forEach(row => {
@@ -210,28 +219,6 @@ function processData() {
 
   outputDiv.appendChild(table);
   table.dataset.rows = JSON.stringify(rows);
-
-  function formatDate(dateStr, year) {
-    const match = dateStr.match(dateRegex);
-    if (!match) return dateStr;
-    
-    const [, monthAbbr, day] = match;
-    const months = {
-      JAN: 'Jan', FEB: 'Feb', MAR: 'Mar', APR: 'Apr', MAY: 'May', JUN: 'Jun',
-      JUL: 'Jul', AUG: 'Aug', SEP: 'Sep', OCT: 'Oct', NOV: 'Nov', DEC: 'Dec'
-    };
-    
-    const month = months[monthAbbr] || monthAbbr;
-    const dayPadded = day.padStart(2, '0');
-    
-    // Only include year if provided
-    return year ? `${month} ${dayPadded} ${year}` : `${month} ${dayPadded}`;
-  }
-
-  function formatBalance(balance, overdraft) {
-    return overdraft ? `${balance.toFixed(2)}OD` : balance.toFixed(2);
-  }
 }
 
-// Export for use
 window.processData = processData;

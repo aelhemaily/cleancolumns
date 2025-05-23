@@ -12,14 +12,22 @@ function parseLines(text, yearInput) {
     const line = lines[i];
     if (isDateLine(line)) {
       if (!currentTransaction) {
-        currentTransaction = { dates: [line], descriptionParts: [], amount: null };
+        currentTransaction = {
+          dates: [line],
+          descriptionParts: [],
+          amount: null
+        };
       } else if (currentTransaction.dates.length < 2) {
         currentTransaction.dates.push(line);
       } else {
         if (currentTransaction.amount !== null) {
           transactions.push(currentTransaction);
         }
-        currentTransaction = { dates: [line], descriptionParts: [], amount: null };
+        currentTransaction = {
+          dates: [line],
+          descriptionParts: [],
+          amount: null
+        };
       }
     } else if (isAmountLine(line)) {
       if (currentTransaction) {
@@ -72,20 +80,6 @@ function processTriangleCardData() {
   const outputDiv = document.getElementById('output');
   outputDiv.innerHTML = '';
 
-  if (!input) {
-    window.bankUtils.showToast("Please insert bank statement data!", "error");
-    return;
-  }
-
-  const items = parseLines(input, yearInput);
-
-  if (items.length === 0) {
-    window.bankUtils.showToast("No valid transactions found!", "error");
-    return;
-  }
-
-  items.sort((a, b) => a.parsedDate - b.parsedDate);
-
   const headers = ['#', 'Date', 'Description', 'Debit', 'Credit'];
   const table = document.createElement('table');
 
@@ -101,7 +95,10 @@ function processTriangleCardData() {
       button.addEventListener('click', (e) => {
         e.stopPropagation();
         const colIndex = headers.indexOf(header);
-        window.bankUtils.copyColumn(colIndex);
+        // Assuming window.bankUtils.copyColumn is available globally
+        if (window.bankUtils && typeof window.bankUtils.copyColumn === 'function') {
+          window.bankUtils.copyColumn(colIndex);
+        }
       });
       th.insertBefore(button, th.firstChild);
     }
@@ -110,7 +107,17 @@ function processTriangleCardData() {
   });
   table.appendChild(headerRow);
 
-  items.forEach(({ row }, index) => {
+  let items = [];
+  if (input) {
+    items = parseLines(input, yearInput);
+    if (items.length > 0) {
+      items.sort((a, b) => a.parsedDate - b.parsedDate);
+    }
+  }
+
+  items.forEach(({
+    row
+  }, index) => {
     const tr = document.createElement('tr');
     const numberCell = document.createElement('td');
     numberCell.textContent = index + 1;
@@ -136,7 +143,11 @@ function processTriangleCardData() {
   ]));
 
   document.getElementById('toolbar').classList.add('show');
-  window.bankUtils.saveState();
+
+  // Assuming window.bankUtils.saveState is available globally
+  if (window.bankUtils && typeof window.bankUtils.saveState === 'function') {
+    window.bankUtils.saveState();
+  }
 }
 
 function setupDragAndDrop(table) {
@@ -148,7 +159,7 @@ function setupDragAndDrop(table) {
     // Only make draggable if it's not in the header row
     if (cell.parentElement.rowIndex > 0) {
       cell.draggable = true;
-      
+
       cell.addEventListener('dragstart', (e) => {
         draggedCell = e.target;
         setTimeout(() => {
@@ -180,7 +191,7 @@ function setupDragAndDrop(table) {
       cell.addEventListener('drop', (e) => {
         e.preventDefault();
         e.target.classList.remove('drop-target');
-        
+
         if (draggedCell && draggedCell !== e.target) {
           const temp = document.createElement('div');
           temp.innerHTML = e.target.innerHTML;
@@ -188,14 +199,20 @@ function setupDragAndDrop(table) {
           draggedCell.innerHTML = temp.innerHTML;
 
           // Track selected cell (we land on the drop target)
-          lastSelection = {
+          window.bankUtils.lastSelection = { // Use window.bankUtils for consistency
             row: e.target.parentElement.rowIndex,
             col: e.target.cellIndex
           };
 
-          window.bankUtils.selectCell(e.target); // update selection visually
-          window.bankUtils.showToast('Cells swapped', 'success');
-          window.bankUtils.saveState();
+          // Assuming window.bankUtils.selectCell and window.bankUtils.showToast are available globally
+          if (window.bankUtils && typeof window.bankUtils.selectCell === 'function') {
+            window.bankUtils.selectCell(e.target); // update selection visually
+          }
+          // Removed showToast for consistency with bmoAccount.js
+
+          if (window.bankUtils && typeof window.bankUtils.saveState === 'function') {
+            window.bankUtils.saveState();
+          }
         }
       });
     }

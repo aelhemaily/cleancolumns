@@ -64,7 +64,7 @@ function processTangerineData() {
       date = `${dateMatch[1]} ${dateMatch[2]}`;
     }
 
-    // Extract balance (parentheses indicate negative)
+    // Extract balance (parentheses indicate negative) - modified to show as negative number
     const balanceMatch = line.match(/(?:\(([\d,]+\.\d{2})\)|([\d,]+\.\d{2}))$/);
     let balance = '';
     let balanceValue = null;
@@ -74,15 +74,15 @@ function processTangerineData() {
       balanceValue = parseFloat(balance);
     }
 
-    // Extract amount (positive for credits, negative for debits)
-    const amountMatch = line.match(/([\d,]+\.\d{2})(?=\s*\(?[\d,]+\.\d{2}\)?)/);
+    // Extract amount - now more precise to avoid catching description numbers
+    const amountMatch = line.match(/(?:^|\s)([\d,]+\.\d{2})(?=\s*(?:\(?[\d,]+\.\d{2}\)?)?$)/);
     let amount = amountMatch ? amountMatch[1].replace(/,/g, '') : '0.00';
     const amountValue = parseFloat(amount);
 
-    // Get description by removing ONLY the specific amounts we've already extracted
+    // Get description - more precise removal of amount/balance
     let description = line
       .replace(/^\d{1,2}\s+[A-Za-z]{3}(?:\s+\d{4})?/i, '') // Remove date
-      .replace(new RegExp(amountMatch ? amountMatch[0] : '', 'g'), '') // Remove amount
+      .replace(amountMatch ? amountMatch[0] : '', '') // Remove amount
       .replace(balanceMatch ? balanceMatch[0] : '', '') // Remove balance
       .replace(/\s+/g, ' ') // Collapse multiple spaces
       .trim();
@@ -126,11 +126,11 @@ function processTangerineData() {
       }
       balance = lastBalance.toFixed(2);
       if (lastBalance < 0) {
-        balance = `(${Math.abs(lastBalance).toFixed(2)})`;
+        balance = `-${Math.abs(lastBalance).toFixed(2)}`; // Negative sign instead of parentheses
       }
     }
 
-    rows.push([date, description, debit, credit, balance.startsWith('-') ? `(${balance.substring(1)})` : balance]);
+    rows.push([date, description, debit, credit, balance]);
   };
 
   lines.forEach(line => {
