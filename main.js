@@ -11,11 +11,62 @@ document.addEventListener('DOMContentLoaded', async () => {
   const copyTableBtn = document.getElementById('copyTableBtn');
   const outputDiv = document.getElementById('output');
 
+const pdfUploadInput = document.getElementById('pdfUploadInput');
+const pdfProcessingStatus = document.getElementById('pdfProcessingStatus');
+// inputText is assumed to be declared earlier in main.js, so we don't declare it again here.
+
+if (pdfUploadInput) {
+  pdfUploadInput.addEventListener('change', async (event) => {
+    const file = event.target.files[0];
+    if (!file) {
+      return;
+    }
+
+    if (file.type !== 'application/pdf') {
+      pdfProcessingStatus.textContent = 'Please upload a valid PDF file.';
+      pdfProcessingStatus.className = 'status-message error';
+      return;
+    }
+
+    pdfProcessingStatus.textContent = 'Processing PDF... Please wait.';
+    pdfProcessingStatus.className = 'status-message';
+    inputText.value = ''; 
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const pdfBytes = new Uint8Array(e.target.result);
+        
+        const { extractTextFromPdf } = await import('./pdf.js'); 
+        
+        const extractedText = await extractTextFromPdf(pdfBytes);
+        inputText.value = extractedText; 
+        pdfProcessingStatus.textContent = 'PDF processed successfully!';
+        pdfProcessingStatus.className = 'status-message success';
+        
+        if (typeof processData === 'function') { 
+          processData(); 
+        }
+      };
+      reader.readAsArrayBuffer(file);
+
+    } catch (error) {
+      console.error('Error processing PDF:', error);
+      pdfProcessingStatus.textContent = `Error processing PDF: ${error.message}`;
+      pdfProcessingStatus.className = 'status-message error';
+    } finally {
+      event.target.value = ''; 
+    }
+  });
+}
+  
 // Sample statement functionality
 const sampleBtn = document.getElementById('sampleBtn');
 const imageModal = document.getElementById('imageModal');
 const sampleImage = document.getElementById('sampleImage');
 const closeModal = document.querySelector('.close-modal');
+
+
 
 function showSampleStatement() {
   const bankKey = getCombinedKey();
