@@ -81,60 +81,87 @@ function processData() {
     i++; // Skip lines we can't process
   }
 
-  function processRbcTransaction(date, initialDescriptionParts) { // Renamed parameter for clarity
+  function processRbcTransaction(date, initialDescriptionParts) {
     // Start description with the initial parts passed in (which should not contain the date)
     let descriptionParts = [...initialDescriptionParts];
     let amountLineIndex = i;
     let amounts = [];
+    let transactionLines = []; // Store lines that form the transaction description
 
-    // Look ahead to find the amount line
+    // Add the initial description part to transactionLines
+    if (initialDescriptionParts.length > 0 && initialDescriptionParts[0].trim() !== '') {
+        transactionLines.push(initialDescriptionParts[0].trim());
+    }
+
+    // Look ahead to find the amount line and collect description parts
     while (amountLineIndex < lines.length) {
       const currentLine = lines[amountLineIndex];
       const lineAmounts = currentLine.match(/(-?\d{1,3}(?:,\d{3})*\.\d{2})/g) || [];
 
       // If the current line is a balance line, stop collecting description parts for the current transaction
-      // and let the main loop handle the balance line.
       const isCurrentLineBalance = currentLine.toLowerCase().includes('opening balance') ||
                                    currentLine.toLowerCase().includes('balance forward') ||
                                    currentLine.toLowerCase().includes('closing balance');
-      if (isCurrentLineBalance && lineAmounts.length === 0) { // If it's a balance line, and no amounts are found within it to process for *this* transaction.
+      if (isCurrentLineBalance) {
           break;
       }
 
       if (lineAmounts.length > 0) {
         amounts = lineAmounts.map(a => parseFloat(a.replace(/,/g, '')));
 
-        // Check if this line has non-amount text to include in description
+        // Extract non-amount text from the amount line itself
         const nonAmountText = currentLine.replace(/(-?\d{1,3}(?:,\d{3})*\.\d{2})/g, '').trim();
         if (nonAmountText.length > 0) {
-          if (amountLineIndex === i && descriptionParts.length === 1 && descriptionParts[0] === '') {
-            descriptionParts[0] = nonAmountText;
-          } else {
-            descriptionParts.push(nonAmountText);
-          }
+            // Only add if it's not already covered by initialDescriptionParts
+            if (transactionLines.length === 0 || transactionLines[transactionLines.length - 1] !== nonAmountText) {
+                transactionLines.push(nonAmountText);
+            }
         }
-        break;
+        break; // Found the amount line, stop looking for more description parts
       }
 
-      // Only push if it's a continuation line that is not the start of the transaction
+      // If it's a continuation line (not the initial line of the transaction)
+      // and it's not the amount line, add it to description parts.
       if (amountLineIndex > i) {
-        descriptionParts.push(currentLine);
+        transactionLines.push(currentLine.trim());
       }
 
       amountLineIndex++;
     }
 
-    if (amounts.length === 0) return;
+    if (amounts.length === 0) return; // No amounts found for this transaction, skip
 
     const amount = amounts[0];
     const newBalance = amounts.length > 1 ? amounts[1] : null;
-    const fullDescription = descriptionParts.filter(Boolean).join(' ').trim();
+
+    // Filter out empty strings and duplicates, then join to form the full description
+    // Ensure no amounts or dates are re-added to the description
+    let fullDescription = transactionLines
+        .filter(part => part.trim() !== '')
+        .map(part => {
+            // Remove any numbers that look like amounts or dates from the description part
+            // This regex targets numbers potentially with commas and two decimal places, or simple numbers
+            let cleanedPart = part.replace(/(-?\d{1,3}(?:,\d{3})*\.\d{2})|\b\d{1,2}\s[A-Za-z]{3}\b|\b\d+\.\d+\b/g, '').trim();
+            return cleanedPart;
+        })
+        .filter((value, index, self) => self.indexOf(value) === index && value !== '') // Remove duplicates and empty strings
+        .join(' ')
+        .trim();
+
+    // If after cleaning, the description is empty, use the original initialDescriptionParts
+    if (fullDescription === '' && initialDescriptionParts.length > 0) {
+        fullDescription = initialDescriptionParts[0].trim();
+    }
 
     let debit = '', credit = '';
     let allocatedByKeywords = false;
 
-    // 1. Primary Method: Keyword Matching (prioritize full matches)
-    if (window.bankUtils?.keywords) {
+    // 1. Hard Rule: "e-transfer sent" is always a debit
+    if (fullDescription.toLowerCase().includes("e-transfer sent")) {
+      debit = amount.toFixed(2);
+      currentBalance = currentBalance !== null ? currentBalance - amount : null;
+      allocatedByKeywords = true;
+    } else if (window.bankUtils?.keywords) { // 2.  General Keyword Matching
       const lowerCaseDescription = fullDescription.toLowerCase();
       let bestDebitMatch = '';
       let bestCreditMatch = '';
@@ -171,7 +198,7 @@ function processData() {
       }
     }
 
-    // 2. Secondary Method: Balance Tracking if not allocated by keywords
+    // 3. Secondary Method: Balance Tracking if not allocated by keywords
     if (!allocatedByKeywords && currentBalance !== null && newBalance !== null) {
       const balanceChange = newBalance - currentBalance;
 
@@ -191,7 +218,7 @@ function processData() {
       allocatedByKeywords = true; // Mark as allocated to prevent default fallback
     }
 
-    // 3. Third Option: Default to Debit if all fails
+    // 4. Third Option: Default to Debit if all fails
     if (!allocatedByKeywords) {
       debit = amount.toFixed(2);
       currentBalance = currentBalance !== null ? currentBalance - amount : null;
