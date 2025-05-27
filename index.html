@@ -11,7 +11,6 @@
   <!-- For PDF export -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
-
   
 </head>
 <body>
@@ -41,12 +40,6 @@
     <select id="typeSelector"></select>
 
     <input type="text" id="yearInput" placeholder="Enter Year (optional)">
-
-<div class="pdf-upload-section">
-  <label for="pdfUploadInput">Or upload PDF statement:</label>
-  <input type="file" id="pdfUploadInput" accept=".pdf">
-  <div id="pdfProcessingStatus" class="status-message"></div>
-</div>
 
     <div class="sample-btn-container">
       <button id="sampleBtn" class="sample-btn" title="Show sample statement">
@@ -96,6 +89,7 @@
     <div class="menu-item" data-action="copy-col"><i class="fas fa-copy"></i> Copy Column</div>
      <div class="menu-divider"></div>
 <div class="menu-item" data-action="insert-col-left"><i class="fas fa-columns"></i> Insert Column Left</div>
+ <div class="menu-divider"></div>
 <div class="menu-item" data-action="insert-row-below"><i class="fas fa-grip-lines"></i> Insert Row Below</div>
   </div>
 
@@ -120,6 +114,6 @@
 </footer>
 
   
-  <script type="module" src="main.js"></script>
+  <script src="main.js"></script>
 </body>
 </html>

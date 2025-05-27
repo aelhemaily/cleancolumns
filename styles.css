@@ -23,11 +23,42 @@ body {
 /* Typography */
 h2 {
   margin-top: 0;
-  font-size: 24px;
-  color: #1e293b;
-  font-weight: 600;
-  margin-bottom: 20px;
+  font-size: 30px;
+  font-weight: 700;
+  margin-bottom: 26px;
   letter-spacing: -0.01em;
+  font-family: 'Playfair Display', serif; /* Font remains */
+  
+  /* Enhanced 3D Effect - Deeper Chiseled Inset */
+  color: var(--heading-color); /* Main text color */
+  text-shadow: 
+    /* Top-left highlights for the 'carved in' effect */
+    -1px -1px 0px rgba(255,255,255,0.9), 
+    -2px -2px 0px rgba(255,255,255,0.5), 
+    -3px -3px 0px rgba(255,255,255,0.2), 
+    
+    /* Bottom-right shadows for depth and the 'cut out' illusion */
+    1px 1px 0px rgba(0,0,0,0.2), 
+    2px 2px 0px rgba(0,0,0,0.15), 
+    3px 3px 0px rgba(0,0,0,0.1),
+    4px 4px 0px rgba(0,0,0,0.05); /* Further subtle depth */
+
+  transition: all 0.3s ease;
+}
+
+[data-theme="dark"] h2 {
+  color: var(--heading-color); /* Main text color in dark mode */
+  text-shadow: 
+    /* Top-left highlights for the 'carved in' effect in dark mode */
+    -1px -1px 0px rgba(0,0,0,0.9), 
+    -2px -2px 0px rgba(0,0,0,0.5), 
+    -3px -3px 0px rgba(0,0,0,0.2), 
+    
+    /* Bottom-right shadows for depth in dark mode */
+    1px 1px 0px rgba(255,255,255,0.2), 
+    2px 2px 0px rgba(255,255,255,0.15), 
+    3px 3px 0px rgba(255,255,255,0.1),
+    4px 4px 0px rgba(255,255,255,0.05);
 }
 
 label {
@@ -104,7 +135,7 @@ textarea {
   padding: 14px;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
-  resize: vertical;
+  resize: both; /* <--- CHANGED FROM 'vertical' TO 'both' */
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   transition: all 0.2s ease;
   margin-top: 15px;
@@ -146,6 +177,7 @@ button {
   transition: all 0.2s ease;
   vertical-align: middle;
   margin-left: 60px;
+  margin-top: 10px;
 }
 
 #convertBtn:hover {
@@ -328,7 +360,7 @@ tr:hover td {
 
 #error-toast {
   position: fixed;
-  bottom: 30px;
+  bottom: 50px;
   right: 30px;
   background-color: #ca5454; /* Red background */
   color: #ffffff;            /* White text for contrast */
@@ -611,7 +643,7 @@ th {
   box-shadow: 0 2px 10px var(--shadow-color);
   z-index: 1000;
   transition: all 0.3s ease;
-  opacity: 0.7;
+  
     border: 2px solid #475569;
   box-shadow: -2px 2px 0 #15191f;
 }
@@ -666,62 +698,164 @@ body, .container, h2, label, select, input, textarea, th, td {
 }
 
 /* Context Menu Styles */
+
 .context-menu {
   position: absolute;
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  background: var(--container-bg); /* Main menu background */
+  border: 2px solid var(--container-border);
+  border-radius: 0px;
+  box-shadow: -4px 4px 0px var(--shadow-color),
+              -8px 8px 10px rgba(0, 0, 0, 0.1);
   z-index: 1000;
   display: none;
   min-width: 180px;
-  padding: 6px 0;
+  padding: 0; /* crucial for full-width hover of menu-items */
+  overflow: hidden; /* Ensures inner box-shadows are contained */
   font-size: 14px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  transition: all 0.2s ease;
+}
+
+.context-menu.show {
+  transform: translate(-1px, 1px);
 }
 
 .menu-item {
-  padding: 8px 16px;
+  width: 100%; /* crucial for full-width hover */
+  box-sizing: border-box; /* crucial for full-width hover */
+  padding: 8px 16px; /* Apply padding here for each item */
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #334155;
-  transition: all 0.2s;
+  color: var(--text-color);
+  transition: all 0.15s ease; /* Transition for transform, background-color, box-shadow */
+  text-shadow: 0.5px 0.5px 0.5px rgba(255,255,255,0.1), 
+               -0.5px -0.5px 0.5px rgba(0,0,0,0.05);
+  position: relative; /* Needed for pseudo-element outline */
+  z-index: 0; /* Ensures pseudo-element is behind text and the actual menu-item background */
 }
 
+/* === Zebra Coloring for Menu Items === */
+/* Applied directly to the menu item */
+.menu-item:nth-child(odd) {
+  background-color: var(--context-menu-zebra-odd);
+}
+
+.menu-item:nth-child(even) {
+  background-color: var(--context-menu-zebra-even);
+}
+
+/* Pseudo-element for full-width outline on hover */
+.menu-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 2px solid transparent; /* Default transparent border */
+  box-sizing: border-box;
+  pointer-events: none; /* Allows clicks to pass through */
+  transition: border-color 0.15s ease; /* ONLY transition border-color here */
+  z-index: -1; /* Place behind the actual menu-item content and its background */
+}
+
+/* === Hover Effect: Outline (via ::before) + Background Fill + Press-in (on main element) === */
 .menu-item:hover {
-  background: #f1f5f9;
+  background-color: var(--hover-bg); /* This will override the zebra background */
+  
+  /* Press-in effect */
+  transform: translate(1px, 1px); /* Moves the whole item down and right */
+  box-shadow: inset 1px 1px 2px rgba(0,0,0,0.15), /* Stronger inner shadow for depth */
+              inset -1px -1px 2px rgba(255,255,255,0.05); /* Subtle inner highlight */
 }
 
-.menu-item[data-action^="delete"] {
+.menu-item:hover::before {
+  border-color: var(--select-focus); /* Outline color on hover */
+  /* DO NOT put background-color here, it will block the .menu-item's background-color */
+}
+
+/* Specific styles for delete action on hover */
+.menu-item[data-action^="delete"]:hover {
+  background-color: #fee2e2; /* Specific background for delete on hover */
+  box-shadow: inset 1px 1px 2px rgba(185, 28, 28, 0.2), 
+              inset -1px -1px 2px rgba(255,255,255,0.05);
+}
+
+.menu-item[data-action^="delete"]:hover::before {
+  border-color: #ef4444; /* Specific border color for delete on hover */
+}
+
+
+.menu-divider {
+  height: 2px;
+  background: var(--container-border);
+  box-shadow: 0 0.5px 0 rgba(0,0,0,0.05), 0 -0.5px 0 rgba(255,255,255,0.05);
+  margin: 0; /* Ensures divider is flush with menu items */
+}
+
+.menu-item i {
+  color: var(--label-color);
+  width: 16px;
+  text-align: center;
+  transition: color 0.15s ease;
+}
+
+.menu-item:hover i {
+  color: var(--select-focus);
+}
+
+.menu-item[data-action^="delete"] i {
+  color: #b91c1c;
+}
+
+.menu-item[data-action^="delete"]:hover i {
   color: #ef4444;
 }
 
-.menu-item[data-action^="delete"]:hover {
-  background: #fee2e2;
-}
-
-.menu-divider {
-  height: 1px;
-  background: #e2e8f0;
-  margin: 6px 0;
-}
-
+/* Dark Mode Adjustments */
 [data-theme="dark"] .context-menu {
-  background: #2d2d2d;
-  border-color: #444;
+  background: var(--container-bg);
+  border-color: var(--container-border);
+  box-shadow: -4px 4px 0px var(--shadow-color),
+              -8px 8px 10px rgba(0, 0, 0, 0.25);
+}
+
+/* Dark Mode Zebra Coloring */
+[data-theme="dark"] .menu-item:nth-child(odd) {
+  background-color: var(--context-menu-zebra-odd);
+}
+
+[data-theme="dark"] .menu-item:nth-child(even) {
+  background-color: var(--context-menu-zebra-even);
 }
 
 [data-theme="dark"] .menu-item {
-  color: #e0e0e0;
+  color: var(--text-color);
+  text-shadow: 0.5px 0.5px 0.5px rgba(0,0,0,0.1), 
+               -0.5px -0.5px 0.5px rgba(255,255,255,0.05);
+}
+
+[data-theme="dark"] .menu-item:hover::before {
+  border-color: var(--select-focus);
 }
 
 [data-theme="dark"] .menu-item:hover {
-  background: #3a3a3a;
+  background-color: var(--hover-bg); /* Dark mode hover background */
+  box-shadow: inset 1px 1px 2px rgba(255,255,255,0.15), 
+              inset -1px -1px 2px rgba(0,0,0,0.05);
+}
+
+[data-theme="dark"] .menu-item[data-action^="delete"]:hover {
+  background-color: #fee2e2;
+  box-shadow: inset 1px 1px 2px rgba(255,255,255,0.15), 
+              inset -1px -1px 2px rgba(0,0,0,0.05);
 }
 
 [data-theme="dark"] .menu-divider {
-  background: #444;
+  background: var(--container-border);
+  box-shadow: 0 0.5px 0 rgba(255,255,255,0.05), 0 -0.5px 0 rgba(0,0,0,0.05);
 }
 
 /* Drag and Drop Styles */
@@ -876,7 +1010,7 @@ tr:first-child:hover th::after {
 .toolbar {
   
   position: fixed;
-  bottom: 100px;
+  bottom: 110px;
   left: 0;
   display: flex;
   flex-direction: column; /* vertical layout */
@@ -1287,12 +1421,51 @@ tr:first-child:hover th::after {
 }
 
 /* Makes inputs/textareas resizable with default OS handle */
-input[type="text"], 
+/* Input Boxes - Option 2: Grooved Inset (Even More Bluish Theme Adapted) */
+input[type="text"],
 textarea {
-  resize: both;       /* ← Allows diagonal resizing */
-  overflow: auto;     /* ← Required for resize to work */
-  min-width: 120px;   /* ← Adjust as needed */
-  min-height: 40px;   /* ← Adjust as needed */
+  resize: both;
+  overflow: auto;
+  min-width: 120px;
+  min-height: 40px;
+
+  background-color: var(--container-bg);
+  border: none; /* No explicit border */
+  border-radius: 0px; /* Kept sharp for the grooved look */
+  color: var(--text-color);
+  padding: 8px 12px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  
+  /* Deep inset shadow for a grooved look with more pronounced bluish tint */
+  box-shadow: inset 0 0 10px rgba(50, 80, 120, 0.3), /* Strong inner shadow, more saturated dark blue-gray */
+              inset 0 0 0 1px var(--container-border); /* Subtle inner border, uses theme color */
+  transition: all 0.2s ease;
+}
+
+input[type="text"]:focus,
+textarea:focus {
+  outline: none;
+  /* Adjust shadow to slightly lighten the "groove" on focus and highlight with theme blue */
+  box-shadow: inset 0 0 8px rgba(50, 80, 120, 0.2), /* Slightly lighter dark blue-gray */
+              inset 0 0 0 1px var(--select-focus); /* Highlight with theme's select blue */
+}
+
+/* Dark Mode Adjustments */
+[data-theme="dark"] input[type="text"],
+[data-theme="dark"] textarea {
+  background-color: var(--container-bg);
+  color: var(--text-color);
+  /* Dark mode grooved look with more pronounced light bluish tint */
+  box-shadow: inset 0 0 10px rgba(150, 190, 230, 0.2), /* Strong inner shadow, more saturated light blue-gray */
+              inset 0 0 0 1px var(--container-border); /* Uses theme border */
+}
+
+[data-theme="dark"] input[type="text"]:focus,
+[data-theme="dark"] textarea:focus {
+  /* Adjust dark mode focus shadows */
+  box-shadow: inset 0 0 8px rgba(150, 190, 230, 0.12), /* Slightly lighter light blue-gray */
+              inset 0 0 0 1px var(--select-focus); /* Highlight with theme's select blue */
 }
 
 /* Optional: Slightly smaller year input */
@@ -1439,8 +1612,12 @@ th {
 }
 
 #paymentText, #inputText {
-  margin-left:60px;
-  width: 95%!important;
+  margin-left: 60px;
+  width: 90% !important;
+  height: auto; /* Allow height to be determined by content or min-height */
+  min-height: 300px; /* Optional: set a minimum height */
+  max-height: 80vh; /* Example: allow it to take up to 80% of the viewport height */
+  overflow-y: auto; /* Add a scrollbar if content exceeds max-height */
 }
 
 .header-cell {
@@ -1510,52 +1687,13 @@ body {
   padding-bottom: 20px;
 }
 
-/* Add to styles.css */
 
-.pdf-upload-section {
-  margin-top: 20px;
-  margin-left: 60px; /* Align with other inputs */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--header-border);
+  border-radius: 4px;
 }
 
-.pdf-upload-section label {
-  display: block;
-  margin-bottom: 8px;
-}
-
-#pdfUploadInput {
-  display: block;
-  width: 95%; /* Adjust as needed */
-  padding: 10px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background-color: var(--input-bg);
-  color: var(--text-color);
-  font-size: 1rem;
-  cursor: pointer;
-}
-
-#pdfUploadInput:focus {
-  outline: none;
-  border-color: var(--accent-color);
-  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.5); /* Example blue shadow */
-}
-
-.status-message {
-  margin-top: 10px;
-  font-size: 0.9em;
-  color: var(--secondary-text-color);
-}
-
-.status-message.error {
-  color: #e53e3e; /* Red for errors */
-}
-
-.status-message.success {
-  color: #38a169; /* Green for success */
-}
-
-/* Optional: Ensure existing input styles align, if they weren't already */
-#inputText { /* You might already have this */
-  margin-left:60px;
-  width: 95% !important;
-}

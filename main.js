@@ -11,62 +11,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const copyTableBtn = document.getElementById('copyTableBtn');
   const outputDiv = document.getElementById('output');
 
-const pdfUploadInput = document.getElementById('pdfUploadInput');
-const pdfProcessingStatus = document.getElementById('pdfProcessingStatus');
-// inputText is assumed to be declared earlier in main.js, so we don't declare it again here.
-
-if (pdfUploadInput) {
-  pdfUploadInput.addEventListener('change', async (event) => {
-    const file = event.target.files[0];
-    if (!file) {
-      return;
-    }
-
-    if (file.type !== 'application/pdf') {
-      pdfProcessingStatus.textContent = 'Please upload a valid PDF file.';
-      pdfProcessingStatus.className = 'status-message error';
-      return;
-    }
-
-    pdfProcessingStatus.textContent = 'Processing PDF... Please wait.';
-    pdfProcessingStatus.className = 'status-message';
-    inputText.value = ''; 
-
-    try {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const pdfBytes = new Uint8Array(e.target.result);
-        
-        const { extractTextFromPdf } = await import('./pdf.js'); 
-        
-        const extractedText = await extractTextFromPdf(pdfBytes);
-        inputText.value = extractedText; 
-        pdfProcessingStatus.textContent = 'PDF processed successfully!';
-        pdfProcessingStatus.className = 'status-message success';
-        
-        if (typeof processData === 'function') { 
-          processData(); 
-        }
-      };
-      reader.readAsArrayBuffer(file);
-
-    } catch (error) {
-      console.error('Error processing PDF:', error);
-      pdfProcessingStatus.textContent = `Error processing PDF: ${error.message}`;
-      pdfProcessingStatus.className = 'status-message error';
-    } finally {
-      event.target.value = ''; 
-    }
-  });
-}
-  
 // Sample statement functionality
 const sampleBtn = document.getElementById('sampleBtn');
 const imageModal = document.getElementById('imageModal');
 const sampleImage = document.getElementById('sampleImage');
 const closeModal = document.querySelector('.close-modal');
-
-
 
 function showSampleStatement() {
   const bankKey = getCombinedKey();
@@ -408,11 +357,20 @@ function checkAndRemoveEmptyBalanceColumn() {
     const table = document.querySelector('#output table');
     if (!table) return;
 
-    // Skip the header row by starting from index 1 and skip first column (#)
-    const rows = Array.from(table.querySelectorAll('tr')).slice(1);
-    const content = rows.map(row => 
-        // Skip first cell by using slice(1)
-        Array.from(row.cells).slice(1).map(cell => cell.textContent.trim()).join('\t')
+   const rows = Array.from(table.querySelectorAll('tr')); // Get all rows, including header
+    
+    // Find the index of the "Balance" column in the header row
+    const headerCells = Array.from(rows[0].cells);
+    const balanceColIndex = headerCells.findIndex(cell => cell.textContent.trim().toLowerCase() === 'balance');
+
+    const content = rows.slice(1).map(row => // Start from the second row (skip header)
+        Array.from(row.cells)
+            .filter((cell, index) => {
+                // Ignore the first column (#) and the balance column
+                return index !== 0 && (balanceColIndex === -1 || index !== balanceColIndex);
+            })
+            .map(cell => cell.textContent.trim())
+            .join('\t')
     ).join('\n');
 
     navigator.clipboard.writeText(content).then(() => {
@@ -1097,6 +1055,15 @@ if (action === 'insert-col-left') {
 
   const table = document.querySelector('#output table');
   if (!table || !targetCell) return;
+
+  // *** NEW: Prevent insertion to the left of the '#' column ***
+  // Check if the target cell is the first column (index 0) and its content is '#'
+  if (targetCell.cellIndex === 0 && targetCell.textContent.trim() === '#') {
+    showToast("Cannot insert a column to the left of the '#' column.", "error");
+    contextMenu.style.display = 'none'; // Hide the context menu
+    return; // Stop the function execution
+  }
+  // *** END NEW ***
 
   e.stopPropagation();
   contextMenu.style.display = 'none';
