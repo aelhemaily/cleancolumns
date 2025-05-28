@@ -49,12 +49,10 @@ h2 {
 [data-theme="dark"] h2 {
   color: var(--heading-color); /* Main text color in dark mode */
   text-shadow: 
-    /* Top-left highlights for the 'carved in' effect in dark mode */
     -1px -1px 0px rgba(0,0,0,0.9), 
     -2px -2px 0px rgba(0,0,0,0.5), 
     -3px -3px 0px rgba(0,0,0,0.2), 
     
-    /* Bottom-right shadows for depth in dark mode */
     1px 1px 0px rgba(255,255,255,0.2), 
     2px 2px 0px rgba(255,255,255,0.15), 
     3px 3px 0px rgba(255,255,255,0.1),
@@ -232,7 +230,7 @@ table {
 
 th, td {
   border: 0.1px solid #0c2844;
-  padding: 10px 35px;
+  padding: 10px 25px;
   text-align: center;
   white-space: nowrap;
 }
@@ -444,8 +442,7 @@ th:nth-child(5), td:nth-child(5) {
 }
 
 th:nth-child(6), td:nth-child(6) {
-  width: 5%;
-}*/
+  width: 5%;}*/
 
 .copy-btn {
   background: none;
@@ -462,11 +459,6 @@ th:nth-child(6), td:nth-child(6) {
   justify-content: center;
 }
 
-/* Ensure headers have relative positioning */
-th {
-  position: relative;
-  padding-left: 30px; /* Make room for the button */
-}
 
 .copy-btn:hover {
   box-shadow: -1px 2px 0 #000000;
@@ -1370,7 +1362,7 @@ tr:first-child:hover th::after {
   box-shadow: -2px 2px 0 #cbd5e1;
 }
 
-/* Add this to your styles.css file */
+/* Add this to your styles.css */
 #undoBtn[disabled], 
 #redoBtn[disabled] {
   opacity: 0.6;
@@ -1552,10 +1544,7 @@ th, td {
   background: #60a5fa;
 }
 
-th {
-  position: relative;
-  min-width: 50px; /* Prevent columns from getting too narrow */
-}
+
 
 .resize-handle {
   position: absolute;
@@ -1588,7 +1577,7 @@ th {
 
 th {
   position: relative;
-  min-width: 50px; /* Prevent columns from getting too narrow */
+  min-width: 120px; /* Prevent columns from getting too narrow */
 }
 
 /* Add to styles.css */
@@ -1697,3 +1686,272 @@ body {
   border-radius: 4px;
 }
 
+/* Styles for the mode toggle button */
+#modeToggleBtn .fas {
+  font-size: 16px;
+}
+
+/* Cursor styles for the table */
+#output table.drag-mode {
+  cursor: grab;
+}
+
+#output table.select-mode {
+  cursor: crosshair;
+}
+
+/* Multi-selected cell styling */
+td.multi-selected-cell, th.multi-selected-cell {
+  background-color: #e0f2f7 !important; /* Lighter blue for multi-selection */
+  border: 2px solid #0288d1 !important; /* Darker blue border */
+}
+
+/* Dark mode adjustments for multi-selected cells */
+[data-theme="dark"] td.multi-selected-cell,
+[data-theme="dark"] th.multi-selected-cell {
+  background-color: #01579b !important; /* Darker blue for dark mode */
+  border-color: #4fc3f7 !important; /* Lighter blue border */
+}
+
+/* Multi-select mode styles */
+.multi-select-mode td[draggable="true"] {
+  cursor: cell;
+}
+
+.multi-select-mode td[draggable="true"]:active {
+  cursor: cell;
+}
+
+.range-selected {
+  background-color: var(--hover-bg) !important;
+  outline: 1px solid var(--select-focus);
+}
+
+[data-theme="dark"] .range-selected {
+  background-color: var(--hover-bg) !important;
+  outline: 1px solid var(--select-focus);
+}
+td.selected-cell, th.selected-cell {
+  position: relative;
+  border: 2px solid #3b82f6 !important;
+  outline: none;
+  background-color: #f0f7ff !important;
+  user-select: none; /* Prevents text selection highlight */
+}
+
+[data-theme="dark"] td.selected-cell,
+[data-theme="dark"] th.selected-cell {
+  border-color: #60a5fa !important;
+  background-color: #1e3a8a !important;
+  user-select: none; /* Prevents text selection highlight */
+}
+
+/* Multi-selected cell styling */
+td.multi-selected-cell, th.multi-selected-cell {
+  background-color: #e0f2f7 !important; /* Lighter blue for multi-selection */
+  border: 2px solid #0288d1 !important; /* Darker blue border */
+  user-select: none; /* Prevents text selection highlight */
+}
+
+/* Dark mode adjustments for multi-selected cells */
+[data-theme="dark"] td.multi-selected-cell,
+[data-theme="dark"] th.multi-selected-cell {
+  background-color: #01579b !important; /* Darker blue for dark mode */
+  border-color: #4fc3f7 !important; /* Lighter blue border */
+  user-select: none; /* Prevents text selection highlight */
+}
+
+
+/* Column Menu System (unchanged) */
+.column-menu-arrow,
+.column-menu-btn {
+  position: absolute;
+  margin-left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--header-text);
+  cursor: pointer;
+  font-size: 12px;
+  opacity: 0.7;
+  /* Updated transition for a smoother and more comprehensive animation */
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); /* Softer, more natural transition */
+  padding: 4px;
+  border-radius: 4px;
+  background-color: rgba(0, 0, 0, 0.05); /* Subtle background */
+  border: 1px solid rgba(0, 0, 0, 0.1); /* Subtle border */
+  z-index: 2;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); /* Initial subtle shadow */
+}
+
+.column-menu-arrow:hover,
+.column-menu-btn:hover {
+  background-color: rgba(0, 0, 0, 0.1); /* Slightly darker on hover */
+  opacity: 1; /* Fully opaque on hover */
+  transform: translateY(-50%) scale(1.05); /* Slightly enlarge on hover */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* More pronounced shadow on hover */
+}
+
+.column-menu-arrow:active,
+.column-menu-btn:active {
+  background-color: rgba(0, 0, 0, 0.2); /* Even darker on click */
+  transform: translateY(-50%) scale(0.9); /* More significant shrink on click */
+  border-color: rgba(0, 0, 0, 0.3); /* Darker border on click */
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.3); /* Deeper inner shadow for pressed effect */
+  transition: all 0.1s ease-out; /* Quicker transition for the active press */
+}
+
+
+
+
+/* Main Menu Container */
+.column-menu {
+  --menu-bg: #ffffff;
+  --menu-border: #e2e8f0;
+  --menu-text: #1e293b;
+  --menu-hover: #f8fafc;
+  --input-bg: #ffffff;
+  --input-border: #e2e8f0;
+  --input-text: #1e293b;
+  --button-bg: #3b82f6;
+  --button-text: #ffffff;
+  --button-hover: #2563eb;
+  --divider-color: #e2e8f0;
+  --shadow: 0 4px 12px rgba(0,0,0,0.1);
+
+  position: absolute;
+  background: var(--menu-bg);
+  border: 1px solid var(--menu-border);
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+  min-width: 240px;
+  width: max-content;
+  max-width: 300px;
+  z-index: 1000;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* Menu Items */
+.column-menu .menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--menu-text);
+  transition: background-color 0.15s ease;
+  box-sizing: border-box;
+  width: 100%;
+  background-color: var(--menu-bg);
+}
+
+.column-menu .menu-item:hover {
+  background: var(--menu-hover);
+}
+
+/* DARK MODE OVERRIDES - Dark with Gradient Background */
+[data-theme="dark"] .column-menu,
+[data-theme="dark"] .menu-item-nested .nested-inputs {
+  --menu-bg: #181818; /* Starting dark color for gradient */
+  --menu-border: transparent; /* No border */
+  --menu-text: #e0e0e0;
+  --menu-hover: #212121;
+  --input-bg: #252525;
+  --input-border: #444;
+  --input-text: #f3f4f6;
+  --button-bg: #1e40af;
+  --button-text: #ffffff;
+  --button-hover: #1e3a8a;
+  --divider-color: #333;
+  --shadow: 0 4px 12px rgba(0,0,0,0.6);
+  background: linear-gradient(to bottom, #181818, #101010); /* Subtle dark gradient */
+}
+
+[data-theme="dark"] .column-menu .menu-item {
+  background-color: transparent; /* Inherit gradient or solid background */
+}
+
+[data-theme="dark"] .column-menu .menu-item:hover {
+  background-color: rgba(255, 255, 255, 0.03); /* Very subtle hover on gradient */
+}
+
+[data-theme="dark"] .column-menu .menu-divider {
+  background: var(--divider-color);
+}
+
+/* Rest of your existing CSS (input, button, nested) remains the same */
+.column-menu .menu-divider {
+  height: 1px;
+  background: var(--divider-color);
+  margin: 4px 0;
+}
+
+.menu-item-nested .nested-inputs {
+  display: none;
+  position: absolute;
+  left: 100%;
+  top: 0;
+  background: var(--menu-bg); /* Will inherit the gradient */
+  border: 1px solid var(--menu-border);
+  border-radius: 4px;
+  box-shadow: var(--shadow);
+  padding: 12px;
+  width: 240px;
+  z-index: 1001;
+  box-sizing: border-box;
+}
+
+.menu-item-nested:hover .nested-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.column-menu input,
+.menu-item-nested .nested-inputs input {
+  width: 100% !important;
+  padding: 8px 12px;
+  margin: 0;
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  font-size: 13px;
+  background-color: var(--input-bg);
+  color: var(--input-text);
+  box-sizing: border-box;
+}
+
+.column-menu button,
+.menu-item-nested .nested-inputs button {
+  width: 100% !important;
+  padding: 8px 12px;
+  background: var(--button-bg);
+  color: var(--button-text);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  box-sizing: border-box;
+  margin: 8px 0 0 0;
+  transition: background 0.2s ease;
+}
+
+.column-menu button:hover,
+.menu-item-nested .nested-inputs button:hover {
+  background: var(--button-hover);
+}
+
+[data-theme="dark"] .column-menu-arrow,
+[data-theme="dark"] .column-menu-btn {
+  color: #9e9e9e;
+}
+
+[data-theme="dark"] .column-menu-arrow:hover,
+[data-theme="dark"] .column-menu-btn:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .menu-item-nested .nested-inputs {
+  border: none;
+  background: linear-gradient(to bottom, #181818, #101010); /* Match nested input background */
+}
