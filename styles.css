@@ -1,5 +1,3 @@
-
-
 /* Base styles */
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
@@ -1761,46 +1759,42 @@ td.multi-selected-cell, th.multi-selected-cell {
   user-select: none; /* Prevents text selection highlight */
 }
 
-
-/* Column Menu System (unchanged) */
 .column-menu-arrow,
 .column-menu-btn {
   position: absolute;
-  margin-left: 8px;
-  top: 50%;
-  transform: translateY(-50%);
   color: var(--header-text);
   cursor: pointer;
   font-size: 12px;
   opacity: 0.7;
-  /* Updated transition for a smoother and more comprehensive animation */
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); /* Softer, more natural transition */
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   padding: 4px;
   border-radius: 4px;
-  background-color: rgba(0, 0, 0, 0.05); /* Subtle background */
-  border: 1px solid rgba(0, 0, 0, 0.1); /* Subtle border */
+  background-color: rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   z-index: 2;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); /* Initial subtle shadow */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+
+  /* Move fully bottom right */
+  bottom: 0;
+  right: 0;
 }
 
 .column-menu-arrow:hover,
 .column-menu-btn:hover {
-  background-color: rgba(0, 0, 0, 0.1); /* Slightly darker on hover */
-  opacity: 1; /* Fully opaque on hover */
-  transform: translateY(-50%) scale(1.05); /* Slightly enlarge on hover */
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* More pronounced shadow on hover */
+  background-color: rgba(0, 0, 0, 0.1);
+  opacity: 1;
+  transform: scale(1.05); /* Slightly enlarge on hover, no Y translation */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 .column-menu-arrow:active,
 .column-menu-btn:active {
-  background-color: rgba(0, 0, 0, 0.2); /* Even darker on click */
-  transform: translateY(-50%) scale(0.9); /* More significant shrink on click */
-  border-color: rgba(0, 0, 0, 0.3); /* Darker border on click */
-  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.3); /* Deeper inner shadow for pressed effect */
-  transition: all 0.1s ease-out; /* Quicker transition for the active press */
+  background-color: rgba(0, 0, 0, 0.2);
+  transform: scale(0.9); /* More significant shrink on click, no Y translation */
+  border-color: rgba(0, 0, 0, 0.3);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.3);
+  transition: all 0.1s ease-out;
 }
-
-
 
 
 /* Main Menu Container */
@@ -1808,46 +1802,69 @@ td.multi-selected-cell, th.multi-selected-cell {
   --menu-bg: #ffffff;
   --menu-border: #e2e8f0;
   --menu-text: #1e293b;
-  --menu-hover: #f8fafc;
+  --menu-hover: #eaf0f6; /* Lighter hover for light mode */
   --input-bg: #ffffff;
   --input-border: #e2e8f0;
   --input-text: #1e293b;
   --button-bg: #3b82f6;
   --button-text: #ffffff;
   --button-hover: #2563eb;
-  --divider-color: #e2e8f0;
+  --divider-color: #d1d9e6; /* Slightly darker divider for contrast */
   --shadow: 0 4px 12px rgba(0,0,0,0.1);
 
   position: absolute;
   background: var(--menu-bg);
   border: 1px solid var(--menu-border);
-  border-radius: 6px;
-  box-shadow: var(--shadow);
+  border-radius: 10px; /* Refined rounded corners */
+  box-shadow:
+    var(--shadow),
+    inset 0 0 10px rgba(0,0,0,0.02), /* Subtle inner shadow for recessed feel */
+    inset 0 1px 0 rgba(255,255,255,0.3); /* Top highlight for depth */
   min-width: 240px;
   width: max-content;
   max-width: 300px;
   z-index: 1000;
   overflow: hidden;
   box-sizing: border-box;
+  transform-style: preserve-3d;
+  /* Removed any blur properties */
 }
 
-/* Menu Items */
+/* Menu Items - Wrapped in a flex container for precise gap control */
+/* This assumes your HTML structure can accommodate a wrapper if needed,
+   or if menu items are direct flex children of .column-menu,
+   the gap will work directly on .column-menu if it's set to display: flex and flex-direction: column.
+   If not, border-bottom is the primary mechanism for spacing. */
 .column-menu .menu-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
+  gap: 10px; /* Professional spacing */
+  padding: 12px 20px; /* More padding for a premium feel */
   cursor: pointer;
-  font-size: 13px;
+  font-size: 13.5px; /* Professional font size */
   color: var(--menu-text);
-  transition: background-color 0.15s ease;
+  background-color: var(--menu-bg);
+  transition:
+    background-color 0.2s ease,
+    transform 0.2s cubic-bezier(0.68, -0.55, 0.265, 1.55), /* More bouncy transition */
+    box-shadow 0.2s ease;
   box-sizing: border-box;
   width: 100%;
-  background-color: var(--menu-bg);
+  border-bottom: 1px solid var(--divider-color); /* Stronger separator */
+  position: relative;
+  z-index: 1;
+}
+
+/* Remove bottom border from the last menu item to prevent double borders or extra space */
+.column-menu .menu-item:last-of-type {
+    border-bottom: none;
 }
 
 .column-menu .menu-item:hover {
   background: var(--menu-hover);
+  transform: translateY(-3px) translateZ(8px); /* Pop out effect */
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15); /* Stronger, diffused shadow on hover */
+  z-index: 2;
 }
 
 /* DARK MODE OVERRIDES - Dark with Gradient Background */
@@ -1856,24 +1873,35 @@ td.multi-selected-cell, th.multi-selected-cell {
   --menu-bg: #181818; /* Starting dark color for gradient */
   --menu-border: transparent; /* No border */
   --menu-text: #e0e0e0;
-  --menu-hover: #212121;
+  --menu-hover: #323232; /* Deeper hover for dark mode */
   --input-bg: #252525;
   --input-border: #444;
   --input-text: #f3f4f6;
   --button-bg: #1e40af;
   --button-text: #ffffff;
   --button-hover: #1e3a8a;
-  --divider-color: #333;
+  --divider-color: #404040; /* Lighter divider for dark mode contrast */
   --shadow: 0 4px 12px rgba(0,0,0,0.6);
   background: linear-gradient(to bottom, #181818, #101010); /* Subtle dark gradient */
+  box-shadow:
+    var(--shadow),
+    inset 0 0 10px rgba(255,255,255,0.01), /* Subtle inner shadow for dark recessed feel */
+    inset 0 1px 0 rgba(255,255,255,0.05); /* Top highlight for dark depth */
+  /* Removed any blur properties */
 }
 
 [data-theme="dark"] .column-menu .menu-item {
-  background-color: transparent; /* Inherit gradient or solid background */
+  background-color: transparent; /* Inherit gradient background */
+  border-bottom: 1px solid var(--divider-color); /* Dark mode separator */
+}
+
+[data-theme="dark"] .column-menu .menu-item:last-of-type {
+    border-bottom: none;
 }
 
 [data-theme="dark"] .column-menu .menu-item:hover {
-  background-color: rgba(255, 255, 255, 0.03); /* Very subtle hover on gradient */
+  background-color: rgba(255, 255, 255, 0.1); /* Noticeable hover */
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.9);
 }
 
 [data-theme="dark"] .column-menu .menu-divider {
@@ -1954,4 +1982,122 @@ td.multi-selected-cell, th.multi-selected-cell {
 [data-theme="dark"] .menu-item-nested .nested-inputs {
   border: none;
   background: linear-gradient(to bottom, #181818, #101010); /* Match nested input background */
+}
+
+.replace-confirm,
+.delete-confirm {
+  background-color: #ffffff;
+  color: #475569;
+  font-family: monospace;
+  border: 2px solid #475569;
+  padding: 10px 22px;
+  border-radius: 0px; /* Note: This is an explicit 0px, replicating #convertBtn */
+  box-shadow: -4px 4px 0 #15191f;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  /* Removed positioning, margins, and vertical-align */
+}
+
+.replace-confirm:hover,
+.delete-confirm:hover {
+  box-shadow: -2px 2px 0 #000000;
+  background-color: #f4f4f4;
+  transform: translateY(-1px);
+}
+
+.replace-confirm:active,
+.delete-confirm:active {
+  box-shadow: -1px 1px 0 #000000;
+  transform: translate(-3px, 3px);
+}
+/* Column menu title styles */
+.menu-title {
+  padding: 12px 16px;
+  font-weight: bold;
+  color: var(--header-text);
+  background-color: var(--header-bg);
+  border-bottom: 1px solid var(--header-border);
+  text-align: center;
+  font-size: 14px;
+}
+
+/* Shake animation for input errors */
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-2px);
+  }
+  75% {
+    transform: translateX(2px);
+  }
+}
+
+/* Input error state */
+.input-error {
+  border: 2px solid #ef4444 !important;
+  animation: shake 0.5s;
+}
+
+/* Dark mode adjustments for menu title */
+[data-theme="dark"] .menu-title {
+  color: var(--header-text);
+  background-color: var(--header-bg);
+  border-bottom-color: var(--header-border);
+}
+
+/* Menu item icons */
+.menu-item i {
+  margin-right: 8px;
+  width: 16px;
+  text-align: center;
+}
+
+/* Multi-selection border for the entire range */
+.selection-border {
+  position: absolute;
+  border: 2px solid #3b82f6; /* Blue border */
+  background-color: rgba(59, 130, 246, 0.1); /* Light blue overlay */
+  pointer-events: none; /* Allows clicks to pass through to cells below */
+  z-index: 50; /* Ensure it's above table cells but below context menus */
+  transition: all 0.05s ease-out; /* Smooth transition for resizing/moving */
+  box-sizing: border-box; /* Include padding and border in the element's total width and height */
+}
+
+/* Dark mode adjustment for the selection border */
+[data-theme="dark"] .selection-border {
+  border-color: #60a5fa; /* Lighter blue border */
+  background-color: rgba(96, 165, 250, 0.15); /* Slightly darker blue overlay */
+}
+
+/* Modify existing .selected-cell to only apply to the *active* cell */
+/* This rule ensures that only the actively focused cell has the border,
+   while other cells in the multi-selection range do not have individual borders. */
+td.selected-cell, th.selected-cell {
+  position: relative; /* Needed for z-index */
+  outline: none; /* Remove default outline */
+  user-select: none; /* Prevents text selection highlight */
+  /* Default selected-cell styling - will be overridden by active-multi-select if applicable */
+  border: 2px solid #3b82f6 !important;
+  background-color: #f0f7ff !important;
+}
+
+[data-theme="dark"] td.selected-cell,
+[data-theme="dark"] th.selected-cell {
+  border-color: #60a5fa !important;
+  background-color: #1e3a8a !important;
+}
+
+/* New style for the *active* cell within a multi-selection */
+/* This gives a distinct visual cue to the cell currently being interacted with. */
+td.selected-cell.active-multi-select, th.selected-cell.active-multi-select {
+  border: 2px solid #ff9800 !important; /* A distinct orange color for the active cell */
+  background-color: #fff3e0 !important; /* Lighter orange background */
+}
+
+[data-theme="dark"] td.selected-cell.active-multi-select,
+[data-theme="dark"] th.selected-cell.active-multi-select {
+  border-color: #ffb74d !important; /* Dark mode distinct color */
+  background-color: #e65100 !important; /* Darker orange background */
 }

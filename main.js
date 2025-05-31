@@ -20,9 +20,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   // New variables for multi-select mode
   let isMultiSelectMode = false; // True for multi-select (plus cursor), false for drag/swap (hand cursor)
   let startCell = null; // The cell where a multi-select drag started
-  let selectedCells = []; // Array to store all currently selected cells
+  let selectedCells = []; // Array to store all currently selected data cells (TD elements) in the multi-selection range
   let isDraggingSelection = false; // Flag to indicate if a multi-cell selection drag is active
   let currentHoveredCell = null; // Track cell being hovered over during multi-select drag
+
+  let selectionBorderDiv = null; // NEW: Global variable for the single selection border div
 
   // Get the select mode toggle button
   const selectModeToggle = document.getElementById('selectModeToggle');
@@ -268,6 +270,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       firstontario: ['account'],
       meridian: ['account'],
       triangle: ['card'],
+      nbc: ['card'],
       bmo: ['account', 'card', 'loc'],
       rbc: ['account', 'card', 'loc']
     };
@@ -638,15 +641,84 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // ======== END UNDO/REDO ======== //
 
+  // NEW: Function to update the single selection border div
+  function updateSelectionBorder() {
+    const table = document.querySelector('#output table');
+    // If no table or no data cells are selected, remove the border
+    if (!table || selectedCells.length === 0) {
+        if (selectionBorderDiv) {
+            selectionBorderDiv.remove();
+            selectionBorderDiv = null;
+        }
+        return;
+    }
+
+    // Determine min/max row and column indices from the selected data cells
+    let minRow = Infinity, maxRow = -Infinity;
+    let minCol = Infinity, maxCol = -Infinity;
+
+    selectedCells.forEach(cell => {
+        const row = cell.parentElement.rowIndex;
+        const col = cell.cellIndex;
+        minRow = Math.min(minRow, row);
+        maxRow = Math.max(maxRow, row);
+        minCol = Math.min(minCol, col);
+        maxCol = Math.max(maxCol, col);
+    });
+
+    // Get the top-left cell and bottom-right cell of the selection rectangle
+    const topLeftCell = table.rows[minRow]?.cells[minCol];
+    const bottomRightCell = table.rows[maxRow]?.cells[maxCol];
+
+    if (!topLeftCell || !bottomRightCell) {
+        if (selectionBorderDiv) {
+            selectionBorderDiv.remove();
+            selectionBorderDiv = null;
+        }
+        return;
+    }
+
+    // Calculate positions and dimensions relative to the viewport
+    const topLeftRect = topLeftCell.getBoundingClientRect();
+    const bottomRightRect = bottomRightCell.getBoundingClientRect();
+
+    // Calculate the overall bounding box
+    const borderTop = topLeftRect.top;
+    const borderLeft = topLeftRect.left;
+    const borderRight = bottomRightRect.right;
+    const borderBottom = bottomRightRect.bottom;
+
+    const width = borderRight - borderLeft;
+    const height = borderBottom - borderTop;
+
+    if (!selectionBorderDiv) {
+        selectionBorderDiv = document.createElement('div');
+        selectionBorderDiv.classList.add('selection-border');
+        document.body.appendChild(selectionBorderDiv); // Append to body for fixed positioning
+    }
+
+    selectionBorderDiv.style.display = 'block';
+    selectionBorderDiv.style.top = `${borderTop + window.scrollY}px`;
+    selectionBorderDiv.style.left = `${borderLeft + window.scrollX}px`;
+    selectionBorderDiv.style.width = `${width}px`;
+    selectionBorderDiv.style.height = `${height}px`;
+  }
+
+
   // Function to clear all current selections
   function clearSelection() {
-    // Clear visual selection for all previously selected cells
-    selectedCells.forEach(cell => cell.classList.remove('selected-cell'));
-    selectedCells = []; // Clear the array
+    // Clear visual selection from the active cell
     if (selectedCell) {
       selectedCell.classList.remove('selected-cell');
+      selectedCell.classList.remove('active-multi-select'); // Ensure this is removed
       selectedCell = null;
     }
+    // Remove the multi-selection border
+    if (selectionBorderDiv) {
+      selectionBorderDiv.remove();
+      selectionBorderDiv = null;
+    }
+    selectedCells = []; // Clear the array of selected cells
   }
 
   function setupCellSelection(table) {
@@ -679,31 +751,38 @@ document.addEventListener('DOMContentLoaded', async () => {
           const maxCol = Math.max(startColIndex, endColIndex);
 
           clearSelection(); // Clear existing selection before extending
-
+          
+          // Add all data cells (TD elements) in the range to selectedCells
           for (let r = minRow; r <= maxRow; r++) {
             const row = tableRows[r];
             if (row) {
               for (let c = minCol; c <= maxCol; c++) {
                 const currentCell = row.cells[c];
-                if (currentCell && !selectedCells.includes(currentCell)) {
-                  selectedCells.push(currentCell);
-                  currentCell.classList.add('selected-cell');
+                if (currentCell && currentCell.tagName === 'TD') { // ONLY add TD cells
+                    selectedCells.push(currentCell);
                 }
               }
             }
           }
           selectedCell = cell; // The last clicked cell becomes the active one
-          cell.focus();
+          selectedCell.classList.add('selected-cell'); // Apply active cell highlight
+          selectedCell.classList.add('active-multi-select'); // Apply specific active multi-select highlight
+          selectedCell.focus();
+          updateSelectionBorder(); // Update the overall border
         } else { // Single click in multi-select mode starts a new selection
           clearSelection();
-          selectedCells.push(cell);
-          cell.classList.add('selected-cell');
+          if (cell.tagName === 'TD') { // Only add TD cells to the multi-selection range
+            selectedCells.push(cell);
+          }
           selectedCell = cell;
-          cell.focus();
+          selectedCell.classList.add('selected-cell'); // Apply active cell highlight
+          selectedCell.classList.add('active-multi-select'); // Apply specific active multi-select highlight
+          selectedCell.focus();
+          updateSelectionBorder(); // Update the overall border
         }
       } else { // Original single-select mode
         clearSelection(); // Always clear all selections in single mode
-        selectCell(cell);
+        selectCell(cell); // This function will handle adding 'selected-cell' and clearing selectedCells array
       }
     });
 
@@ -733,7 +812,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!selectedCell.querySelector('input')) {
         switch (e.key) {
           case 'ArrowUp':
-            if (rowIndex > 1) { // Skip header row
+            if (rowIndex > 0) { // Allow navigation to header row
               nextCell = rows[rowIndex - 1].cells[cellIndex];
             }
             break;
@@ -755,16 +834,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (nextCell) {
-          if (e.shiftKey) { // Shift + Arrow key to extend selection
-            if (!selectedCells.includes(nextCell)) {
+          if (e.shiftKey && isMultiSelectMode) { // Shift + Arrow key to extend selection in multi-select mode
+            if (nextCell.tagName === 'TD' && !selectedCells.includes(nextCell)) { // Only add data cells to range
               selectedCells.push(nextCell);
-              nextCell.classList.add('selected-cell');
             }
+            selectedCell.classList.remove('active-multi-select'); // Remove active class from old cell
             selectedCell = nextCell; // Update the active selected cell
-            nextCell.focus();
-          } else { // Just Arrow key to move selection
-            clearSelection(); // Clear all previous selections
-            selectCell(nextCell);
+            selectedCell.classList.add('selected-cell'); // Apply base selected-cell
+            selectedCell.classList.add('active-multi-select'); // Apply specific active multi-select highlight
+            selectedCell.focus();
+            updateSelectionBorder(); // Update the overall border
+          } else { // Just Arrow key to move selection or Shift+Arrow in non-multi-select mode
+            clearSelection(); // Clear all previous selections and the border
+            selectCell(nextCell); // This will re-apply selected-cell and update selectedCells/border
           }
           e.preventDefault();
         }
@@ -795,7 +877,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Click outside to deselect
     document.addEventListener('click', (e) => {
-      if (!e.target.closest('table') && !e.target.closest('.context-menu')) {
+      if (!e.target.closest('table') && !e.target.closest('.context-menu') && !e.target.closest('.selection-border')) {
         clearSelection();
       }
     });
@@ -805,7 +887,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!isMultiSelectMode || e.button !== 0) return; // Only left click in multi-select mode
 
       const cell = e.target.closest('td, th');
-      if (!cell || cell.tagName === 'TH' && cell.cellIndex === 0) return; // Don't select header or # column
+      if (!cell || cell.tagName === 'TH') return; // Don't start drag selection on header cells
 
       isDraggingSelection = true;
       startCell = cell;
@@ -813,10 +895,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!e.shiftKey) {
         clearSelection();
       }
-      selectedCells.push(cell);
-      cell.classList.add('selected-cell');
+      if (cell.tagName === 'TD') { // Only add TD cells to the multi-selection range
+        selectedCells.push(cell);
+      }
       selectedCell = cell; // Set the active selected cell
-      cell.focus();
+      selectedCell.classList.add('selected-cell'); // Apply active cell highlight
+      selectedCell.classList.add('active-multi-select'); // Apply specific active multi-select highlight
+      selectedCell.focus();
+      updateSelectionBorder(); // Update the overall border
     });
 
     table.addEventListener('mousemove', (e) => {
@@ -828,9 +914,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!currentCell || currentCell === currentHoveredCell) return; // Optimization
       currentHoveredCell = currentCell;
 
-      // Clear all selections first, then re-select based on the new range
-      selectedCells.forEach(c => c.classList.remove('selected-cell'));
-      selectedCells = [];
+      selectedCells = []; // Clear the array first (no individual cell classes)
 
       const tableRows = Array.from(table.rows);
       const startRowIndex = startCell.parentElement.rowIndex;
@@ -848,13 +932,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (row) {
           for (let c = minCol; c <= maxCol; c++) {
             const cell = row.cells[c];
-            if (cell && cell.tagName !== 'TH' || (cell.tagName === 'TH' && cell.cellIndex !== 0)) { // Exclude # header
+            if (cell && cell.tagName === 'TD') { // ONLY add TD cells
               selectedCells.push(cell);
-              cell.classList.add('selected-cell'); // Apply class to the cell being added to selection
             }
           }
         }
       }
+      updateSelectionBorder(); // Update the overall border
     });
 
     document.addEventListener('mouseup', () => {
@@ -865,6 +949,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (selectedCells.length > 0) {
           saveState(); // Save state after a multi-selection drag
         }
+        updateSelectionBorder(); // Ensure border is finalized
       }
     });
   }
@@ -954,6 +1039,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         selectedCell.textContent = input.value;
       }
       selectedCell.classList.remove('selected-cell');
+      selectedCell.classList.remove('active-multi-select'); // Ensure this is removed
     }
 
     cell.classList.add('selected-cell');
@@ -1000,28 +1086,37 @@ document.addEventListener('DOMContentLoaded', async () => {
   function selectCell(cell) {
     if (!cell) return;
 
-    // Clear previous single selection, but not multi-selection if active
-    if (selectedCell && !selectedCells.includes(selectedCell)) {
-      selectedCell.classList.remove('selected-cell');
+    // Clear previous active selection
+    if (selectedCell) {
       const input = selectedCell.querySelector('input');
       if (input) {
         selectedCell.textContent = input.value;
       }
-    }
-
-    // Add to selectedCells if not already there (for multi-select mode)
-    if (isMultiSelectMode && !selectedCells.includes(cell)) {
-      selectedCells.push(cell);
-    } else if (!isMultiSelectMode) {
-      // If not multi-select mode, ensure only this cell is selected
-      clearSelection();
-      selectedCells.push(cell);
+      selectedCell.classList.remove('selected-cell');
+      selectedCell.classList.remove('active-multi-select'); // Ensure this is removed
     }
 
     // Set new active selection and apply class
-    cell.classList.add('selected-cell');
     selectedCell = cell;
-    cell.focus(); // This is crucial for keyboard events
+    selectedCell.classList.add('selected-cell'); // Always apply base selected-cell
+    if (isMultiSelectMode) {
+        selectedCell.classList.add('active-multi-select'); // Add specific class for active cell in multi-select
+    }
+    selectedCell.focus(); // This is crucial for keyboard events
+
+    // Update selectedCells array based on mode
+    if (isMultiSelectMode) {
+        // If the active cell is a data cell, add it to the multi-selection range
+        if (cell.tagName === 'TD' && !selectedCells.includes(cell)) {
+            selectedCells.push(cell);
+        }
+    } else {
+        // In single select mode, selectedCells only contains the current active cell
+        // Only add if it's a data cell, otherwise clear selectedCells for headers
+        selectedCells = (cell.tagName === 'TD') ? [cell] : [];
+    }
+    updateSelectionBorder(); // Always update the overall border after selection changes
+
 
     // Handle table scrolling if needed
     const table = cell.closest('table');
@@ -1148,122 +1243,186 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateTableCursor(); // Ensure cursor is set after table creation
   }
 
-  function showColumnMenu(e, columnIndex) {
-    e.stopPropagation();
-    const table = document.querySelector('#output table');
-    if (!table) return;
+ function showColumnMenu(e, columnIndex) {
+  e.stopPropagation();
+  const table = document.querySelector('#output table');
+  if (!table) return;
 
-    // Remove any existing column menus
-    const existingMenu = document.querySelector('.column-menu');
-    if (existingMenu) existingMenu.remove();
+  // Remove any existing column menus
+  const existingMenu = document.querySelector('.column-menu');
+  if (existingMenu) existingMenu.remove();
 
-    // Create the menu
-    const menu = document.createElement('div');
-    menu.className = 'column-menu';
-    menu.style.position = 'absolute';
-    menu.style.left = `${e.clientX}px`;
-    menu.style.top = `${e.clientY}px`;
-    menu.style.zIndex = '1000';
-    menu.style.backgroundColor = 'white';
-    menu.style.border = '1px solid #ccc';
-    menu.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
-    menu.style.padding = '5px 0';
+  // Get column header text for title
+  const columnHeader = table.rows[0].cells[columnIndex]?.textContent.trim() || 'Column';
 
-    // Add sorting options
-    const sortAZ = document.createElement('div');
-    sortAZ.className = 'menu-item';
-    sortAZ.textContent = 'Sort A → Z';
-    sortAZ.onclick = () => sortColumn(columnIndex, 'asc');
-    menu.appendChild(sortAZ);
+  // Check if this is a numeric column
+  const headerText = columnHeader.toLowerCase();
+  const isNumericColumn = ['debit', 'credit', 'balance'].includes(headerText);
 
-    const sortZA = document.createElement('div');
-    sortZA.className = 'menu-item';
-    sortZA.textContent = 'Sort Z → A';
-    sortZA.onclick = () => sortColumn(columnIndex, 'desc');
-    menu.appendChild(sortZA);
+  // Create the menu
+  const menu = document.createElement('div');
+  menu.className = 'column-menu';
 
-    // Add divider
-    const divider = document.createElement('div');
-    divider.className = 'menu-divider';
-    menu.appendChild(divider);
+  // Add title to menu
+  const menuTitle = document.createElement('div');
+  menuTitle.className = 'menu-title';
+  menuTitle.textContent = columnHeader;
+  menu.appendChild(menuTitle);
 
-    // Add replace option
-    const replaceOption = document.createElement('div');
-    replaceOption.className = 'menu-item';
-    replaceOption.innerHTML = `
-      <div style="padding: 5px;">
-        <div>Replace:</div>
-        <input type="text" class="replace-from" placeholder="Find..." style="width: 100%; margin: 3px 0;">
-        <input type="text" class="replace-to" placeholder="Replace with..." style="width: 100%; margin: 3px 0;">
-        <button class="replace-confirm" style="width: 100%; margin: 3px 0;">Replace All</button>
-      </div>
-    `;
-    menu.appendChild(replaceOption);
+  // Add sorting options with appropriate icons
+  const sortAsc = document.createElement('div');
+  sortAsc.className = 'menu-item';
+  sortAsc.innerHTML = isNumericColumn 
+    ? '<i class="fa-solid fa-arrow-down-1-9"></i> Sort 1→9' 
+    : '<i class="fas fa-sort-alpha-down"></i> Sort A→Z';
+  sortAsc.onclick = () => sortColumn(columnIndex, 'asc');
+  menu.appendChild(sortAsc);
 
-    // Add delete all instances option
-    const deleteOption = document.createElement('div');
-    deleteOption.className = 'menu-item';
-    deleteOption.innerHTML = `
-      <div style="padding: 5px;">
-        <div>Delete all:</div>
-        <input type="text" class="delete-text" placeholder="Text to delete..." style="width: 100%; margin: 3px 0;">
-        <button class="delete-confirm" style="width: 100%; margin: 3px 0;">Delete All</button>
-      </div>
-    `;
-    menu.appendChild(deleteOption);
+  const sortDesc = document.createElement('div');
+  sortDesc.className = 'menu-item';
+  sortDesc.innerHTML = isNumericColumn 
+    ? '<i class="fa-solid fa-arrow-up-9-1"></i> Sort 9→1' 
+    : '<i class="fas fa-sort-alpha-down-alt"></i> Sort Z→A';
+  sortDesc.onclick = () => sortColumn(columnIndex, 'desc');
+  menu.appendChild(sortDesc);
 
-    document.body.appendChild(menu);
+  // Rest of your existing menu code (replace, delete sections)...
+  // Add replace option
+  const replaceOption = document.createElement('div');
+  replaceOption.className = 'menu-item replace-section';
+  replaceOption.innerHTML = `
+    <div style="padding: 5px;">
+      <div><i class="fas fa-exchange-alt"></i> Replace:</div>
+      <input type="text" class="replace-from" placeholder="Find..." style="width: 100%; margin: 3px 0;">
+      <input type="text" class="replace-to" placeholder="Replace with..." style="width: 100%; margin: 3px 0;">
+      <button class="replace-confirm" style="width: 100%; margin: 3px 0;">Replace All</button>
+    </div>
+  `;
+  menu.appendChild(replaceOption);
 
-    // Set up event listeners for the replace/delete inputs
-    const replaceConfirm = menu.querySelector('.replace-confirm');
-    const deleteConfirm = menu.querySelector('.delete-confirm');
+  // Add delete all instances option
+  const deleteOption = document.createElement('div');
+  deleteOption.className = 'menu-item delete-section';
+  deleteOption.innerHTML = `
+    <div style="padding: 5px;">
+      <div><i class="fas fa-eraser"></i> Delete all:</div>
+      <input type="text" class="delete-text" placeholder="Text to delete..." style="width: 100%; margin: 3px 0;">
+      <button class="delete-confirm" style="width: 100%; margin: 3px 0;">Delete All</button>
+    </div>
+  `;
+  menu.appendChild(deleteOption);
 
-    replaceConfirm.onclick = () => {
-      const fromText = menu.querySelector('.replace-from').value;
-      const toText = menu.querySelector('.replace-to').value;
-      if (fromText) {
-        replaceInColumn(columnIndex, fromText, toText);
-        menu.remove();
-      }
-    };
+  // Append the menu to the body temporarily to measure its height
+  document.body.appendChild(menu);
 
-    deleteConfirm.onclick = () => {
-      const deleteText = menu.querySelector('.delete-text').value;
-      if (deleteText) {
-        replaceInColumn(columnIndex, deleteText, '');
-        menu.remove();
-      }
-    };
+  // Calculate position - ensure it stays visible
+  const viewportHeight = window.innerHeight;
+  const menuRect = menu.getBoundingClientRect();
+  const menuHeight = menuRect.height;
+  const menuWidth = menuRect.width;
 
-    // Close menu when clicking elsewhere
-    const closeMenu = (e) => {
-      if (!menu.contains(e.target)) {
-        menu.remove();
-        document.removeEventListener('click', closeMenu);
-      }
-    };
-    setTimeout(() => document.addEventListener('click', closeMenu), 0);
+  let topPosition = e.clientY;
+  let leftPosition = e.clientX;
+
+  // Adjust if menu would go below viewport
+  if (topPosition + menuHeight > viewportHeight - 10) {
+    topPosition = viewportHeight - menuHeight - 10;
+  }
+  // Ensure it doesn't go above viewport
+  topPosition = Math.max(10, topPosition);
+
+  // Adjust if menu would go off the right edge of the viewport
+  if (leftPosition + menuWidth > window.innerWidth - 10) {
+    leftPosition = window.innerWidth - menuWidth - 10;
+  }
+  // Ensure it doesn't go off the left edge of the viewport
+  leftPosition = Math.max(10, leftPosition);
+
+  menu.style.position = 'fixed';
+  menu.style.left = `${leftPosition}px`;
+  menu.style.top = `${topPosition}px`;
+  menu.style.zIndex = '1000';
+
+  // Set up event listeners for the replace/delete inputs
+  const replaceConfirm = menu.querySelector('.replace-confirm');
+  const deleteConfirm = menu.querySelector('.delete-confirm');
+  const replaceFrom = menu.querySelector('.replace-from');
+  const replaceTo = menu.querySelector('.replace-to');
+  const deleteText = menu.querySelector('.delete-text');
+
+  function showInputError(input) {
+    input.style.border = '2px solid #ef4444';
+    input.style.animation = 'shake 0.5s';
+    setTimeout(() => {
+      input.style.border = '';
+      input.style.animation = '';
+    }, 500);
   }
 
-  function sortColumn(columnIndex, direction) {
-    const table = document.querySelector('#output table');
-    if (!table || table.rows.length <= 1) return;
+  replaceConfirm.onclick = () => {
+    if (!replaceFrom.value) {
+      showInputError(replaceFrom);
+      return;
+    }
+    replaceInColumn(columnIndex, replaceFrom.value, replaceTo.value);
+    menu.remove();
+  };
 
-    saveState(); // Save before sorting
+  deleteConfirm.onclick = () => {
+    if (!deleteText.value) {
+      showInputError(deleteText);
+      return;
+    }
+    replaceInColumn(columnIndex, deleteText.value, '');
+    menu.remove();
+  };
 
-    // Get all data rows (skip header)
-    const rows = Array.from(table.rows).slice(1);
-    const headerRow = table.rows[0];
+  // Close menu when clicking elsewhere
+  const closeMenu = (e) => {
+    if (!menu.contains(e.target)) {
+      menu.remove();
+      document.removeEventListener('click', closeMenu);
+    }
+  };
+  setTimeout(() => document.addEventListener('click', closeMenu), 0);
+}
 
-    // Extract the column data with row references
-    const columnData = rows.map(row => ({
-      value: row.cells[columnIndex].textContent.trim(),
-      row: row
-    }));
+function sortColumn(columnIndex, direction) {
+  const table = document.querySelector('#output table');
+  if (!table || table.rows.length <= 1) return;
 
-    // Sort the data
-    columnData.sort((a, b) => {
-      // Try to parse as date first
+  saveState(); // Save before sorting
+
+  // Get all data rows (skip header)
+  const rows = Array.from(table.rows).slice(1);
+  const headerRow = table.rows[0];
+  
+  // Check if this is a numeric column (debit, credit, or balance)
+  const headerText = headerRow.cells[columnIndex]?.textContent.trim().toLowerCase();
+  const isNumericColumn = ['debit', 'credit', 'balance'].includes(headerText);
+
+  // Extract the column data with row references
+  const columnData = rows.map(row => ({
+    value: row.cells[columnIndex].textContent.trim(),
+    isNumeric: isNumericColumn && !isNaN(parseFloat(row.cells[columnIndex].textContent.replace(/[^0-9.-]/g, ''))),
+    isEmpty: row.cells[columnIndex].textContent.trim() === '',
+    row: row
+  }));
+
+  // Separate empty cells and non-empty cells
+  const emptyCells = columnData.filter(item => item.isEmpty);
+  const nonEmptyCells = columnData.filter(item => !item.isEmpty);
+
+  // Sort the non-empty data
+  nonEmptyCells.sort((a, b) => {
+    if (isNumericColumn) {
+      // For numeric columns, parse as numbers
+      const numA = parseFloat(a.value.replace(/[^0-9.-]/g, '')) || 0;
+      const numB = parseFloat(b.value.replace(/[^0-9.-]/g, '')) || 0;
+      
+      return direction === 'asc' ? numA - numB : numB - numA;
+    } else {
+      // For other columns, try date first, then string
       const dateA = parseDate(a.value);
       const dateB = parseDate(b.value);
       
@@ -1275,27 +1434,46 @@ document.addEventListener('DOMContentLoaded', async () => {
       return direction === 'asc' 
         ? a.value.localeCompare(b.value) 
         : b.value.localeCompare(a.value);
-    });
-
-    // Rebuild the table with sorted rows
-    const tbody = table.querySelector('tbody') || table;
-    while (tbody.rows.length > 1) {
-      tbody.deleteRow(1);
     }
+  });
 
-    columnData.forEach(item => {
-      tbody.appendChild(item.row);
-    });
-
-    // Update the numbered column if it exists
-    if (table.rows[0].cells[0].textContent === '#') {
-      for (let i = 1; i < table.rows.length; i++) {
-        table.rows[i].cells[0].textContent = i;
-      }
+  // Recombine the sorted non-empty cells with empty cells in their original positions
+  const sortedData = [];
+  let emptyIndex = 0;
+  let nonEmptyIndex = 0;
+  
+  for (let i = 0; i < columnData.length; i++) {
+    if (columnData[i].isEmpty) {
+      sortedData.push(emptyCells[emptyIndex++]);
+    } else {
+      sortedData.push(nonEmptyCells[nonEmptyIndex++]);
     }
+  }
 
+  // Rebuild the table with sorted rows
+  const tbody = table.querySelector('tbody') || table;
+  while (tbody.rows.length > 1) {
+    tbody.deleteRow(1);
+  }
+
+  sortedData.forEach(item => {
+    tbody.appendChild(item.row);
+  });
+
+  // Update the numbered column if it exists
+  if (table.rows[0].cells[0].textContent === '#') {
+    for (let i = 1; i < table.rows.length; i++) {
+      table.rows[i].cells[0].textContent = i;
+    }
+  }
+
+  // Show appropriate message based on column type
+  if (isNumericColumn) {
+    showToast(`Column sorted ${direction === 'asc' ? '1→9' : '9→1'}`, 'success');
+  } else {
     showToast(`Column sorted ${direction === 'asc' ? 'A→Z' : 'Z→A'}`, 'success');
   }
+}
 
   function parseDate(str) {
     // Try to parse common date formats
@@ -1681,7 +1859,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         redo();
         e.preventDefault();
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (selectedCells.length > 0) { // Check if any cells are selected
+        if (selectedCells.length > 0) { // Check if any data cells are selected in the range
           saveState(); // Save before clearing
           selectedCells.forEach(cell => {
             if (cell.tagName === 'TD') { // Only clear content of data cells
@@ -1690,7 +1868,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           });
           showToast('Selected cells cleared', 'success');
           e.preventDefault(); // Prevent default browser back/forward for backspace
-        } else if (selectedCell && selectedCell.tagName === 'TD') { // Fallback for single selected cell
+        } else if (selectedCell && selectedCell.tagName === 'TD') { // Fallback for single selected data cell
           saveState(); // Save before clearing
           selectedCell.textContent = '';
           showToast('Cell cleared', 'success');
