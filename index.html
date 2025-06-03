@@ -6,49 +6,81 @@
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="stylesheet" href="styles.css">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.12.313/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.12.313/pdf.worker.min.js"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
-  
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
 </head>
 <body>
   <div id="dragGhost" class="drag-ghost"></div>
   <h2>Clean Columns</h2>
 
-  <div class="top-controls">
-    <label for="bankSelector">Select Bank:</label>
-    <select id="bankSelector">
-      <optgroup label="Big 5">
-        <option value="bmo">BMO</option>
-        <option value="cibc">CIBC</option>
-        <option value="rbc">RBC</option>
-        <option value="scotia">Scotia</option>
-        <option value="td">TD</option>
-      </optgroup>
-      <optgroup label="Others">
-        <option value="cdt">CDT</option>
-        <option value="firstontario">First Ontario</option>
-        <option value="meridian">Meridian</option>
-        <option value="nbc">NBC</option>
-        <option value="tangerine">Tangerine</option>
-        <option value="triangle">Triangle</option>
-      </optgroup>
-    </select>
+ <div class="top-controls">
+  <label for="bankSelector">Select Bank:</label>
+  <select id="bankSelector">
+    <optgroup label="Big 5">
+      <option value="bmo">BMO</option>
+      <option value="cibc">CIBC</option>
+      <option value="rbc">RBC</option>
+      <option value="scotia">Scotia</option>
+      <option value="td">TD</option>
+    </optgroup>
+    <optgroup label="Others">
+      <option value="cdt">CDT</option>
+      <option value="eq">EQ</option>
+      <option value="firstontario">First Ontario</option>
+      <option value="meridian">Meridian</option>
+      <option value="nbc">NBC</option>
+      <option value="simplii">Simplii</option>
+      <option value="tangerine">Tangerine</option>
+      <option value="triangle">Triangle</option>
+    </optgroup>
+  </select>
 
-    <label for="typeSelector">Select Type:</label>
-    <select id="typeSelector"></select>
+  <label for="typeSelector">Select Type:</label>
+  <select id="typeSelector"></select>
 
-    <input type="text" id="yearInput" placeholder="Enter Year (optional)">
+  <input type="text" id="yearInput" placeholder="Enter Year (optional)">
 
-    <div class="sample-btn-container">
-      <button id="sampleBtn" class="sample-btn" title="Show sample statement">
-        <i class="fas fa-image"></i>
-        <span class="sample-text">Sample</span>
-      </button>
+  
+<!-- Add this right after the textarea element -->
+<div class="file-upload-container">
+  <div class="file-upload-controls">
+    <label for="pdfUpload" class="pdf-upload-btn">
+      <i class="fas fa-file-pdf"></i> Upload PDF
+    </label>
+    <input type="file" id="pdfUpload" accept=".pdf" multiple style="display: none;">
+    <div id="dropArea" class="drop-area">
+      <i class="fas fa-cloud-upload-alt"></i>
+      <p>Drag & Drop PDF files here</p>
     </div>
   </div>
+</div>
+
+
+
+  <div class="sample-btn-container">
+    <button id="sampleBtn" class="sample-btn" title="Show sample statement">
+      <i class="fas fa-image"></i>
+      <span class="sample-text">Sample</span>
+    </button>
+  </div>
+</div>
+
+<div id="fileListContainer" style="display: none;">
+  <div class="file-list-header">
+    <span>Uploaded Files</span>
+    <button id="clearAllFiles" class="file-item-btn" title="Clear all files">
+      <i class="fas fa-trash"></i>
+    </button>
+  </div>
+  <div id="fileList" class="file-list"></div>
+</div>
 
   <textarea id="inputText" placeholder="Paste your bank statement here..."></textarea>
+
 
   <div class="form-row">
     <button id="convertBtn">Convert</button>

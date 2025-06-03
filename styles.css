@@ -2101,3 +2101,552 @@ td.selected-cell.active-multi-select, th.selected-cell.active-multi-select {
   border-color: #ffb74d !important; /* Dark mode distinct color */
   background-color: #e65100 !important; /* Darker orange background */
 }
+
+
+/* Replace these styles in styles.css */
+/* Modify the active multi-select cell styling */
+td.selected-cell.active-multi-select, 
+th.selected-cell.active-multi-select {
+  border: 2px solid #3b82f6 !important; /* Same as regular selection */
+  background-color: #f0f7ff !important;
+  z-index: 1; /* Ensure it's above the selection border */
+}
+
+[data-theme="dark"] td.selected-cell.active-multi-select,
+[data-theme="dark"] th.selected-cell.active-multi-select {
+  border-color: #60a5fa !important;
+  background-color: #1e3a8a !important;
+}
+
+/* Add this new rule for editing state */
+td.selected-cell.editing, 
+th.selected-cell.editing {
+  border: 2px solid #3b82f6 !important;
+  background-color: white !important;
+  z-index: 2;
+}
+
+[data-theme="dark"] td.selected-cell.editing,
+[data-theme="dark"] th.selected-cell.editing {
+  background-color: #2d2d2d !important;
+}
+
+/* PDF Upload Button Styles */
+.file-upload-container {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 10px;
+}
+
+.pdf-upload-btn {
+  background-color: #ffffff;
+  color: #475569;
+  font-family: monospace;
+  border: 2px solid #475569;
+  padding: 10px 14px;
+  border-radius: 0px;
+  box-shadow: -4px 4px 0 #15191f;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+}
+
+.pdf-upload-btn:hover {
+  box-shadow: -2px 2px 0 #000000;
+  background-color: #f4f4f4;
+  transform: translateY(-1px);
+}
+
+.pdf-upload-btn:active {
+  box-shadow: -1px 1px 0 #000000;
+  transform: translate(-3px, 3px);
+}
+
+/* File List Container */
+.file-list-container {
+  margin: 15px 0;
+  border: 2px solid #475569;
+  box-shadow: -4px 4px 0 #15191f;
+  padding: 10px;
+  background: white;
+}
+
+.file-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  font-weight: bold;
+  font-family: monospace;
+}
+
+.file-list {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  margin: 5px 0;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.file-item-name {
+  flex: 1;
+  font-family: monospace;
+  font-size: 14px;
+}
+
+.file-item-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.file-item-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e2e8f0;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.file-item-btn:hover {
+  background: #cbd5e1;
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] .pdf-upload-btn {
+  background-color: #1a1a1a;
+  color: #ffffff;
+  border: 2px solid #3a3a3a;
+  box-shadow: -4px 4px 0 #000000;
+}
+
+[data-theme="dark"] .pdf-upload-btn:hover {
+  background-color: #2d2d2d;
+}
+
+[data-theme="dark"] .file-list-container {
+  background: #2d2d2d;
+  border-color: #3a3a3a;
+  box-shadow: -4px 4px 0 #000000;
+}
+
+[data-theme="dark"] .file-item {
+  background: #3a3a3a;
+  border-color: #444;
+}
+
+[data-theme="dark"] .file-item-btn {
+  background: #444;
+}
+
+[data-theme="dark"] .file-item-btn:hover {
+  background: #555;
+}
+
+/* Replace drag-over styles with these */
+.drag-over {
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.file-item:hover {
+  background-color: #e3f2fd !important;
+  cursor: move;
+}
+
+.file-item.dragging {
+  opacity: 0.5;
+  background-color: #bbdefb !important;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.file-list-container {
+  max-height: none !important;
+  min-height: 100px;
+  flex-grow: 1;
+}
+
+.file-list {
+  max-height: calc(100vh - 400px);
+  overflow-y: auto;
+  min-height: 60px;
+}
+
+
+
+#fileListContainer {
+  flex-grow: 1;
+  margin-bottom: 20px;
+  margin-left:7vh;
+  max-width: 181vh;
+  margin-left:7vh!important;
+  margin: auto;
+}
+
+
+
+.file-list-container {
+  margin: 15px 0;
+  border: 2px solid #475569;
+  box-shadow: -4px 4px 0 #15191f;
+  padding: 10px;
+  background: white;
+  min-height: 100px; /* prevent it from collapsing */
+  display: flex;
+  flex-direction: column;
+}
+
+
+
+.file-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid #ccc;
+  padding: 8px 12px;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin: 4px 0;
+  box-sizing: border-box;
+}
+
+#inputText.drag-over {
+    border: 2px dashed #3b82f6!important; /* Blue dashed border */
+    background-color: #eff6ff!important; /* Light blue background */
+}
+
+#fileListContainer.drag-over {
+    border: 2px dashed #3b82f6; /* Blue dashed border */
+}
+
+/* Override specific styles for the file list container during drag-over */
+#fileListContainer.drag-over {
+    border: 2px dashed #3b82f6; /* Blue dashed border */
+    background-color: #eff6ff; /* Light blue background */
+}
+
+/* General drag-over styles (for inputText) */
+.drag-over {
+    border: 2px dashed #3b82f6!important; /* Blue dashed border */
+    background-color: #eff6ff; /* Light blue background */
+}
+
+/* Replace the drag-over styles with these: */
+#fileListContainer.drag-over {
+  border: 2px dashed #3b82f6;
+  background-color: #eff6ff;
+}
+
+/* Make sure file items don't trigger the drag-over effect */
+.file-item.drag-over {
+  border: none !important;
+  background-color: inherit !important;
+}
+
+/* Style for when dragging files (not reordering) */
+.file-list-container.drag-over-files {
+  border: 2px dashed #3b82f6 !important;
+  background-color: #eff6ff !important;
+}
+#fileListContainer.drag-over {
+    border: 2px dashed #3b82f6; /* Blue dashed border */
+    background-color: #eff6ff; /* Light blue background */
+}
+
+/* Add these styles to styles.css */
+
+/* File item hover styles - only apply when not dragging files */
+.file-list-container:not(.drag-over-files) .file-item:hover {
+  background-color: #e3f2fd !important;
+  cursor: move;
+}
+
+/* Make sure file items don't interfere with drag-over */
+.file-list-container.drag-over-files .file-item {
+  pointer-events: none;
+}
+
+/* But keep buttons interactive */
+.file-item-actions * {
+  pointer-events: auto;
+}
+
+/* Drag over styles for file list container */
+.file-list-container.drag-over-files {
+  border: 2px dashed #3b82f6 !important;
+  background-color: #eff6ff !important;
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] .file-list-container.drag-over-files {
+  border-color: #60a5fa !important;
+  background-color: #1e3a8a33 !important;
+}
+.status-message {
+  padding: 8px 12px;
+  margin: 8px 0;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.status-message.success {
+  background-color: #d1fae5;
+  color: #065f46;
+  border: 1px solid #34d399;
+}
+
+.status-message.error {
+  background-color: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #f87171;
+}
+
+.status-message {
+  margin: 10px 0;
+  padding: 8px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.status-message.success {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.status-message.error {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+/* PDF Upload Area Styles */
+.file-upload-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 15px 0;
+}
+
+.file-upload-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.drop-area {
+  flex-grow: 1;
+  border: 2px dashed #475569;
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background-color: rgba(255, 255, 255, 0.5);
+  box-shadow: -2px 2px 0 #15191f;
+}
+
+.drop-area:hover {
+  background-color: rgba(255, 255, 255, 0.8);
+}
+
+.drop-area.highlight {
+  border-color: #3b82f6;
+  background-color: #eff6ff;
+}
+
+.drop-area i {
+  font-size: 24px;
+  margin-bottom: 8px;
+  color: #475569;
+}
+
+.drop-area p {
+  margin: 0;
+  color: #475569;
+}
+
+[data-theme="dark"] .drop-area {
+  background-color: rgba(30, 30, 30, 0.5);
+  border-color: #3a3a3a;
+}
+
+[data-theme="dark"] .drop-area:hover {
+  background-color: rgba(30, 30, 30, 0.8);
+}
+
+[data-theme="dark"] .drop-area.highlight {
+  border-color: #60a5fa;
+  background-color: rgba(30, 58, 138, 0.3);
+}
+
+[data-theme="dark"] .drop-area i,
+[data-theme="dark"] .drop-area p {
+  color: #e0e0e0;
+}
+/* New styles for file list container and items */
+#fileListContainer {
+  margin: 15px 0; /* Adjust margin to position it below the upload area */
+  border: 2px solid #475569;
+  box-shadow: -4px 4px 0 #15191f;
+  padding: 10px;
+  background: white;
+  min-height: 100px; /* prevent it from collapsing */
+  display: none; /* Hidden by default until files are uploaded */
+  flex-direction: column;
+  box-sizing: border-box; /* Include padding and border in the element's total width and height */
+}
+
+[data-theme="dark"] #fileListContainer {
+  background: #2d2d2d;
+  border-color: #3a3a3a;
+  box-shadow: -4px 4px 0 #000000;
+}
+
+.file-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  font-weight: bold;
+  font-family: monospace;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+[data-theme="dark"] .file-list-header {
+  border-bottom-color: #444;
+}
+
+.file-list {
+  max-height: 200px; /* Limit height and add scrollbar */
+  overflow-y: auto;
+  min-height: 60px;
+  flex-grow: 1; /* Allow it to grow within the container */
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background-color: #f9f9f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  margin: 4px 0;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+}
+
+[data-theme="dark"] .file-item {
+  background: #3a3a3a;
+  border-color: #444;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.file-item:hover {
+  background-color: #e3f2fd;
+  cursor: grab;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="dark"] .file-item:hover {
+  background-color: #4a4a4a;
+}
+
+.file-item.dragging {
+  opacity: 0.7;
+  background-color: #bbdefb;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="dark"] .file-item.dragging {
+  background-color: #2a2a2a;
+}
+
+.file-item-name {
+  flex: 1;
+  font-family: monospace;
+  font-size: 14px;
+  color: #334155;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-right: 10px;
+}
+
+[data-theme="dark"] .file-item-name {
+  color: #e0e0e0;
+}
+
+.file-item-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.file-item-btn {
+  width: 28px; /* Slightly larger for better touch target */
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e2e8f0;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #475569;
+  font-size: 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="dark"] .file-item-btn {
+  background: #444;
+  border-color: #555;
+  color: #e0e0e0;
+}
+
+.file-item-btn:hover {
+  background: #cbd5e1;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="dark"] .file-item-btn:hover {
+  background: #555;
+}
+
+/* Specific styles for up/down arrows and refresh button */
+#refreshFileList {
+  background-color: #d1fae5; /* Light green */
+  border-color: #34d399; /* Green border */
+  color: #065f46; /* Dark green text */
+}
+
+#refreshFileList:hover {
+  background-color: #a7f3d0; /* Lighter green on hover */
+}
+
+[data-theme="dark"] #refreshFileList {
+  background-color: #1a4d3a;
+  border-color: #27775e;
+  color: #a7f3d0;
+}
+
+[data-theme="dark"] #refreshFileList:hover {
+  background-color: #205c4b;
+}

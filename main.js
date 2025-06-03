@@ -12,9 +12,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   const convertBtn = document.getElementById('convertBtn');
   const copyTableBtn = document.getElementById('copyTableBtn');
   const outputDiv = document.getElementById('output');
-
-  const pdfUploadInput = document.getElementById('pdfUploadInput');
-  const pdfProcessingStatus = document.getElementById('pdfProcessingStatus');
+const pdfUpload = document.getElementById('pdfUpload');
+const dropArea = document.getElementById('dropArea');
+const fileList = document.getElementById('fileList');
+const clearAllFiles = document.getElementById('clearAllFiles');
+const fileListContainer = document.getElementById('fileListContainer');
+const refreshFileListBtn = document.getElementById('refreshFileList');
+let uploadedFilesData = []; // Store file objects and their processed text
+  
   const inputText = document.getElementById('inputText'); // Ensure inputText is declared here
 
   // New variables for multi-select mode
@@ -29,57 +34,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Get the select mode toggle button
   const selectModeToggle = document.getElementById('selectModeToggle');
 
-  if (pdfUploadInput) {
-    pdfUploadInput.addEventListener('change', async (event) => {
-      const file = event.target.files[0];
-      if (!file) {
-        return;
-      }
-
-      if (file.type !== 'application/pdf') {
-        pdfProcessingStatus.textContent = 'Please upload a valid PDF file.';
-        pdfProcessingStatus.className = 'status-message error';
-        return;
-      }
-
-      pdfProcessingStatus.textContent = 'Processing PDF... Please wait.';
-      pdfProcessingStatus.className = 'status-message';
-      inputText.value = '';
-
-      try {
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-          const pdfBytes = new Uint8Array(e.target.result);
-
-          const { extractTextFromPdf } = await import('./pdf.js');
-
-          const extractedText = await extractTextFromPdf(pdfBytes);
-          inputText.value = extractedText;
-          pdfProcessingStatus.textContent = 'PDF processed successfully!';
-          pdfProcessingStatus.className = 'status-message success';
-
-          if (typeof processData === 'function') {
-            processData();
-          }
-        };
-        reader.readAsArrayBuffer(file);
-
-      } catch (error) {
-        console.error('Error processing PDF:', error);
-        pdfProcessingStatus.textContent = `Error processing PDF: ${error.message}`;
-        pdfProcessingStatus.className = 'status-message error';
-      } finally {
-        event.target.value = '';
-      }
-    });
-  }
-
   // Sample statement functionality
   const sampleBtn = document.getElementById('sampleBtn');
   const imageModal = document.getElementById('imageModal');
   const sampleImage = document.getElementById('sampleImage');
   const closeModal = document.querySelector('.close-modal');
 
+
+
+  
   function showSampleStatement() {
     const bankKey = getCombinedKey();
     sampleImage.src = `images/${bankKey}.png`;
@@ -269,6 +232,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       td: ['account', 'card', 'inPerson'],
       firstontario: ['account'],
       meridian: ['account'],
+      eq: ['card'],
       triangle: ['card'],
       nbc: ['card'],
       bmo: ['account', 'card', 'loc'],
@@ -353,24 +317,256 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   typeSelector.addEventListener('change', updateURLAndReload);
 
-  convertBtn.addEventListener('click', () => {
-    const input = inputText.value.trim();
-    if (!input) {
-      showToast("Please insert bank statement data!", "error");
-      return;
+ convertBtn.addEventListener('click', async () => {
+  const input = inputText.value.trim();
+  if (!input && uploadedFilesData.length === 0) {  // Changed from fileList.children.length to uploadedFilesData.length
+    showToast("Please insert bank statement data or upload PDF files!", "error");
+    return;
+  }
+
+  if (typeof processData === 'function') {
+    try {
+      // Show loading state
+      convertBtn.disabled = true;
+      convertBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+      
+      await processData();
+      
+      document.getElementById('toolbar').classList.add('show');
+      createCopyColumnButtons();
+      checkAndRemoveEmptyBalanceColumn();
+      saveState();
+      updateTableCursor();
+      
+      // Hide file list container if no files are uploaded
+      if (uploadedFilesData.length === 0) {
+        fileListContainer.style.display = 'none';
+      }
+    } catch (error) {
+      console.error('Error during processing:', error);
+      showToast("Error processing data", "error");
+    } finally {
+      convertBtn.disabled = false;
+      convertBtn.textContent = 'Convert';
+    }
+  } else {
+    console.warn('Parsing script not yet loaded.');
+  }
+});
+
+function setupFileUpload() {
+  // Prevent default drag behaviors
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    dropArea.addEventListener(eventName, preventDefaults, false);
+    document.body.addEventListener(eventName, preventDefaults, false);
+  });
+
+  // Highlight drop area when item is dragged over it
+  ['dragenter', 'dragover'].forEach(eventName => {
+    dropArea.addEventListener(eventName, highlight, false);
+    inputText.addEventListener(eventName, highlightInput, false); // Highlight input too
+  });
+
+  ['dragleave', 'drop'].forEach(eventName => {
+    dropArea.addEventListener(eventName, unhighlight, false);
+    inputText.addEventListener(eventName, unhighlightInput, false); // Unhighlight input too
+  });
+
+  // Handle dropped files
+  dropArea.addEventListener('drop', handleDrop, false);
+  inputText.addEventListener('drop', handleDrop, false); // Allow drop on input text area
+  pdfUpload.addEventListener('change', handleFiles);
+  clearAllFiles.addEventListener('click', clearAllUploadedFiles);
+  refreshFileListBtn.addEventListener('click', refreshInputTextFromFiles); // New listener for refresh button
+
+  function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  function highlight() {
+    dropArea.classList.add('highlight');
+  }
+
+  function unhighlight() {
+    dropArea.classList.remove('highlight');
+  }
+
+  function highlightInput() {
+    inputText.classList.add('drag-over');
+  }
+
+  function unhighlightInput() {
+    inputText.classList.remove('drag-over');
+  }
+
+  async function handleDrop(e) {
+    const dt = e.dataTransfer;
+    const files = dt.files;
+    handleFiles({ target: { files } });
+  }
+
+  async function handleFiles(e) {
+  const files = e.target.files;
+  if (!files.length) return;
+
+  fileListContainer.style.display = 'block'; // Remove the !important override
+  let pdfFilesProcessed = false; // Flag to track if any PDF files were successfully processed
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    if (file.type !== 'application/pdf') {
+      showToast("Please upload a PDF file!", "error");
+      fileListContainer.style.display = 'none'; // Hide the file list container
+      continue; // Skip this file
     }
 
-    if (typeof processData === 'function') {
-      processData();
-      document.getElementById('toolbar').classList.add('show');
-      createCopyColumnButtons(); // First, build the full table
-      checkAndRemoveEmptyBalanceColumn(); // ✅ Now check & remove empty Balance column
-      saveState();
-      updateTableCursor(); // Call this after table is created
-    } else {
-      console.warn('Parsing script not yet loaded.');
+    // Check if file already exists in uploadedFilesData
+    const existingFile = uploadedFilesData.find(f => f.file.name === file.name && f.file.size === file.size);
+    if (existingFile) {
+      showToast(`File "${file.name}" is already uploaded.`, "info");
+      continue; // Skip this file
+    }
+
+    const fileItem = createFileItem(file);
+    fileList.appendChild(fileItem);
+
+    try {
+      const processedText = await window.bankUtils.processPDFFile(file);
+      uploadedFilesData.push({ file: file, text: processedText, element: fileItem });
+      pdfFilesProcessed = true; // Set flag to true as a PDF was successfully processed
+    } catch (error) {
+      console.error('Error processing PDF:', error);
+      showToast(`Error processing ${file.name}`, "error");
+      fileItem.remove(); // Remove item if processing fails
+    }
+  }
+
+  // Only refresh inputText and show toast if at least one PDF was processed
+  if (pdfFilesProcessed) {
+    refreshInputTextFromFiles();
+  }
+}
+
+  function createFileItem(file) {
+    const fileItem = document.createElement('div');
+    fileItem.className = 'file-item';
+    fileItem.draggable = true;
+    fileItem.dataset.fileName = file.name;
+
+    const fileNameSpan = document.createElement('span');
+    fileNameSpan.className = 'file-item-name';
+    fileNameSpan.textContent = file.name;
+
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'file-item-actions';
+
+    const moveUpBtn = document.createElement('button');
+    moveUpBtn.className = 'file-item-btn move-up';
+    moveUpBtn.innerHTML = '<i class="fas fa-arrow-up"></i>';
+    moveUpBtn.title = 'Move Up';
+    moveUpBtn.onclick = (e) => {
+      e.stopPropagation();
+      moveFileItem(fileItem, -1);
+    };
+
+    const moveDownBtn = document.createElement('button');
+    moveDownBtn.className = 'file-item-btn move-down';
+    moveDownBtn.innerHTML = '<i class="fas fa-arrow-down"></i>';
+    moveDownBtn.title = 'Move Down';
+    moveDownBtn.onclick = (e) => {
+      e.stopPropagation();
+      moveFileItem(fileItem, 1);
+    };
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'file-item-btn';
+    removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+    removeBtn.title = 'Remove File';
+    removeBtn.onclick = (e) => {
+      e.stopPropagation();
+      removeFileItem(fileItem);
+    };
+
+    actionsDiv.appendChild(moveUpBtn);
+    actionsDiv.appendChild(moveDownBtn);
+    actionsDiv.appendChild(removeBtn);
+    fileItem.appendChild(fileNameSpan);
+    fileItem.appendChild(actionsDiv);
+
+    return fileItem;
+  }
+
+  // In the removeFileItem function
+function removeFileItem(fileItemToRemove) {
+  uploadedFilesData = uploadedFilesData.filter(item => item.element !== fileItemToRemove);
+  fileItemToRemove.remove();
+  if (uploadedFilesData.length === 0) {  // Changed from fileList.children.length to uploadedFilesData.length
+    fileListContainer.style.display = 'none';
+  }
+  refreshInputTextFromFiles();
+}
+  function moveFileItem(fileItem, direction) {
+    const currentIndex = Array.from(fileList.children).indexOf(fileItem);
+    const newIndex = currentIndex + direction;
+
+    if (newIndex >= 0 && newIndex < fileList.children.length) {
+      const items = Array.from(fileList.children);
+      const currentItem = items[currentIndex];
+      const targetItem = items[newIndex];
+
+      // Swap elements in the DOM
+      fileList.insertBefore(currentItem, direction === -1 ? targetItem : targetItem.nextSibling);
+
+      // Update uploadedFilesData array to reflect new order
+      const [removed] = uploadedFilesData.splice(currentIndex, 1);
+      uploadedFilesData.splice(newIndex, 0, removed);
+
+      refreshInputTextFromFiles();
+    }
+  }
+
+// In the clearAllUploadedFiles function
+function clearAllUploadedFiles() {
+  fileList.innerHTML = '';
+  inputText.value = '';
+  uploadedFilesData = [];
+  fileListContainer.style.display = 'none';  // This will hide the container
+  showToast('All uploaded files cleared!', 'success');
+}
+
+  // New function to refresh inputText based on the current order of uploadedFilesData
+  function refreshInputTextFromFiles() {
+    let combinedText = '';
+    uploadedFilesData.forEach((item, index) => {
+      if (item.text) {
+        combinedText += item.text;
+        if (index < uploadedFilesData.length - 1) {
+          combinedText += '\n\n'; // Add two newlines between file contents
+        }
+      }
+    });
+    inputText.value = combinedText;
+    showToast('Input text refreshed!', 'info');
+  }
+
+  // Initialize Sortable for file list reordering
+  new Sortable(fileList, {
+    animation: 150,
+    handle: '.file-item-name', // Only allow dragging from the file name area
+    ghostClass: 'dragging',
+    onEnd: (evt) => {
+      // Update uploadedFilesData array to reflect the new order after drag-and-drop
+      const oldIndex = evt.oldIndex;
+      const newIndex = evt.newIndex;
+
+      const [removed] = uploadedFilesData.splice(oldIndex, 1);
+      uploadedFilesData.splice(newIndex, 0, removed);
+
+      refreshInputTextFromFiles();
     }
   });
+}
 
   // ADD THIS NEW FUNCTION
   function checkAndRemoveEmptyBalanceColumn() {
@@ -416,6 +612,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       console.error('Copy column failed:', err);
     });
   };
+
+window.bankUtils = window.bankUtils || {};
+window.bankUtils.processPDFFile = async function(file) {
+  // This will be overridden by the bank-specific parsers
+  throw new Error('PDF processing not implemented for this bank');
+};
 
   window.bankUtils.copyTable = function () {
     const table = document.querySelector('#output table');
@@ -706,20 +908,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
   // Function to clear all current selections
-  function clearSelection() {
-    // Clear visual selection from the active cell
-    if (selectedCell) {
-      selectedCell.classList.remove('selected-cell');
-      selectedCell.classList.remove('active-multi-select'); // Ensure this is removed
-      selectedCell = null;
-    }
-    // Remove the multi-selection border
-    if (selectionBorderDiv) {
-      selectionBorderDiv.remove();
-      selectionBorderDiv = null;
-    }
-    selectedCells = []; // Clear the array of selected cells
+  // Replace the clearSelection function with this:
+function clearSelection() {
+  // Clear visual selection from the active cell
+  if (selectedCell) {
+    selectedCell.classList.remove('selected-cell', 'active-multi-select', 'editing');
+    selectedCell = null;
   }
+  
+  // Remove the multi-selection border
+  if (selectionBorderDiv) {
+    selectionBorderDiv.remove();
+    selectionBorderDiv = null;
+  }
+  
+  selectedCells = []; // Clear the array of selected cells
+}
 
   function setupCellSelection(table) {
     // Make all cells focusable
@@ -1047,108 +1251,126 @@ document.addEventListener('DOMContentLoaded', async () => {
     cell.focus();
   }
 
-  function makeCellEditable(cell) {
-    if (!cell) return;
-    cell.draggable = false;
+ // Replace the makeCellEditable function with this:
+function makeCellEditable(cell) {
+  if (!cell) return;
+  cell.draggable = false;
 
-    const originalContent = cell.textContent.trim();
-    cell.innerHTML = `<input type="text" value="${originalContent}" data-original="${originalContent}">`;
-    const input = cell.querySelector('input');
-    input.focus();
-    input.select();
-
-    input.addEventListener('mousedown', (e) => {
-      e.stopPropagation();
-    });
-
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        e.stopPropagation();
-        input.blur();
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        e.stopPropagation();
-        cell.textContent = originalContent;
-        selectCell(cell);
-      }
-    });
-
-    input.addEventListener('blur', () => {
-      cell.textContent = input.value.trim();
-      cell.draggable = true;
-      selectCell(cell);
-      saveState();
-    });
+  // Add editing class and remove multi-select classes
+  cell.classList.add('editing');
+  cell.classList.remove('active-multi-select');
+  
+  // Hide selection border during editing
+  if (selectionBorderDiv) {
+    selectionBorderDiv.style.display = 'none';
   }
+
+  const originalContent = cell.textContent.trim();
+  cell.innerHTML = `<input type="text" value="${originalContent}" data-original="${originalContent}">`;
+  const input = cell.querySelector('input');
+  input.focus();
+  input.select();
+
+  input.addEventListener('mousedown', (e) => {
+    e.stopPropagation();
+  });
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
+      input.blur();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      cell.textContent = originalContent;
+      selectCell(cell);
+    }
+  });
+
+  input.addEventListener('blur', () => {
+    cell.textContent = input.value.trim();
+    cell.draggable = true;
+    cell.classList.remove('editing');
+    selectCell(cell);
+    saveState();
+    
+    // Restore selection border if needed
+    if (selectedCells.length > 0) {
+      updateSelectionBorder();
+    }
+  });
+}
 
   // This function is now primarily for setting the *active* selected cell
-  function selectCell(cell) {
-    if (!cell) return;
+ // Replace the existing selectCell function with this:
+function selectCell(cell) {
+  if (!cell) return;
 
-    // Clear previous active selection
-    if (selectedCell) {
-      const input = selectedCell.querySelector('input');
-      if (input) {
-        selectedCell.textContent = input.value;
-      }
-      selectedCell.classList.remove('selected-cell');
-      selectedCell.classList.remove('active-multi-select'); // Ensure this is removed
+  // Clear previous active selection
+  if (selectedCell) {
+    const input = selectedCell.querySelector('input');
+    if (input) {
+      selectedCell.textContent = input.value;
     }
+    selectedCell.classList.remove('selected-cell', 'active-multi-select', 'editing');
+  }
 
-    // Set new active selection and apply class
-    selectedCell = cell;
-    selectedCell.classList.add('selected-cell'); // Always apply base selected-cell
-    if (isMultiSelectMode) {
-        selectedCell.classList.add('active-multi-select'); // Add specific class for active cell in multi-select
-    }
-    selectedCell.focus(); // This is crucial for keyboard events
-
-    // Update selectedCells array based on mode
-    if (isMultiSelectMode) {
-        // If the active cell is a data cell, add it to the multi-selection range
-        if (cell.tagName === 'TD' && !selectedCells.includes(cell)) {
-            selectedCells.push(cell);
-        }
+  // Set new active selection and apply class
+  selectedCell = cell;
+  selectedCell.classList.add('selected-cell');
+  
+  if (isMultiSelectMode) {
+    if (selectedCells.length > 1) {
+      // For multi-selection, only add active class to the last selected cell
+      selectedCell.classList.add('active-multi-select');
     } else {
-        // In single select mode, selectedCells only contains the current active cell
-        // Only add if it's a data cell, otherwise clear selectedCells for headers
-        selectedCells = (cell.tagName === 'TD') ? [cell] : [];
-    }
-    updateSelectionBorder(); // Always update the overall border after selection changes
-
-
-    // Handle table scrolling if needed
-    const table = cell.closest('table');
-    if (table) {
-      // Make table focusable if it isn't already
-      if (!table.hasAttribute('tabindex')) {
-        table.tabIndex = -1;
-      }
-
-      // Calculate positions for scrolling
-      const cellRect = cell.getBoundingClientRect();
-      const tableRect = table.getBoundingClientRect();
-
-      // Scroll table if cell is out of view
-      if (cellRect.top < tableRect.top) {
-        table.scrollTop -= (tableRect.top - cellRect.top + 5);
-      } else if (cellRect.bottom > tableRect.bottom) {
-        table.scrollTop += (cellRect.bottom - tableRect.bottom + 5);
-      }
-    }
-
-    // Handle window scrolling if needed
-    const cellTop = cell.getBoundingClientRect().top;
-    const cellHeight = cell.offsetHeight;
-    const viewportHeight = window.innerHeight;
-
-    if (cellTop < 100) {
-      window.scrollBy(0, cellTop - 100);
-    } else if (cellTop + cellHeight > viewportHeight - 50) {
-      window.scrollBy(0, (cellTop + cellHeight) - (viewportHeight - 50));
+      // For single cell in multi-select mode, just use regular selection style
+      selectedCell.classList.remove('active-multi-select');
     }
   }
+  
+  selectedCell.focus();
+
+  // Update selectedCells array based on mode
+  if (isMultiSelectMode) {
+    if (cell.tagName === 'TD' && !selectedCells.includes(cell)) {
+      selectedCells.push(cell);
+    }
+  } else {
+    selectedCells = (cell.tagName === 'TD') ? [cell] : [];
+  }
+  
+  updateSelectionBorder();
+  
+  // Handle table scrolling if needed
+  const table = cell.closest('table');
+  if (table) {
+    if (!table.hasAttribute('tabindex')) {
+      table.tabIndex = -1;
+    }
+
+    const cellRect = cell.getBoundingClientRect();
+    const tableRect = table.getBoundingClientRect();
+
+    if (cellRect.top < tableRect.top) {
+      table.scrollTop -= (tableRect.top - cellRect.top + 5);
+    } else if (cellRect.bottom > tableRect.bottom) {
+      table.scrollTop += (cellRect.bottom - tableRect.bottom + 5);
+    }
+  }
+
+  // Handle window scrolling if needed
+  const cellTop = cell.getBoundingClientRect().top;
+  const cellHeight = cell.offsetHeight;
+  const viewportHeight = window.innerHeight;
+
+  if (cellTop < 100) {
+    window.scrollBy(0, cellTop - 100);
+  } else if (cellTop + cellHeight > viewportHeight - 50) {
+    window.scrollBy(0, (cellTop + cellHeight) - (viewportHeight - 50));
+  }
+}
 
 
   function copyCellContent(cell) {
@@ -1273,16 +1495,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   const sortAsc = document.createElement('div');
   sortAsc.className = 'menu-item';
   sortAsc.innerHTML = isNumericColumn 
-    ? '<i class="fa-solid fa-arrow-down-1-9"></i> Sort 1→9' 
-    : '<i class="fas fa-sort-alpha-down"></i> Sort A→Z';
+    ? '<i class="fa-solid fa-arrow-down-1-9"></i> Sort 1→9 (ascending)' 
+    : '<i class="fas fa-sort-alpha-down"></i> Sort A→Z (ascending)';
   sortAsc.onclick = () => sortColumn(columnIndex, 'asc');
   menu.appendChild(sortAsc);
 
   const sortDesc = document.createElement('div');
   sortDesc.className = 'menu-item';
   sortDesc.innerHTML = isNumericColumn 
-    ? '<i class="fa-solid fa-arrow-up-9-1"></i> Sort 9→1' 
-    : '<i class="fas fa-sort-alpha-down-alt"></i> Sort Z→A';
+    ? '<i class="fa-solid fa-arrow-up-9-1"></i> Sort 9→1 (descending)' 
+    : '<i class="fas fa-sort-alpha-down-alt"></i> Sort Z→A (descending)';
   sortDesc.onclick = () => sortColumn(columnIndex, 'desc');
   menu.appendChild(sortDesc);
 
@@ -2067,6 +2289,7 @@ function sortColumn(columnIndex, direction) {
     copyCellMenuItem.parentNode.insertBefore(newDivider, newMenuItem.nextSibling);
   }
 
- 
+ // Initialize file upload handling
+setupFileUpload();
 
 });
