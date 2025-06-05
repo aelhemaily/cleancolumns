@@ -2650,3 +2650,42 @@ th.selected-cell.editing {
 [data-theme="dark"] #refreshFileList:hover {
   background-color: #205c4b;
 }
+
+
+/* General scrollbar styling for wider scrollbars */
+::-webkit-scrollbar {
+  width: 20px; /* Set a wider default width for all vertical scrollbars */
+  height: 20px; /* Set a wider default height for all horizontal scrollbars */
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1; /* Light grey background for the track */
+  border-radius: 10px; /* Rounded corners for the track */
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888; /* Dark grey thumb */
+  border-radius: 20px; /* Rounded corners for the thumb */
+  border: 3px solid #f1f1f1; /* Creates a padding effect around the thumb */
+  width: 30px;
+  height: 60px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555; /* Darker thumb on hover */
+  cursor: pointer;
+}
+
+/* Dark mode adjustments for general scrollbars */
+[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: #2d2d2d; /* Darker background for track in dark mode */
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: #b0b0b0; /* Lighter thumb for dark mode */
+  border-color: #2d2d2d; /* Border to match dark mode track */
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: #ffffff; /* White thumb on hover in dark mode */
+}

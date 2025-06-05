@@ -234,7 +234,8 @@ let uploadedFilesData = []; // Store file objects and their processed text
       meridian: ['account'],
       eq: ['card'],
       triangle: ['card'],
-      nbc: ['card'],
+      wallmart: ['card'],
+      nbc: ['account', 'card'],
       bmo: ['account', 'card', 'loc'],
       rbc: ['account', 'card', 'loc']
     };
@@ -357,27 +358,27 @@ let uploadedFilesData = []; // Store file objects and their processed text
 function setupFileUpload() {
   // Prevent default drag behaviors
   ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-    dropArea.addEventListener(eventName, preventDefaults, false);
+    if (dropArea) dropArea.addEventListener(eventName, preventDefaults, false);
     document.body.addEventListener(eventName, preventDefaults, false);
   });
 
   // Highlight drop area when item is dragged over it
   ['dragenter', 'dragover'].forEach(eventName => {
-    dropArea.addEventListener(eventName, highlight, false);
-    inputText.addEventListener(eventName, highlightInput, false); // Highlight input too
+    if (dropArea) dropArea.addEventListener(eventName, highlight, false);
+    if (inputText) inputText.addEventListener(eventName, highlightInput, false);
   });
 
   ['dragleave', 'drop'].forEach(eventName => {
-    dropArea.addEventListener(eventName, unhighlight, false);
-    inputText.addEventListener(eventName, unhighlightInput, false); // Unhighlight input too
+    if (dropArea) dropArea.addEventListener(eventName, unhighlight, false);
+    if (inputText) inputText.addEventListener(eventName, unhighlightInput, false);
   });
 
   // Handle dropped files
-  dropArea.addEventListener('drop', handleDrop, false);
-  inputText.addEventListener('drop', handleDrop, false); // Allow drop on input text area
-  pdfUpload.addEventListener('change', handleFiles);
-  clearAllFiles.addEventListener('click', clearAllUploadedFiles);
-  refreshFileListBtn.addEventListener('click', refreshInputTextFromFiles); // New listener for refresh button
+  if (dropArea) dropArea.addEventListener('drop', handleDrop, false);
+  if (inputText) inputText.addEventListener('drop', handleDrop, false);
+  if (pdfUpload) pdfUpload.addEventListener('change', handleFiles);
+  if (clearAllFiles) clearAllFiles.addEventListener('click', clearAllUploadedFiles);
+  if (refreshFileListBtn) refreshFileListBtn.addEventListener('click', refreshInputTextFromFiles);
 
   function preventDefaults(e) {
     e.preventDefault();

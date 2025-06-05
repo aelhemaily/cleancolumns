@@ -219,7 +219,7 @@ window.bankUtils.processPDFFile = async function(file) {
           /Here's what happened/i,
           /Amounts deducted/i,
           /Amounts added/i,
-          /Closing totals/i,
+          /Closing totals/i, // Keep this pattern to skip the full "Closing totals" line
           /Please report/i,
           /Trade-marks/i,
           /A member of/i
@@ -236,8 +236,22 @@ window.bankUtils.processPDFFile = async function(file) {
               combinedLine += '\n' + allLines[j];
               j++;
             }
+
+            // NEW LOGIC: Check if this "transaction" is just a date followed by a summary line (like "Closing totals")
+            const isJustDate = combinedLine.split('\n').length === 1 && dateRegex.test(combinedLine);
+            const nextLineIndex = j; // j is the index of the line that broke the while loop
+            const nextLineContent = allLines[nextLineIndex] || '';
+
+            // If it's just a date and the next line (which will likely be skipped by skipPatterns) contains "Closing totals"
+            if (isJustDate && /Closing totals/i.test(nextLineContent)) {
+                // This is the problematic standalone date from the summary, skip it.
+                // Also, advance 'i' past the 'Closing totals' line to prevent it from being processed again
+                i = nextLineIndex;
+                continue; // Skip adding this "transaction" and move to the next line in allLines
+            }
+
             transactionLines.push(combinedLine);
-            i = j - 1;
+            i = j - 1; // Adjust i to the last line processed in this transaction
           }
         }
         // Return the joined transaction lines, compatible with processData's expectation
