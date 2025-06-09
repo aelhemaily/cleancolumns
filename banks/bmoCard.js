@@ -152,17 +152,6 @@ function parseFormat1(allLines) {
         return transactions; // Stop processing further lines
     }
 
-    // Add a check for standalone "CR" line and append to the last amount
-    if (line.trim().toLowerCase() === "cr" && currentTransactionLines.length > 0) {
-        let lastLineIndex = currentTransactionLines.length - 1;
-        let lastLine = currentTransactionLines[lastLineIndex];
-        // Ensure the last line ends with a number and does not already have CR
-        if (/\d{1,3}(?:,\d{3})*\.\d{2}$/.test(lastLine) && !lastLine.toLowerCase().includes('cr')) {
-            currentTransactionLines[lastLineIndex] += ' CR';
-            continue; // Processed this 'CR' line, move to next
-        }
-    }
-
     // Skip known non-transaction lines regardless of section status
     const globalSkipPatterns = [
       /Page \d+ of \d+/i, /Card number:/i,
@@ -212,7 +201,18 @@ function parseFormat1(allLines) {
     // If the current line contains an amount, it's likely the end of a transaction
     if (amountRegex.test(line)) {
       currentTransactionLines.push(line);
-      processFormat1TransactionBlock(currentTransactionLines, transactions);
+
+      // --- MODIFIED LOGIC: Check for standalone "CR" on the very next line and include it ---
+      if (i + 1 < allLines.length) {
+          const nextLine = allLines[i + 1].trim();
+          if (nextLine.toLowerCase() === "cr") {
+              currentTransactionLines.push(nextLine); // Add "CR" to the block
+              i++; // Increment `i` to skip the "CR" line in the next iteration
+          }
+      }
+      // --- END MODIFIED LOGIC ---
+
+      processFormat1TransactionBlock(currentTransactionLines, transactions); // Call this after potential "CR" append
       currentTransactionLines = []; // Reset for the next transaction
     } else {
       // Otherwise, add the line to the current transaction block
@@ -288,22 +288,14 @@ function processFormat1TransactionBlock(blockLines, transactionsArray) {
     .replace(/\bTRANS\b/gi, '') // Remove standalone "TRANS" from headers
     .trim();
 
-  let debit = '';
-  let credit = '';
-  if (isCredit) {
-    credit = amountValue;
-  } else {
-    debit = amountValue;
-  }
-  
-  // 4. Format the final output line
+  // 4. Format the final output line to include " CR" if it's a credit
   let formattedLine;
   if (dates.length >= 2) {
-    formattedLine = `${dates[0]} ${dates[1]} ${description} ${debit} ${credit}`;
+    formattedLine = `${dates[0]} ${dates[1]} ${description} ${amountValue}${isCredit ? ' CR' : ''}`;
   } else if (dates.length === 1) {
-    formattedLine = `${dates[0]} ${dates[0]} ${description} ${debit} ${credit}`; // Duplicate for consistency
+    formattedLine = `${dates[0]} ${dates[0]} ${description} ${amountValue}${isCredit ? ' CR' : ''}`; // Duplicate for consistency
   } else {
-    formattedLine = `${description} ${debit} ${credit}`; // Fallback if no dates found
+    formattedLine = `${description} ${amountValue}${isCredit ? ' CR' : ''}`; // Fallback if no dates found
   }
 
   // 5. Final cleanup and validation
@@ -311,11 +303,44 @@ function processFormat1TransactionBlock(blockLines, transactionsArray) {
     .replace(/\s{2,}/g, ' ') // Collapse multiple spaces
     .trim();
 
-  // Only add if we have a valid transaction (description and at least one amount)
-  if (description && (debit || credit)) {
+  // Only add if we have a valid transaction (description and amount)
+  if (description && amountValue) {
     transactionsArray.push(formattedLine);
   }
 }
+
+/**
+ * Helper function to process a structured transaction object for Format 2.
+ * @param {object} transactionData - Object containing parsed transaction details.
+ * @param {string[]} transactionsArray - The array to add the formatted transaction string to.
+ */
+function processFormat2Transaction(transactionData, transactionsArray) {
+  let formattedLine = '';
+  // Ensure description is a single string for proper regex matching in processData
+  const description = Array.isArray(transactionData.description) ? transactionData.description.join(' ').trim() : transactionData.description.trim();
+
+  // The amount and CR indicator should be combined into a single string for parsing by fullLinePattern
+  const amountWithCreditIndicator = `${transactionData.amount}${transactionData.isCredit}`;
+
+  if (transactionData.transDate && transactionData.postingDate) {
+    formattedLine = `${transactionData.transDate} ${transactionData.postingDate} ${description} ${amountWithCreditIndicator}`;
+  } else {
+    // Fallback if dates are missing, though ideally Format 2 always has them
+    formattedLine = `${description} ${amountWithCreditIndicator}`;
+  }
+
+  // Final cleanup
+  formattedLine = formattedLine
+    .replace(/\s{2,}/g, ' ') // Collapse multiple spaces
+    .trim();
+
+  // Only add if we have valid data
+  if (description && transactionData.amount) {
+    transactionsArray.push(formattedLine);
+  }
+}
+
+
 /**
  * Parses transactions from Format 2 PDF.
  * @param {string[]} allLines - All extracted lines from the PDF.
@@ -495,17 +520,6 @@ function parseGeneric(allLines) {
             return transactions; // Stop processing further lines
         }
 
-        // Add a check for standalone "CR" line and append to the last amount
-        if (line.trim().toLowerCase() === "cr" && currentBlock.length > 0) {
-            let lastLineIndex = currentBlock.length - 1;
-            let lastLine = currentBlock[lastLineIndex];
-            // Ensure the last line ends with a number and does not already have CR
-            if (/\d{1,3}(?:,\d{3})*\.\d{2}$/.test(lastLine) && !lastLine.toLowerCase().includes('cr')) {
-                currentBlock[lastLineIndex] += ' CR';
-                continue; // Processed this 'CR' line, move to next
-            }
-        }
-
         // Skip common non-transactional lines, including the specific omission for "Total for card number"
         const skipPatterns = [
             /Page \d+ of \d+/i, /Summary of your account/i, /Your interest charges/i,
@@ -541,14 +555,24 @@ function parseGeneric(allLines) {
             continue;
         }
 
-        // If the line contains a date, it might be the start of a new transaction or part of one
-        if (dateRegex.test(line)) {
-            if (currentBlock.length > 0) {
-                processGenericBlock(currentBlock, transactions);
+        // If the line contains an amount, it's likely the end of a transaction
+        if (amountRegex.test(line)) {
+            currentBlock.push(line);
+
+            // --- MODIFIED LOGIC: Check for standalone "CR" on the very next line and include it ---
+            if (i + 1 < allLines.length) {
+                const nextLine = allLines[i + 1].trim();
+                if (nextLine.toLowerCase() === "cr") {
+                    currentBlock.push(nextLine); // Add "CR" to the block
+                    i++; // Increment `i` to skip the "CR" line in the next iteration
+                }
             }
-            currentBlock = [line];
-        } else if (currentBlock.length > 0) {
-            // If no date, but we are in a block, add to current block
+            // --- END MODIFIED LOGIC ---
+
+            processGenericBlock(currentBlock, transactions);
+            currentBlock = []; // Reset for the next transaction
+        } else {
+            // Otherwise, add the line to the current transaction block
             currentBlock.push(line);
         }
     }
@@ -588,12 +612,12 @@ function processGenericBlock(blockLines, transactionsArray) {
 
     // Extract amount and CR. Ensure to capture the number and optional 'CR', but not '$'.
     let amount = '';
-    let isCredit = '';
+    let isCredit = false; // Flag to indicate if it's a credit
     const amountPattern = /\$*(\d{1,3}(?:,\d{3})*\.\d{2})\s*(CR)?$/; // Added optional '$' at the beginning
     const amountMatch = tempText.match(amountPattern);
     if (amountMatch) {
         amount = amountMatch[1]; // Captured number part
-        isCredit = amountMatch[2] ? ' CR' : '';
+        isCredit = !!amountMatch[2]; // Set isCredit flag
         tempText = tempText.substring(0, amountMatch.index).trim();
     } else {
         // If no amount found, it's not a valid transaction block
@@ -609,14 +633,14 @@ function processGenericBlock(blockLines, transactionsArray) {
         .replace(/TRANS/gi, '') // Remove standalone "TRANS"
         .trim();
 
-    // Format the output
+    // Format the output, appending " CR" if it's a credit
     let formattedLine = '';
     if (dates.length === 2) {
-        formattedLine = `${dates[0]} ${dates[1]} ${description} ${amount}${isCredit}`;
+        formattedLine = `${dates[0]} ${dates[1]} ${description} ${amount}${isCredit ? ' CR' : ''}`;
     } else if (dates.length === 1) {
-        formattedLine = `${dates[0]} ${dates[0]} ${description} ${amount}${isCredit}`; // Duplicate for consistency
+        formattedLine = `${dates[0]} ${dates[0]} ${description} ${amount}${isCredit ? ' CR' : ''}`; // Duplicate for consistency
     } else {
-        formattedLine = `${description} ${amount}${isCredit}`;
+        formattedLine = `${description} ${amount}${isCredit ? ' CR' : ''}`;
     }
 
     transactionsArray.push(formattedLine.trim());
@@ -650,7 +674,7 @@ window.bankUtils.processPDFFile = async function(file) {
           /TRANS DATE POSTING DATE DESCRIPTION(?: REFERENCE NO\.)? AMOUNT \(S\)/i,
           /DATE DESCRIPTION AMOUNT \(\$\)/i,
           /\s*REFERENCE NO\.\s*AMOUNT \(S\)\s*$/i, 
-          /\s*TRANS DATE\s*POSTING DATE\s*DESCRIPTION\s*(?:REFERENCE NO\.)?\s*$/i, // Captures more header variations
+          /\s*TRANS DATE\s*POSTING DATE\s+DESCRIPTION\s*(?:REFERENCE NO\.)?\s*$/i, // Captures more header variations
           /\s*AMOUNT \(\$\)\s*$/i,
           /^TRANS\s+DATE\s+POSTING\s+DATE\s+DESCRIPTION\s+REFERENCE NO\.\s+AMOUNT \(S\)$/i, // Explicit for full header
           // Generic header patterns to remove
@@ -681,7 +705,8 @@ window.bankUtils.processPDFFile = async function(file) {
           /If you only make the minimum monthly payment/i, /Please see the back of your statement/i,
           /BMO CashBack Mastercard/i, /BMO Bank of Montreal/i, /POSTING/i, /DATE/i, /DESCRIPTION/i,
           /AMOUNT/i, /REFERENCE NO\./i, /INTEREST CHARGES/i, /ANNUAL INTEREST RATE/i,
-          /DAILY INTEREST RATE/i, /Purchases/i, /Cash Advances/i, /PERIOD COVERED BY THIS STATEMENT/i,
+          /DAILY INTEREST RATE/i, // Removed "Purchases" here
+          /Cash Advances/i, /PERIOD COVERED BY THIS STATEMENT/i,
           /Trade-marks/i, /Mastercard is a registered trademark/i, /Indicates eligible grocery purchases/i,
           /Indicates eligible recurring bill payments/i, /All purchases earn 0\.5% cashback/i,
           /TRANS\s+/i // Specifically remove "TRANS" followed by space

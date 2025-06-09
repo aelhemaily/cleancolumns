@@ -60,6 +60,7 @@
     "Direct Dep",
     "Edeposit",
     "TFR-FR",
-    "Org="
+    "Org=",
+    "/Org="
   ]
 }
