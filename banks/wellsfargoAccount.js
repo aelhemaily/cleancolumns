@@ -13,7 +13,7 @@ function processData() {
   const table = document.createElement('table');
 
   // Define words to highlight
-  const highlightWords = ["payment", "fee", "charge"];
+  const highlightWords = ["payment"];
 
   // Add CSS for highlighting directly in JS
   if (!document.getElementById('highlight-style')) {
