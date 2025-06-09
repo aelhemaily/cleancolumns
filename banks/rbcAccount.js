@@ -12,6 +12,21 @@ function processData() {
 
   const table = document.createElement('table');
 
+  // Define words to highlight
+  const highlightWords = ["payment"]; // Array for words to be highlighted
+
+  // Add CSS for highlighting directly in JS
+  if (!document.getElementById('highlight-style')) {
+    const style = document.createElement('style');
+    style.id = 'highlight-style';
+    style.textContent = `
+      table td.highlight-word { /* Made selector more specific */
+        background-color: #ffe0e0 !important; /* Added !important to ensure precedence */
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   // Create table headers
   const copyRow = document.createElement('tr');
   headers.forEach((_, index) => {
@@ -81,61 +96,137 @@ function processData() {
     i++; // Skip lines we can't process
   }
 
-  function processRbcTransaction(date, initialDescriptionParts) { // Renamed parameter for clarity
+  function processRbcTransaction(date, initialDescriptionParts) {
     // Start description with the initial parts passed in (which should not contain the date)
     let descriptionParts = [...initialDescriptionParts];
     let amountLineIndex = i;
     let amounts = [];
+    let transactionLines = []; // Store lines that form the transaction description
 
-    // Look ahead to find the amount line
+    // Add the initial description part to transactionLines
+    if (initialDescriptionParts.length > 0 && initialDescriptionParts[0].trim() !== '') {
+        transactionLines.push(initialDescriptionParts[0].trim());
+    }
+
+    // Look ahead to find the amount line and collect description parts
     while (amountLineIndex < lines.length) {
       const currentLine = lines[amountLineIndex];
-      const lineAmounts = currentLine.match(/(-?\d{1,3}(?:,\d{3})*\.\d{2})/g) || [];
-
+      
       // If the current line is a balance line, stop collecting description parts for the current transaction
-      // and let the main loop handle the balance line.
       const isCurrentLineBalance = currentLine.toLowerCase().includes('opening balance') ||
                                    currentLine.toLowerCase().includes('balance forward') ||
                                    currentLine.toLowerCase().includes('closing balance');
-      if (isCurrentLineBalance && lineAmounts.length === 0) { // If it's a balance line, and no amounts are found within it to process for *this* transaction.
+      if (isCurrentLineBalance) {
           break;
       }
+
+      // Regex to find numbers that are NOT preceded by '@ ' AND NOT followed by a percentage sign or a letter.
+      // This ensures that numbers like '05.00' in '05.00%P.A' are not matched as amounts,
+      // and also that any number immediately following '@ ' is not matched as an amount.
+      const lineAmounts = currentLine.match(/(?<!@\s)(-?\d{1,3}(?:,\d{3})*\.\d{2})(?![%A-Za-z])/g) || [];
+
 
       if (lineAmounts.length > 0) {
         amounts = lineAmounts.map(a => parseFloat(a.replace(/,/g, '')));
 
-        // Check if this line has non-amount text to include in description
-        const nonAmountText = currentLine.replace(/(-?\d{1,3}(?:,\d{3})*\.\d{2})/g, '').trim();
+        // Extract non-amount text from the amount line itself
+        // This regex now specifically targets numbers that are considered amounts (not preceded by '@ ' and not followed by % or letters)
+        const nonAmountText = currentLine.replace(/(?<!@\s)(-?\d{1,3}(?:,\d{3})*\.\d{2})(?![%A-Za-z])|\b\d{1,2}\s[A-Za-z]{3}\b/g, '').trim();
         if (nonAmountText.length > 0) {
-          if (amountLineIndex === i && descriptionParts.length === 1 && descriptionParts[0] === '') {
-            descriptionParts[0] = nonAmountText;
-          } else {
-            descriptionParts.push(nonAmountText);
-          }
+            // Only add if it's not already covered by initialDescriptionParts
+            if (transactionLines.length === 0 || transactionLines[transactionLines.length - 1] !== nonAmountText) {
+                transactionLines.push(nonAmountText);
+            }
         }
-        break;
+        break; // Found the amount line, stop looking for more description parts
       }
 
-      // Only push if it's a continuation line that is not the start of the transaction
+      // If it's a continuation line (not the initial line of the transaction)
+      // and it's not the amount line, add it to description parts.
       if (amountLineIndex > i) {
-        descriptionParts.push(currentLine);
+        transactionLines.push(currentLine.trim());
       }
 
       amountLineIndex++;
     }
 
-    if (amounts.length === 0) return;
+    if (amounts.length === 0) return; // No amounts found for this transaction, skip
 
     const amount = amounts[0];
     const newBalance = amounts.length > 1 ? amounts[1] : null;
-    const fullDescription = descriptionParts.filter(Boolean).join(' ').trim();
+
+    // Filter out empty strings and duplicates, then join to form the full description
+    // Ensure no amounts or dates are re-added to the description
+    let fullDescription = transactionLines
+        .filter(part => part.trim() !== '')
+        .map(part => {
+            // Remove only the numbers that are identified as actual transaction amounts or dates
+            // Numbers preceded by '@ ' or followed by % or letters should NOT be removed from description
+            let cleanedPart = part.replace(/(?<!@\s)(-?\d{1,3}(?:,\d{3})*\.\d{2})(?![%A-Za-z])|\b\d{1,2}\s[A-Za-z]{3}\b/g, '').trim();
+            return cleanedPart;
+        })
+        .filter((value, index, self) => self.indexOf(value) === index && value !== '') // Remove duplicates and empty strings
+        .join(' ')
+        .trim();
+
+    // If after cleaning, the description is empty, use the original initialDescriptionParts
+    if (fullDescription === '' && initialDescriptionParts.length > 0) {
+        fullDescription = initialDescriptionParts[0].trim();
+    }
 
     let debit = '', credit = '';
     let allocatedByKeywords = false;
 
-    // 1. Primary Method: Keyword Matching (prioritize full matches)
-    if (window.bankUtils?.keywords) {
-      const lowerCaseDescription = fullDescription.toLowerCase();
+    // --- Start of Modified Logic for Hard Rules with intuitive overrides ---
+
+    // Define hardcoded keyword arrays
+    const hardcodedDebitKeywords = ["e-transfer sent"];
+    const hardcodedCreditKeywords = ["nsf", "refund"];
+
+    // Define keywords that override all other credit/debit rules and force a debit
+    const overrideDebitKeywords = ["fee"];
+
+    // Define keywords that override all other debit/credit rules and force a credit
+    // Add words here if you need a transaction to *always* be a credit.
+    const overrideCreditKeywords = []; // Currently empty, add words like ["interest earned"] if needed
+
+    const lowerCaseDescription = fullDescription.toLowerCase();
+
+    // Priority 1: Check for override debit keywords (highest priority)
+    const isOverrideDebit = overrideDebitKeywords.some(keyword => lowerCaseDescription.includes(keyword));
+
+    if (isOverrideDebit) {
+      debit = amount.toFixed(2);
+      currentBalance = currentBalance !== null ? currentBalance - amount : null;
+      allocatedByKeywords = true;
+    } else {
+      // Priority 2: If no override debit, check for override credit keywords
+      const isOverrideCredit = overrideCreditKeywords.some(keyword => lowerCaseDescription.includes(keyword));
+      if (isOverrideCredit) {
+        credit = amount.toFixed(2);
+        currentBalance = currentBalance !== null ? currentBalance + amount : null;
+        allocatedByKeywords = true;
+      } else {
+        // Priority 3: If no overrides, check other hardcoded debit and credit keywords
+        let isHardcodedDebit = hardcodedDebitKeywords.some(keyword => lowerCaseDescription.includes(keyword));
+        let isHardcodedCredit = hardcodedCreditKeywords.some(keyword => lowerCaseDescription.includes(keyword));
+
+        if (isHardcodedDebit) {
+          debit = amount.toFixed(2);
+          currentBalance = currentBalance !== null ? currentBalance - amount : null;
+          allocatedByKeywords = true;
+        } else if (isHardcodedCredit) {
+          credit = amount.toFixed(2);
+          currentBalance = currentBalance !== null ? currentBalance + amount : null;
+          allocatedByKeywords = true;
+        }
+      }
+    }
+
+    // --- End of Modified Logic for Hard Rules with intuitive overrides ---
+
+    // 2. General Keyword Matching (if not already allocated by hard rules)
+    if (!allocatedByKeywords && window.bankUtils?.keywords) {
       let bestDebitMatch = '';
       let bestCreditMatch = '';
 
@@ -171,7 +262,7 @@ function processData() {
       }
     }
 
-    // 2. Secondary Method: Balance Tracking if not allocated by keywords
+    // 3. Secondary Method: Balance Tracking if not allocated by keywords
     if (!allocatedByKeywords && currentBalance !== null && newBalance !== null) {
       const balanceChange = newBalance - currentBalance;
 
@@ -181,9 +272,6 @@ function processData() {
       } else if (Math.abs(balanceChange + amount) < 0.01) {
         debit = amount.toFixed(2);
         currentBalance = newBalance;
-      } else if (balanceChange > 0) { // Fallback to direction only if precise match fails
-        credit = amount.toFixed(2);
-        currentBalance = newBalance;
       } else {
         debit = amount.toFixed(2);
         currentBalance = newBalance;
@@ -191,7 +279,7 @@ function processData() {
       allocatedByKeywords = true; // Mark as allocated to prevent default fallback
     }
 
-    // 3. Third Option: Default to Debit if all fails
+    // 4. Third Option: Default to Debit if all fails
     if (!allocatedByKeywords) {
       debit = amount.toFixed(2);
       currentBalance = currentBalance !== null ? currentBalance - amount : null;
@@ -216,6 +304,14 @@ function processData() {
     row.forEach(cell => {
       const td = document.createElement('td');
       td.textContent = cell;
+
+      // Apply highlight if the cell content contains any of the highlight words
+      const lowerCaseCellContent = String(cell).toLowerCase(); // Ensure cell is treated as string
+      const shouldHighlight = highlightWords.some(word => lowerCaseCellContent.includes(word.toLowerCase()));
+      if (shouldHighlight) {
+        td.classList.add('highlight-word');
+      }
+
       tr.appendChild(td);
     });
     table.appendChild(tr);

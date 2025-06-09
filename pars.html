@@ -255,6 +255,8 @@
       const transactions = [];
       const amountRegex = /\d{1,3}(?:,\d{3})*\.\d{2}\s*(CR)?$/; // "123.45" or "123.45 CR"
       const datePattern = /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?\s+\d{1,2}/g; // Matches "Jan. 1" or "Jan 1"
+      // New regex to specifically identify and omit the "Total for card number" line
+      const totalCardNumberOmissionPattern = /Total for card number XXXX XXXX XXXX \d{4} \$?\d{1,3}(?:,\d{3})*\.\d{2}/i;
 
       let currentTransactionLines = [];
       let inTransactionSection = false;
@@ -282,12 +284,22 @@
       for (let i = startIndex; i < allLines.length; i++) {
         let line = allLines[i].trim();
 
+        // Check if the current line matches the "Total for card number" line and omit it
+        if (totalCardNumberOmissionPattern.test(line)) {
+            // If there's an ongoing transaction block, process it before skipping
+            if (currentTransactionLines.length > 0) {
+                processFormat1TransactionBlock(currentTransactionLines, transactions);
+                currentTransactionLines = [];
+            }
+            continue; // Skip this line entirely
+        }
+
         // Skip known non-transaction lines regardless of section status
         const globalSkipPatterns = [
           /Page \d+ of \d+/i,
           /Card number:/i,
           /Subtotal for MR ALI AL-JANABI/i,
-          /Total for card number/i,
+          // Removed totalCardNumberPattern from here as it's handled specifically above
           /Trade-marks/i,
           /Mastercard is a registered trademark/i,
           /Indicates eligible grocery purchases/i,
@@ -363,12 +375,10 @@
           /Indicates eligible recurring bill payments that may qualify for/i, // Added to skip recurring bill payment details
           /DATE DESCRIPTION AMOUNT \(\$\)/i, // Added to skip the specific header causing issues
           /TRANS DATE POSTING DATE DESCRIPTION REFERENCE NO\. AMOUNT \(S\)/i, // Added to skip format 2 headers
-          // Add to globalSkipPatterns/skipPatterns in all parsers:
-/^DATE DESCRIPTION AMOUNT \(\$\)$/i,
-/^TRANS DATE POSTING DATE DESCRIPTION REFERENCE NO\. AMOUNT \(S\)$/i,
-/^DATE\s+DESCRIPTION\s+AMOUNT \(\$\)$/i,
-/^TRANS DATE\s+POSTING DATE\s+DESCRIPTION\s+REFERENCE NO\.\s+AMOUNT \(S\)$/i
+          /^DATE\s+DESCRIPTION\s+AMOUNT \(\$\)$/i,
+          /^TRANS DATE\s+POSTING DATE\s+DESCRIPTION\s+REFERENCE NO\.\s+AMOUNT \(S\)$/i
         ];
+        
         if (globalSkipPatterns.some(pattern => pattern.test(line))) {
           if (currentTransactionLines.length > 0) {
             processFormat1TransactionBlock(currentTransactionLines, transactions);
@@ -395,24 +405,7 @@
       return transactions;
     }
 
-    /**
-     * Helper function to process a raw transaction block for Format 1.
-     * This function will extract dates, description, and amount from a collected block of lines.
-     * @param {string[]} blockLines - Array of lines forming a single transaction block.
-     * @param {string[]} transactionsArray - The array to add the formatted transaction to.
-     */
-    /**
- * Helper function to process a raw transaction block for Format 1.
- * This function will extract dates, description, and amount from a collected block of lines.
- * @param {string[]} blockLines - Array of lines forming a single transaction block.
- * @param {string[]} transactionsArray - The array to add the formatted transaction to.
- */
-/**
- * Helper function to process a raw transaction block for Format 1.
- * This function will extract dates, description, and amount from a collected block of lines.
- * @param {string[]} blockLines - Array of lines forming a single transaction block.
- * @param {string[]} transactionsArray - The array to add the formatted transaction to.
- */
+    
 function processFormat1TransactionBlock(blockLines, transactionsArray) {
   // Skip header lines immediately
   const headerPatterns = [
@@ -428,18 +421,20 @@ function processFormat1TransactionBlock(blockLines, transactionsArray) {
   let tempText = combinedText;
 
   // 1. Extract ALL amounts (including multiple amounts in one transaction)
-  const amountPattern = /(\d{1,3}(?:,\d{3})*\.\d{2})\s*(CR)?/g;
+  // Ensure the regex captures the number and optional CR, but not '$'
+  const amountPattern = /\$*(\d{1,3}(?:,\d{3})*\.\d{2})\s*(CR)?/g; 
   const amounts = [];
   let amountMatch;
   
   while ((amountMatch = amountPattern.exec(tempText)) !== null) {
+    // Add the captured amount (group 1) and optional ' CR' (group 2)
     amounts.push(amountMatch[1] + (amountMatch[2] ? ' CR' : ''));
   }
 
   if (amounts.length === 0) return; // Skip if no amounts found
 
-  // 2. Remove amounts from text to isolate description and dates
-  tempText = tempText.replace(amountPattern, '').replace(/\s{2,}/g, ' ').trim();
+  // 2. Remove amounts (and any leading '$' that might be left) from text to isolate description and dates
+  tempText = tempText.replace(amountPattern, '').replace(/\s{2,}/g, ' ').replace(/\$/g, '').trim();
 
   // 3. Extract dates (looking for 1-2 dates)
   const dates = [];
@@ -447,12 +442,14 @@ function processFormat1TransactionBlock(blockLines, transactionsArray) {
   const dateMatches = [...tempText.matchAll(datePattern)];
   
   if (dateMatches.length >= 2) {
+    // Take the last two date matches as Trans Date and Posting Date
     dates.push(dateMatches[dateMatches.length-2][0].replace('.', ''));
     dates.push(dateMatches[dateMatches.length-1][0].replace('.', ''));
-    tempText = tempText.replace(datePattern, '').trim();
+    tempText = tempText.replace(datePattern, '').trim(); // Remove dates from tempText
   } else if (dateMatches.length === 1) {
+    // If only one date, use it for both Trans and Posting
     dates.push(dateMatches[0][0].replace('.', ''));
-    tempText = tempText.replace(datePattern, '').trim();
+    tempText = tempText.replace(datePattern, '').trim(); // Remove date from tempText
   }
 
   // 4. Clean up description (remove any leftover header fragments)
@@ -461,26 +458,25 @@ function processFormat1TransactionBlock(blockLines, transactionsArray) {
     .replace(/TRANS DATE POSTING DATE DESCRIPTION REFERENCE NO\. AMOUNT \(S\)/gi, '')
     .trim();
 
-  // 5. Special handling for last line with multiple amounts
-  const allAmounts = amounts.join(' ');
-  
+  // 5. Special handling for last line with multiple amounts (not strictly needed with current logic but good to keep in mind)
+  const allAmounts = amounts.join(' '); // Join all extracted amounts
+
   // 6. Format the final output line
   let formattedLine;
   if (dates.length >= 2) {
     formattedLine = `${dates[0]} ${dates[1]} ${description} ${allAmounts}`;
   } else if (dates.length === 1) {
-    formattedLine = `${dates[0]} ${dates[0]} ${description} ${allAmounts}`;
+    formattedLine = `${dates[0]} ${dates[0]} ${description} ${allAmounts}`; // Duplicate for consistency
   } else {
-    formattedLine = `${description} ${allAmounts}`;
+    formattedLine = `${description} ${allAmounts}`; // Fallback if no dates found
   }
 
   // 7. Final cleanup and validation
   formattedLine = formattedLine
     .replace(/\s{2,}/g, ' ') // Collapse multiple spaces
-    .replace(/\$(?=\d)/g, '$ ') // Ensure space after $ if needed
     .trim();
 
-  // Only add if we have a valid transaction
+  // Only add if we have a valid transaction (description and at least one amount)
   if (description && amounts.length > 0) {
     transactionsArray.push(formattedLine);
   }
@@ -684,7 +680,8 @@ function processFormat1TransactionBlock(blockLines, transactionsArray) {
                 /Includes:/i,
                 /Excludes:/i,
                 /Subtotal for/i,
-                /Total for card number/i,
+                // Specific omission for "Total for card number"
+                /Total for card number XXXX XXXX XXXX \d{4} \$?\d{1,3}(?:,\d{3})*\.\d{2}/i,
                 /Payment due date/i,
                 /Minimum payment due/i,
                 /New Balance/i,
@@ -767,13 +764,13 @@ function processFormat1TransactionBlock(blockLines, transactionsArray) {
             tempText = tempText.replace(datePattern, '').replace(/\s+/g, ' ').trim();
         }
 
-        // Extract amount and CR
+        // Extract amount and CR. Ensure to capture the number and optional 'CR', but not '$'.
         let amount = '';
         let isCredit = '';
-        const amountPattern = /(\d{1,3}(?:,\d{3})*\.\d{2})\s*(CR)?$/;
+        const amountPattern = /\$*(\d{1,3}(?:,\d{3})*\.\d{2})\s*(CR)?$/; // Added optional '$' at the beginning
         const amountMatch = tempText.match(amountPattern);
         if (amountMatch) {
-            amount = amountMatch[1];
+            amount = amountMatch[1]; // Captured number part
             isCredit = amountMatch[2] ? ' CR' : '';
             tempText = tempText.substring(0, amountMatch.index).trim();
         } else {

@@ -1,7 +1,6 @@
 {
   "debit": [
     "ATM W/D",
-    "ATM withdrawal",
     "CASH WITHDRA",
     "WITHDRAW",
     "FEE",
@@ -9,8 +8,6 @@
     "MONTHLY PLAN FEE",
     "OVERDRAFT FEE",
     "O.D.P. FEE",
-    "SEND E-TFR",
-    "TFR-TO",
     "PAYMENT TO",
     "NSF FEE",
     "BILL PAYMENT",
@@ -18,7 +15,7 @@
     "PAYMENT",
     "SENT",
     "e-transfer sent",
-    "Cheque -", 
+    "Cheque -",
     "Misc Payment",
     "Interac purchase",
     "Contactless Interac purchase",
@@ -33,13 +30,16 @@
     "Overdraft handling fee",
     "Overdraft interest",
     "Bill Payment HWY407 ETR",
-    "NSF item fee"
+    "NSF item fee",
+    "Wire Trans Svc Charge",
+    "International Purchase Transaction Fee",
+    "Recurring Payment",
+    "Zelle to",
+    "Svc Charge"
   ],
   "credit": [
     "DEPOSIT",
     "ATM deposit",
-    "TFR-FR",
-    "E-TFR",
     "PAYMENT - THANK YOU",
     "REFUND",
     "INTEREST RECEIVED",
@@ -55,6 +55,11 @@
     "Funds transfer credit",
     "Online Banking transfer received",
     "INTERAC e-Transfer cancel",
-    "Misc Payment SQUARE INC"
+    "Misc Payment SQUARE INC",
+    "Zelle From",
+    "Direct Dep",
+    "Edeposit",
+    "TFR-FR",
+    "Org="
   ]
 }

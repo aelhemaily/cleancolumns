@@ -232,6 +232,7 @@ let uploadedFilesData = []; // Store file objects and their processed text
       td: ['account', 'card', 'inPerson'],
       firstontario: ['account'],
       meridian: ['account'],
+      wellsfargo: ['account'],
       eq: ['card'],
       triangle: ['card'],
       wallmart: ['card'],
