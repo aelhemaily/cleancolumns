@@ -151,7 +151,7 @@ function processData() {
       "wire trans", "check", "payment", "recurring payment"
     ];
     const hardcodedCreditKeywords = [
-      "deposit", "zelle from", "direct dep", "refund", "credit"
+      "deposit", "zelle from", "direct dep", "refund", "credit", "org=", "/org="
     ];
 
     const overrideDebitKeywords = ["fee", "charge", "payment"];
