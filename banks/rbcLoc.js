@@ -1,13 +1,23 @@
+// rbcLoc.js - Exact merge of both files with original line-combining logic
+
+window.bankUtils = window.bankUtils || {};
+
 function processData() {
   const input = document.getElementById('inputText').value.trim();
   const yearInput = document.getElementById('yearInput').value.trim();
   const outputDiv = document.getElementById('output');
   outputDiv.innerHTML = '';
 
+  // File list container visibility
+  const fileListContainer = document.getElementById('fileListContainer');
+  if (input) fileListContainer.style.display = 'block';
+
   const headers = ['Date', 'Description', 'Debit', 'Credit', 'Balance'];
   const rows = [];
-  const table = document.createElement('table');
 
+  // Create table with copy buttons
+  const table = document.createElement('table');
+  
   // Copy buttons row
   const copyRow = document.createElement('tr');
   headers.forEach((_, index) => {
@@ -33,161 +43,84 @@ function processData() {
   });
   table.appendChild(headerRow);
 
-  let initialLines = input.split('\n').map(l => l.trim()).filter(Boolean);
-  let processedTransactionLines = [];
-  let currentBalance = null; // Initialize currentBalance for tracking
-
-  // Helper function to format date (Day Month Year or Day Month)
-  function formatDate(dateStr, year) {
-    const [day, monthAbbr] = dateStr.split(' ');
-    const months = {
-      JAN: 'Jan', FEB: 'Feb', MAR: 'Mar', APR: 'Apr', MAY: 'May', JUN: 'Jun',
-      JUL: 'Jul', AUG: 'Aug', SEP: 'Sep', OCT: 'Oct', NOV: 'Nov', DEC: 'Dec'
-    };
-    const month = months[monthAbbr.toUpperCase()] || monthAbbr;
-    return year ? `${day} ${month} ${year}` : `${day} ${month}`;
-  }
-
-  // Helper function to format balance (e.g., 1,234.56)
-  function formatBalance(balance) {
-    if (balance === null || isNaN(balance)) return '';
-    return balance.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  }
-
-  // Handle Opening Principal Balance separately to initialize currentBalance
-  const openingBalanceLineIndex = initialLines.findIndex(line => line.toLowerCase().includes('opening principal balance'));
-  if (openingBalanceLineIndex !== -1) {
-    // Check for an amount on the line immediately following "Opening Principal Balance"
-    if (openingBalanceLineIndex + 1 < initialLines.length) {
-        const amountMatch = initialLines[openingBalanceLineIndex + 1].match(/^-?\$?(\d{1,3}(?:,\d{3})*\.\d{2})/);
-        if (amountMatch) {
-            currentBalance = parseFloat(amountMatch[1].replace(/,/g, ''));
-        }
+  // Parse transactions exactly as in locrbc.html
+  const lines = input.split('\n').filter(l => l.trim());
+  let transactions = [];
+  let currentTransaction = '';
+  
+  // First combine lines into complete transactions
+  lines.forEach(line => {
+    line = line.trim();
+    // Check if line starts a new transaction (month abbreviation followed by day)
+    if (/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s\d{1,2}\b/i.test(line)) {
+      if (currentTransaction) {
+        transactions.push(currentTransaction.trim());
+      }
+      currentTransaction = line;
+    } else {
+      currentTransaction += ' ' + line;
     }
-    // Remove the 'Opening Principal Balance' line and its amount line from initialLines
-    // This assumes the format is 'Opening Principal Balance' \n '$Amount'
-    initialLines.splice(openingBalanceLineIndex, 2);
-  }
+  });
+  if (currentTransaction) transactions.push(currentTransaction.trim());
 
-
-  // Main loop to gather multi-line transactions into single strings
-  let i = 0;
-  const startsWithDateRegex = /^[A-Za-z]{3}\s\d{1,2}/;
-  while (i < initialLines.length) {
-    let currentBlock = [];
-    const firstLine = initialLines[i];
-
-    // Ensure the current line starts with a date to be considered a new transaction
-    if (!startsWithDateRegex.test(firstLine)) {
-        i++; // Skip lines that don't start with a date (e.g., orphaned description lines or other headers)
-        continue;
-    }
-
-    // Start of a new transaction block with the first date
-    currentBlock.push(firstLine);
-    i++;
-
-    // Check if the very next line is a second date for the same transaction
-    if (i < initialLines.length && startsWithDateRegex.test(initialLines[i])) {
-      currentBlock.push(initialLines[i]); // Add the second date
-      i++;
-    }
-
-    // Gather all subsequent lines that are not new transaction dates or balance summary lines
-    while (i < initialLines.length && !startsWithDateRegex.test(initialLines[i]) &&
-           !initialLines[i].toLowerCase().includes('closing principal balance') &&
-           !initialLines[i].toLowerCase().includes('balance forward')) {
-      currentBlock.push(initialLines[i]);
-      i++;
-    }
-    processedTransactionLines.push(currentBlock.join(' ')); // Join the collected lines into one full transaction string
-  }
-
-  // Now, iterate through each assembled full transaction string and parse it
-  processedTransactionLines.forEach(fullText => {
-    // Skip balance-related transactions that might have been grouped
-    if (/(Opening Principal Balance|Closing Principal Balance|Balance Forward)/i.test(fullText)) {
-      return; // Do not add these to the table
+  // Process each combined transaction
+  transactions.forEach(transaction => {
+    // Skip balance summary lines
+    if (/(Opening|Closing) Principal Balance|Balance Forward/i.test(transaction)) {
+      return;
     }
 
     // Extract dates (could be one or two dates)
-    const dateMatches = [...fullText.matchAll(/([A-Za-z]{3}\s\d{2})/g)];
-    let dates = dateMatches.map(m => m[1]);
-
+    const dateMatches = [...transaction.matchAll(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s\d{1,2}\b/ig)];
+    let dates = dateMatches.map(m => m[0]);
+    
     // Apply year if provided
     if (yearInput) {
       dates = dates.map(date => `${date} ${yearInput}`);
     }
+    const formattedDate = dates.join(' ');
 
-    const formattedDate = dates.join(' '); // Join multiple dates with a space
+    // Extract all amounts
+    const amountMatches = [...transaction.matchAll(/-?\$?\d{1,3}(?:,\d{3})*\.\d{2}/g)];
+    const amounts = amountMatches.map(m => m[0]);
+    
+    // Skip transactions without valid amounts
+    if (amounts.length < 1) return;
+    
+    // Get description by removing dates and amounts
+    let description = transaction;
+    dateMatches.forEach(match => {
+      description = description.replace(match[0], '');
+    });
+    amountMatches.forEach(amount => {
+      description = description.replace(amount[0], '');
+    });
+    description = description.replace(/\s+/g, ' ').trim();
 
-    // Extract all amounts (transaction amount and balance, plus any in description)
-    const allAmountMatches = [...fullText.matchAll(/-?\$?\d{1,3}(?:,\d{3})*\.\d{2}/g)];
-    const amounts = allAmountMatches.map(m => m[0].replace(/\$/g, '').replace(/,/g, ''));
-
-    // A transaction must have at least a transaction amount and a balance
-    if (amounts.length < 2) {
-        return; // Not enough amounts to be a valid transaction
-    }
-
-    // CORRECTED: Get the actual transaction amount and balance from the END of the amounts array
-    const transactionAmountRaw = amounts[amounts.length - 2]; // Second to last is the transaction amount string
-    const balanceAmountRaw = amounts[amounts.length - 1];     // Last is the balance amount string
-
-    const transactionAmount = parseFloat(transactionAmountRaw); // Numerical value
-    const balanceAmount = parseFloat(balanceAmountRaw);
-
+    // Determine transaction type and balance
     let debit = '';
     let credit = '';
-
-    // Determine debit/credit based on the sign of the transaction amount string
-    // Positive numbers (no leading '-') go to Debit
-    // Negative numbers (leading '-') go to Credit
-    if (transactionAmountRaw.startsWith('-')) {
-      credit = Math.abs(transactionAmount).toFixed(2); // Ensure no negative sign
-    } else {
-      debit = transactionAmount.toFixed(2); // Already positive
+    let balance = amounts[amounts.length - 1].replace(/[^\d.-]/g, '');
+    
+    if (amounts.length >= 2) {
+      const txAmount = amounts[amounts.length - 2];
+      if (txAmount.includes('-')) {
+        credit = txAmount.replace(/[^\d.]/g, '');
+      } else {
+        debit = txAmount.replace(/[^\d.]/g, '');
+      }
     }
 
-    currentBalance = balanceAmount; // Update current balance for the next transaction
-
-    // Get description by removing only the *last two* amounts and dates from the full text
-    let description = fullText;
-    if (allAmountMatches.length >= 2) {
-        // Find the index of the start of the second-to-last amount match in the original fullText
-        const indexOfSecondLastAmount = fullText.lastIndexOf(allAmountMatches[allAmountMatches.length - 2][0]);
-        if (indexOfSecondLastAmount !== -1) {
-            // Take everything from the beginning up to the start of the second-to-last amount
-            description = fullText.substring(0, indexOfSecondLastAmount).trim();
-        } else {
-            // Fallback if lastIndexOf fails, remove by replacing the string values
-            description = fullText.replace(allAmountMatches[allAmountMatches.length - 2][0], '')
-                                  .replace(allAmountMatches[allAmountMatches.length - 1][0], '').trim();
-        }
-    } else if (allAmountMatches.length === 1) {
-        // If only one amount, remove that one
-        description = fullText.replace(allAmountMatches[0][0], '').trim();
-    }
-
-    // Remove original dates from the description
-    dateMatches.forEach(match => {
-        description = description.replace(match[0], '');
-    });
-
-    description = description.replace(/\s+/g, ' ').trim(); // Replace multiple spaces with a single space and trim
-
-    const row = [
+    rows.push([
       formattedDate,
       description,
       debit,
       credit,
-      formatBalance(balanceAmount)
-    ];
-
-    rows.push(row);
+      balance
+    ]);
   });
 
-  // Render all gathered rows to the table
+  // Add rows to table
   rows.forEach(row => {
     const tr = document.createElement('tr');
     row.forEach(cell => {
@@ -200,6 +133,80 @@ function processData() {
 
   outputDiv.appendChild(table);
   table.dataset.rows = JSON.stringify(rows);
+  
+  if (typeof window.updateTableCursor === 'function') {
+    window.updateTableCursor();
+  }
+}
+
+// PDF processing from locrbc.html - kept exactly the same
+window.bankUtils.processPDFFile = async function(file) {
+  const reader = new FileReader();
+  return new Promise((resolve, reject) => {
+    reader.onload = async function(event) {
+      const arrayBuffer = event.target.result;
+      try {
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let allText = [];
+        
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const textContent = await page.getTextContent();
+          const text = textContent.items.map(item => item.str).join(' ');
+          allText.push(text);
+        }
+        
+        const fullText = allText.join('\n');
+        const transactions = parseTransactions(fullText);
+        resolve(transactions.join('\n'));
+      } catch (error) {
+        console.error("Error parsing PDF:", error);
+        reject(new Error("Failed to parse PDF file. " + error.message));
+      }
+    };
+    reader.onerror = (error) => reject(error);
+    reader.readAsArrayBuffer(file);
+  });
+};
+
+function parseTransactions(text) {
+  // Extract transactions section
+  const transactionHeader = text.match(/(Your\s+Account\s+Activity|Transactions?[\s\S]*?Balance)/i);
+  let transactionSection = '';
+  
+  if (transactionHeader) {
+    const startIndex = text.indexOf(transactionHeader[0]);
+    transactionSection = text.substr(startIndex);
+    
+    const closingBalanceMatch = transactionSection.match(/Closing\s+Principal\s+Balance/i);
+    if (closingBalanceMatch) {
+      const closingIndex = transactionSection.indexOf(closingBalanceMatch[0]);
+      transactionSection = transactionSection.substr(0, closingIndex);
+    }
+  } else {
+    transactionSection = text;
+  }
+
+  // Extract transactions
+  const transactionRegex = /((?:[JSFMASONJD][a-z]{2}\s+\d{1,2}\s+)?(?:[JSFMASONJD][a-z]{2}\s+\d{1,2}\s+)?(?!(?:Opening|Closing)\b)[^\d$]*)(-\$[\d,]+\.\d{2}|\$[\d,]+\.\d{2})?\s+\$[\d,]+\.\d{2}/gi;
+  let match;
+  const transactionsFound = [];
+  
+  transactionSection = transactionSection.replace(/Transaction\s*Date.*?Balance/gi, '');
+  
+  while ((match = transactionRegex.exec(transactionSection)) !== null) {
+    let transactionLine = match[0].trim();
+    transactionLine = transactionLine.replace(/\s+/g, ' ');
+    
+    if (transactionLine.includes("Opening Principal Balance") || 
+        transactionLine.includes("Closing Principal Balance")) {
+      continue;
+    }
+    
+    transactionsFound.push(transactionLine);
+  }
+  
+  return transactionsFound;
 }
 
 window.processData = processData;

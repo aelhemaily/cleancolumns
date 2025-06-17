@@ -40,7 +40,13 @@ let uploadedFilesData = []; // Store file objects and their processed text
   const sampleImage = document.getElementById('sampleImage');
   const closeModal = document.querySelector('.close-modal');
 
-
+function shouldShowPDFUpload(bankKey) {
+  // List of bank combinations where PDF upload should be hidden
+  const restrictedBanks = [
+    'rbcAccount' // Add more bank keys here as needed
+  ];
+  return !restrictedBanks.includes(bankKey);
+}
 
   
   function showSampleStatement() {
@@ -232,6 +238,7 @@ let uploadedFilesData = []; // Store file objects and their processed text
       td: ['account', 'card', 'inPerson'],
       firstontario: ['account'],
       meridian: ['account'],
+      simplii: ['account'],
       wellsfargo: ['account'],
       eq: ['card'],
       triangle: ['card'],
@@ -305,10 +312,18 @@ let uploadedFilesData = []; // Store file objects and their processed text
     .catch(console.error);
 
   function updateURLAndReload() {
-    const newBank = bankSelector.value;
-    const newType = typeSelector.value;
-    window.location.href = `${window.location.pathname}?bank=${newBank}&type=${newType}`;
+  const newBank = bankSelector.value;
+  const newType = typeSelector.value;
+  const bankKey = newBank + capitalizeFirstLetter(newType);
+  
+  // Show/hide entire PDF upload section
+  const pdfUploadSection = document.getElementById('pdfUploadSection');
+  if (pdfUploadSection) {
+    pdfUploadSection.style.display = shouldShowPDFUpload(bankKey) ? 'block' : 'none';
   }
+  
+  window.location.href = `${window.location.pathname}?bank=${newBank}&type=${newType}`;
+}
 
   bankSelector.addEventListener('change', () => {
     const newBank = bankSelector.value;
@@ -355,8 +370,18 @@ let uploadedFilesData = []; // Store file objects and their processed text
     console.warn('Parsing script not yet loaded.');
   }
 });
+// Handle initial PDF upload visibility
+const initialBankKey = getCombinedKey();
+const pdfUploadSection = document.getElementById('pdfUploadSection');
+if (pdfUploadSection) {
+  pdfUploadSection.style.display = shouldShowPDFUpload(initialBankKey) ? 'block' : 'none';
+}
+
+
 
 function setupFileUpload() {
+    const bankKey = getCombinedKey();
+  if (!shouldShowPDFUpload(bankKey)) return;
   // Prevent default drag behaviors
   ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
     if (dropArea) dropArea.addEventListener(eventName, preventDefaults, false);
