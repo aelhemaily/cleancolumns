@@ -43,7 +43,9 @@ let uploadedFilesData = []; // Store file objects and their processed text
 function shouldShowPDFUpload(bankKey) {
   // List of bank combinations where PDF upload should be hidden
   const restrictedBanks = [
-    'rbcAccount', 'tdCard' // Add more bank keys here as needed
+    'rbcAccount', 'tdCard', 'tdinPerson', 'eqCard', 'firstontarioAccount',
+    'meridianAccount', 'nbcAccount', 'nbcCard', 'simpliiAccount', 
+    'tangerineAccount', 'triangleCard','wallmartCard', 'wellsfargoAccount'       // Add more bank keys here as needed
   ];
   return !restrictedBanks.includes(bankKey);
 }
