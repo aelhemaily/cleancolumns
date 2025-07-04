@@ -10,7 +10,7 @@ let keywords = {
   credit: [
     "deposit", "tfr-fr", "e-transfer", "e-tfr", "payment - thank you",
     "refund", "interest received", "remittance", "gc deposit",
-    "transfer fr", "received", "credit"
+    "transfer fr", "received", "credit", "pay with points", "paiement par points" // Added hardcoded credit keywords
   ]
 };
 

@@ -240,6 +240,7 @@ function shouldShowPDFUpload(bankKey) {
       meridian: ['account'],
       simplii: ['account'],
       wellsfargo: ['account'],
+      amex: ['card'],
       eq: ['card'],
       triangle: ['card'],
       wallmart: ['card'],
