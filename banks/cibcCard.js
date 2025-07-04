@@ -34,8 +34,6 @@ function injectPaymentBoxIfNeeded() {
   }
 }
 
-// injectPaymentBoxIfNeeded();
-
 function capitalizeCategory(cat) {
   return cat
     .split(' ')
@@ -47,8 +45,13 @@ function capitalizeCategory(cat) {
 function parseDate(text) {
   // This function is used for sorting, so it needs a consistent year.
   // The display date is handled separately in parseLines.
-  const [mon1, d1] = text.split(' ');
-  return new Date(`${mon1} ${d1}, 2000`); // Use a dummy year for consistent sorting
+  // The dateMatch[0] contains "Mon1 Day1 Mon2 Day2". We need Mon1 Day1 for sorting.
+  const dateParts = text.match(/^([A-Za-z]{3}) (\d{1,2})/);
+  if (dateParts) {
+    const [, mon1, d1] = dateParts;
+    return new Date(`${mon1} ${d1}, 2000`); // Use a dummy year for consistent sorting
+  }
+  return new Date(); // Fallback to current date if parsing fails
 }
 
 // Existing parseLines function, now also used for PDF-extracted text
@@ -74,27 +77,28 @@ function parseLines(text, yearInput, isPayment = false) {
   if (current) transactions.push(current.trim()); // Add the last transaction
 
   return transactions.map(line => {
-    const dateMatch = line.match(/^[A-Za-z]{3} \d{1,2} [A-Za-z]{3} \d{1,2}/);
+    // Regex to capture both date sets for extraction
+    const dateMatch = line.match(/^([A-Za-z]{3}) (\d{1,2}) ([A-Za-z]{3}) (\d{1,2})/);
     // Regex to capture all potential amounts, including those that might be in the description
     const amountPattern = /-?\d{1,3}(?:,\d{3})*\.\d{2}(?:\*+)?/g;
     const allAmountMatches = [...line.matchAll(amountPattern)];
 
     if (!dateMatch || allAmountMatches.length === 0) return null; // Skip if no date or amount found
 
-    let date = dateMatch[0].trim();
+    // Extract only the first date (Mon1 Day1)
+    let date = `${dateMatch[1]} ${dateMatch[2]}`;
     if (yearInput) {
-      const parts = date.split(' ');
-      // Ensure year is appended to both date parts if present
-      date = `${parts[0]} ${parts[1]} ${yearInput} ${parts[2]} ${parts[3]} ${yearInput}`;
+      date = `${date} ${yearInput}`; // Append year to the first date
     }
 
     // The actual transaction amount is typically the LAST matched amount in the line
     const amountRaw = allAmountMatches[allAmountMatches.length - 1][0];
-    const cleanAmount = amountRaw.replace(/\*+$/, '').replace(/,/g, '').replace(/-/g, '');
+    // IMPORTANT FIX: Remove only asterisks and commas, preserve the negative sign
+    const cleanAmount = amountRaw.replace(/\*+$/, '').replace(/,/g, '');
 
     // Get the description by taking everything BEFORE the last amount match
     let description = line.substring(0, allAmountMatches[allAmountMatches.length - 1].index).trim();
-    // Remove the date part from the beginning of the description
+    // Remove the full date part (both dates) from the beginning of the description
     description = description.replace(dateMatch[0], '').trim();
 
     // Clean up any extra spaces in the description
@@ -103,31 +107,38 @@ function parseLines(text, yearInput, isPayment = false) {
     let category = '';
     const descLower = description.toLowerCase();
 
+    // Always give "INTEREST REVERSAL" the category of interest
+    if (descLower.includes("interest reversal")) {
+      category = "Interest";
+    }
     // Hardcoded categories for specific phrases (CIBC-specific)
-    if (descLower.includes("payment thank you")) {
+    else if (descLower.includes("payment thank you")) {
       category = "Payment";
     } else if (descLower.includes("regular purchases")) {
-      category = "Interest"; // or "Purchases" based on definition
+      category = "Interest";
     } else if (descLower.includes("cash advances")) {
-      category = "Interest"; // or "Cash Advance" based on definition
+      category = "Cash Advance";
     } else {
-      // Find a category from the loaded categoryWords that matches the end of the description
-      const matchedCategory = categoryWords.find(cat => descLower.endsWith(cat));
+      // Find a category from the loaded categoryWords that matches anywhere in the description
+      // and move it to the category column
+      const matchedCategory = categoryWords.find(cat => descLower.includes(cat));
       if (matchedCategory) {
         category = capitalizeCategory(matchedCategory);
-        const idx = description.toLowerCase().lastIndexOf(matchedCategory);
-        description = description.slice(0, idx).trim().replace(/\s+/g, ' '); // Remove category from description
+        // Remove the matched category from the description
+        description = description.replace(new RegExp(matchedCategory, 'gi'), '').trim().replace(/\s+/g, ' ');
       }
     }
 
+    // Remove the airplane symbol (Q or →) from the beginning of transaction descriptions
+    description = description.replace(/^[→Q]\s*/, '').trim();
+
     // Determine if it's a credit based on negative sign or specific keywords
-    const isSpecialCredit = isPayment ||
+    const isCredit = cleanAmount.startsWith('-') || isPayment ||
       descLower.includes("payment thank you") ||
       keywords.credit.some(k => descLower.includes(k));
 
-    const isCredit = amountRaw.startsWith('-') || amountRaw.endsWith('-') || isSpecialCredit;
     const debit = (!isCredit) ? cleanAmount : '';
-    const credit = isCredit ? cleanAmount : '';
+    const credit = isCredit ? cleanAmount.replace(/^-/, '') : ''; // Remove leading '-' for credit column
 
     return {
       rawDate: dateMatch[0], // Original date string for sorting
@@ -262,6 +273,10 @@ function cleanIndividualTransaction(transaction) {
 
   let cleaned = transaction.replace(/\s+/g, ' ').trim(); // Normalize spaces
 
+  // Remove the airplane symbol "→" or "Q" if present at the beginning of the transaction string
+  // This line is now handled in parseLines to ensure it's removed after description extraction
+  // cleaned = cleaned.replace(/^[→Q]\s*/, '').trim();
+
   // Handle foreign currency transactions specially
   if (cleaned.includes('USD @') && cleaned.includes('**')) {
     // Pattern: "description USD_AMOUNT USD @ RATE** Foreign Currency Transactions FINAL_AMOUNT"
@@ -287,7 +302,8 @@ function isValidTransaction(transaction) {
 
   // Must end with a number (amount) - could be just digits.decimals or with ** for foreign currency
   // Also accept "Foreign Currency Transactions X.XX" format
-  if (!transaction.match(/(\d+\.\d+(\s*\*?\*?\s*)?|Foreign\s+Currency\s+Transactions\s+\d+\.\d+)$/)) return false;
+  // Updated to specifically look for the amount at the end, including optional asterisks
+  if (!transaction.match(/(-?\d{1,3}(?:,\d{3})*\.\d{2}(?:\*+)?|Foreign\s+Currency\s+Transactions\s+\d+\.\d+)$/)) return false;
 
   // Filter out summary lines and totals
   const excludePatterns = [

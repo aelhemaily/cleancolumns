@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TD Visa Transaction Extractor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 30px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .drop-area {
+            border: 3px dashed #007bff;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            background-color: #eaf6ff;
+            margin-bottom: 20px;
+            transition: background-color 0.3s ease;
+        }
+        .drop-area.hover {
+            background-color: #dbeeff;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+        button:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px);
+        }
+        .results-input { /* Styles for the new textarea */
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            max-height: 600px;
+            overflow-y: auto;
+            margin-top: 20px;
+            border: 1px solid #e9ecef;
+            width: 100%; /* Make it fill the container */
+            box-sizing: border-box; /* Include padding and border in the element's total width and height */
+            resize: vertical; /* Allow vertical resizing */
+        }
+        .status {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-weight: bold;
+            text-align: center;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .processing {
+            background-color: #cfe2ff;
+            color: #052c65;
+            border: 1px solid #b6d4fe;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>TD Visa Statement Parser</h1>
+        <div class="drop-area" id="dropArea">
+            <p><strong>Drag & drop your TD Visa PDF statements here</strong></p>
+            <p>or</p>
+            <button id="selectButton">Select PDF Files</button>
+            <input type="file" id="fileInput" accept=".pdf" multiple style="display:none">
+        </div>
+        <div id="status" class="status">Ready to process statements</div>
+
+        <!-- New textarea for displaying results - 'readonly' attribute removed -->
+        <textarea id="resultsInput" class="results-input" rows="15" placeholder="Extracted transactions will appear here..."></textarea>
+        
+        <!-- New placeholder Convert button -->
+        <button id="convertButton">Convert</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
+
+        const dropArea = document.getElementById('dropArea');
+        const fileInput = document.getElementById('fileInput');
+        const selectButton = document.getElementById('selectButton');
+        const resultsInput = document.getElementById('resultsInput'); // Changed from resultsDiv
+        const statusDiv = document.getElementById('status');
+        const convertButton = document.getElementById('convertButton'); // Get the new convert button
+
+        // Add hover effect for drag and drop area
+        dropArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropArea.classList.add('hover');
+        });
+
+        dropArea.addEventListener('dragleave', () => {
+            dropArea.classList.remove('hover');
+        });
+
+        dropArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropArea.classList.remove('hover');
+            if (e.dataTransfer.files) {
+                fileInput.files = e.dataTransfer.files;
+                handleFiles();
+            }
+        });
+
+        selectButton.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', handleFiles);
+
+        // Placeholder for the Convert button functionality
+        convertButton.addEventListener('click', () => {
+            // This is where you would add the logic for the "Convert" feature.
+            // For now, it just shows an alert.
+            // You can access the extracted text using resultsInput.value
+            alert('Convert button clicked! The extracted text is:\n' + resultsInput.value);
+        });
+
+        /**
+         * Handles the files selected by the user, processes them, and displays the results.
+         */
+        async function handleFiles() {
+            const files = fileInput.files;
+            if (!files || files.length === 0) {
+                statusDiv.textContent = "Please select PDF file(s) to process.";
+                statusDiv.className = 'status error';
+                resultsInput.value = ''; // Clear the textarea
+                return;
+            }
+
+            statusDiv.textContent = `Processing ${files.length} file(s)...`;
+            statusDiv.className = 'status processing';
+            resultsInput.value = ''; // Clear the textarea
+
+            let allTransactions = []; 
+            
+            for (const file of files) {
+                try {
+                    const transactions = await parsePDF(file);
+                    allTransactions.push(...transactions);
+                } catch (error) {
+                    statusDiv.className = 'status error';
+                    statusDiv.textContent = `Error processing ${file.name}: ${error.message}. Please try again with a valid PDF.`;
+                    console.error(`Error processing ${file.name}:`, error);
+                    return;
+                }
+            }
+
+            if (allTransactions.length === 0) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = "No transactions found. Ensure you're uploading valid TD Visa statements with recognizable transaction data.";
+                return;
+            }
+
+            displayResults(allTransactions);
+        }
+
+        /**
+         * Parses a PDF file to extract its text content.
+         * @param {File} file The PDF file to parse.
+         * @returns {Promise<string[]>} A promise that resolves with an array of extracted transaction strings.
+         */
+        async function parsePDF(file) {
+            return new Promise(async (resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = async function(event) {
+                    try {
+                        const typedArray = new Uint8Array(event.target.result);
+                        const pdf = await pdfjsLib.getDocument(typedArray).promise;
+                        
+                        let fullText = '';
+                        
+                        for (let i = 1; i <= pdf.numPages; i++) {
+                            const page = await pdf.getPage(i);
+                            const textContent = await page.getTextContent();
+                            
+                            const sortedItems = textContent.items.sort((a, b) => {
+                                const yDiff = b.transform[5] - a.transform[5];
+                                if (Math.abs(yDiff) > 5) return yDiff;
+                                return a.transform[4] - b.transform[4];
+                            });
+                            
+                            let pageLines = [];
+                            let currentLine = '';
+                            let lastY = null;
+
+                            for (const item of sortedItems) { 
+                                if (lastY === null || Math.abs(item.transform[5] - lastY) < 5) {
+                                    currentLine += item.str + ' ';
+                                } else {
+                                    pageLines.push(currentLine.trim());
+                                    currentLine = item.str + ' ';
+                                }
+                                lastY = item.transform[5];
+                            }
+                            if (currentLine) {
+                                pageLines.push(currentLine.trim());
+                            }
+                            fullText += pageLines.join('\n') + '\n';
+                        }
+                        
+                        const transactions = extractTransactions(fullText);
+                        
+                        resolve(transactions);
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        /**
+         * Extracts transaction details from the raw text content of a PDF.
+         * @param {string} text The full text content extracted from the PDF.
+         * @returns {string[]} An array of formatted transaction strings.
+         */
+        function extractTransactions(text) {
+            const transactions = [];
+            
+            const lines = text.replace(/\r\n/g, '\n').split('\n').map(line => line.trim()).filter(line => line.length > 0);
+            
+            let transactionStartIndex = -1;
+            for (let i = 0; i < lines.length; i++) {
+                // Improved header detection: check for presence of all key header words
+                const line = lines[i];
+                if (line.includes('TRANSACTION') && line.includes('DATE') && 
+                    line.includes('ACTIVITY') && line.includes('DESCRIPTION') && 
+                    line.includes('AMOUNT')) {
+                    transactionStartIndex = i;
+                    break;
+                }
+            }
+
+            if (transactionStartIndex === -1) {
+                return extractTransactionsFallback(text);
+            }
+
+            let transactionEndIndex = lines.length; 
+            for (let i = transactionStartIndex + 1; i < lines.length; i++) {
+                const line = lines[i];
+                if (line.includes('NET AMOUNT OF MONTHLY ACTIVITY') ||
+                    line.includes('TOTAL NEW BALANCE') ||
+                    line.includes('CALCULATING YOUR BALANCE') ||
+                    line.includes('PAYMENT INFORMATION') || 
+                    line.includes('TD MESSAGE CENTRE') ||
+                    line.includes('Estimated Time to Pay')
+                    ) {
+                    transactionEndIndex = i;
+                    break;
+                }
+            }
+
+            const relevantLines = lines.slice(transactionStartIndex + 1, transactionEndIndex);
+            
+            let i = 0;
+            while (i < relevantLines.length) {
+                let line = relevantLines[i];
+                
+                if (!line || line.length < 10) {
+                    i++;
+                    continue;
+                }
+                
+                // Revised Regex: ^.*? allows any characters at the beginning of the line
+                // Group 1: Transaction Date (e.g., "MAR 15")
+                // Group 2: Posting Date (e.g., "MAR 18")
+                // Group 3: Description (non-greedy, captures everything until amount)
+                // Group 4: Amount (e.g., "$8.11" or "-$10.00")
+                // Group 5: Any trailing characters after amount (e.g., page numbers, document IDs)
+                const transactionMatch = line.match(/^.*?([A-Z]{3}\s+\d{1,2})\s+([A-Z]{3}\s+\d{1,2})\s+(.*?)(-?\$[\d,]+\.\d{2})(.*)$/);
+                
+                if (transactionMatch) {
+                    const transactionDate = transactionMatch[1];
+                    const postingDate = transactionMatch[2];
+                    let description = transactionMatch[3].trim();
+                    const amount = transactionMatch[4];
+                    const trailingChars = transactionMatch[5].trim();
+
+                    description = cleanDescription(description);
+                    
+                    let foreignInfo = '';
+                    if (i + 1 < relevantLines.length) {
+                        const nextLine = relevantLines[i + 1];
+                        
+                        // Check for explicit foreign currency line (e.g., "FOREIGN CURRENCY USD ...")
+                        if (nextLine.includes('FOREIGN CURRENCY') && nextLine.includes('USD')) {
+                            foreignInfo += ' ' + nextLine.trim(); // Append first part of foreign info
+                            i++; // Consume this line
+
+                            // Now, check if there's *another* next line for the exchange rate
+                            if (i + 1 < relevantLines.length) {
+                                const nextNextLine = relevantLines[i + 1];
+                                if (nextNextLine.includes('EXCHANGE RATE')) {
+                                    foreignInfo += ' ' + nextNextLine.trim(); // Append the exchange rate
+                                    i++; // Consume this line
+                                }
+                            }
+                        }
+                        // Keep the existing city appending logic (else if) as it's separate
+                        else if (
+                            nextLine.match(/^[A-Z][a-zA-Z0-9\s.-]+$/) &&
+                            !nextLine.match(/^[A-Z]{3}\s+\d{1,2}\s+[A-Z]{3}\s+\d{1,2}/) &&
+                            !nextLine.includes('NET AMOUNT') && !nextLine.includes('TOTAL') && 
+                            !nextLine.includes('CALCULATING') && !nextLine.includes('PAYMENT INFORMATION') &&
+                            !nextLine.includes('MINIMUM PAYMENT') && !nextLine.includes('TD MESSAGE CENTRE') &&
+                            !nextLine.includes('Estimated Time to Pay') &&
+                            !nextLine.includes('Annual Interest Rate:') && 
+                            nextLine.length > 1 && nextLine.length < 50
+                        ) {
+                            description += ' ' + nextLine.trim();
+                            i++; // Consume this line
+                        }
+                    }
+                    
+                    transactions.push(`${transactionDate} ${postingDate} ${description} ${amount}${foreignInfo}`);
+                }
+                
+                i++;
+            }
+
+            if (transactions.length === 0) {
+                return extractTransactionsFallback(text);
+            }
+            
+            return transactions;
+        }
+
+        /**
+         * Cleans up transaction descriptions by removing common artifacts and normalizing spaces.
+         * @param {string} description The raw description.
+         * @returns {string} The cleaned description.
+         */
+        function cleanDescription(description) {
+            // Aggressively remove 'Continued' regardless of case or surrounding characters
+            // Replace with a single space to avoid concatenation of surrounding words
+            let cleaned = description.replace(/continued/gi, ' '); 
+            
+            // Remove "CALCULATING YOUR BALANCE" and its variations
+            cleaned = cleaned.replace(/CALCULATING\s*YOUR\s*BALANCE/gi, ' ');
+
+            // Remove "TheestimatedtimetopayyourNewBalanceinfull" and its variations
+            cleaned = cleaned.replace(/The\s*estimated\s*time\s*to\s*pay\s*your\s*New\s*Balance\s*in\s*full/gi, ' ');
+            
+            // Remove "EstimatedTimetoPay" and its variations
+            cleaned = cleaned.replace(/Estimated\s*Time\s*to\s*Pay/gi, ' ');
+
+            // Remove "AnnualInterestRate:Purchases[percentage]" and its variations
+            cleaned = cleaned.replace(/Annual\s*Interest\s*Rate:\s*Purchases\s*\d+\.\d+%/gi, ' ');
+
+            // Remove "CashAdvances[percentage]" and its variations
+            cleaned = cleaned.replace(/Cash\s*Advances\s*\d+\.\d+%/gi, ' ');
+
+            // Then, normalize all whitespace to single spaces (important after aggressive replacement)
+            cleaned = cleaned.replace(/\s+/g, ' '); 
+            
+            // Remove other known artifacts
+            cleaned = cleaned.replace(/The yourNewBalanceinfull.*$/i, ''); 
+            cleaned = cleaned.replace(/NETAMOUNTOFMONTHLY.*$/i, '');
+            cleaned = cleaned.replace(/ACTIVITY.*$/i, '');
+            cleaned = cleaned.replace(/AMOUNT\s*\(S\)\s*\$.*$/i, '');
+            cleaned = cleaned.replace(/^\s*-\s*/, '');
+
+            return cleaned.trim(); // Finally, trim any leading/trailing whitespace
+        }
+
+        /**
+         * Fallback function using a different, more lenient approach to extract transactions,
+         * in case the primary method fails to find the transaction header or enough transactions.
+         * @param {string} text The full text content.
+         * @returns {string[]} An array of formatted transaction strings.
+         */
+        function extractTransactionsFallback(text) {
+            const transactions = [];
+            
+            const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                
+                if (line.includes('TRANSACTION DATE') || 
+                    line.includes('POSTING DATE') || 
+                    line.includes('ACTIVITY DESCRIPTION') ||
+                    line.includes('AMOUNT (S)') ||
+                    line.includes('PREVIOUS STATEMENT BALANCE') ||
+                    line.includes('NET AMOUNT OF MONTHLY ACTIVITY') ||
+                    line.includes('TOTAL NEW BALANCE') ||
+                    line.includes('CALCULATING YOUR BALANCE') ||
+                    line.includes('PAYMENT INFORMATION') ||
+                    line.includes('Minimum Payment') ||
+                    line.includes('TD MESSAGE CENTRE') ||
+                    line.includes('Estimated Time to Pay')) {
+                    continue; 
+                }
+
+                const match = line.match(/^([A-Z]{3}\s+\d{1,2})\s+([A-Z]{3}\s+\d{1,2})\s+(.*?)(-?\$[\d,]+\.\d{2})/);
+                
+                if (match) {
+                    const transactionDate = match[1];
+                    const postingDate = match[2];
+                    let description = match[3].trim();
+                    const amount = match[4];
+                    
+                    description = cleanDescription(description);
+                    
+                    if (description.length < 3 || 
+                        description.includes('BALANCE') || 
+                        description.includes('STATEMENT') ||
+                        description.includes('MINIMUM') ||
+                        description.includes('ANNUAL INTEREST RATE')) {
+                        continue;
+                    }
+                    
+                    let foreignInfo = '';
+                    if (i + 1 < lines.length) {
+                        const nextLine = lines[i + 1];
+                        // Modified fallback: check for foreign currency on next line
+                        if (nextLine.includes('FOREIGN CURRENCY') && nextLine.includes('USD')) {
+                            foreignInfo += ' ' + nextLine.trim();
+                            i++;
+
+                            // Check for exchange rate on the line after foreign currency
+                            if (i + 1 < lines.length) {
+                                const nextNextLine = lines[i + 1];
+                                if (nextNextLine.includes('EXCHANGE RATE')) {
+                                    foreignInfo += ' ' + nextNextLine.trim();
+                                    i++;
+                                }
+                            }
+                        }
+                        // Keep city appending logic (else if)
+                        else if (
+                            nextLine.match(/^[A-Z][a-zA-Z0-9\s.-]+$/) &&
+                            !nextLine.match(/^[A-Z]{3}\s+\d{1,2}\s+[A-Z]{3}\s+\d{1,2}/) &&
+                            !nextLine.includes('TOTAL') && !nextLine.includes('BALANCE') &&
+                            !nextLine.includes('Annual Interest Rate:') &&
+                            nextLine.length > 1 && nextLine.length < 50
+                        ) {
+                            description += ' ' + nextLine.trim();
+                            i++;
+                        }
+                    }
+                    
+                    transactions.push(`${transactionDate} ${postingDate} ${description} ${amount}${foreignInfo}`);
+                }
+            }
+            
+            return transactions;
+        }
+
+        /**
+         * Displays the extracted transactions in the results input box and updates the status.
+         * @param {string[]} transactions An array of formatted transaction strings.
+         */
+        function displayResults(transactions) {
+            // Post-process to remove unwanted phrases from all final transaction strings
+            const finalTransactions = transactions.map(transaction => {
+                let cleanedTransaction = transaction.replace(/\bcontinued\b/gi, ' ');
+                cleanedTransaction = cleanedTransaction.replace(/CALCULATING\s*YOUR\s*BALANCE/gi, ' ');
+                cleanedTransaction = cleanedTransaction.replace(/The\s*estimated\s*time\s*to\s*pay\s*your\s*New\s*Balance\s*in\s*full/gi, ' ');
+                cleanedTransaction = cleanedTransaction.replace(/Estimated\s*Time\s*to\s*Pay/gi, ' '); 
+                cleanedTransaction = cleanedTransaction.replace(/Annual\s*Interest\s*Rate:\s*Purchases\s*\d+\.\d+%/gi, ' '); // Post-process here
+                cleanedTransaction = cleanedTransaction.replace(/Cash\s*Advances\s*\d+\.\d+%/gi, ' '); // Post-process here
+                cleanedTransaction = cleanedTransaction.replace(/\s+/g, ' ').trim(); // Normalize spaces and trim
+                return cleanedTransaction;
+            });
+
+            resultsInput.value = finalTransactions.join('\n'); // Set the value of the textarea
+            statusDiv.className = 'status success';
+            statusDiv.textContent = `Successfully extracted ${finalTransactions.length} transactions`;
+        }
+    </script>
+</body>
+</html>
