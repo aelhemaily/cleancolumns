@@ -1,24 +1,39 @@
+// cibcCard.js
+
 let keywords = { debit: [], credit: [] };
 let categoryWords = [];
 
 // Load keywords.json
 fetch('../keywords.json')
-  .then(response => response.json())
+  .then(response => {
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status} from ../keywords.json`);
+    }
+    return response.json();
+  })
   .then(data => {
     keywords = {
       debit: data.debit.map(k => k.toLowerCase()),
       credit: data.credit.map(k => k.toLowerCase())
     };
+    console.log('Keywords loaded successfully:', keywords);
   })
-  .catch(error => console.error('Failed to load keywords:', error));
+  .catch(error => console.error('Failed to load keywords.json:', error));
 
 // Load cibcCardCategories.json
 fetch('../cibcCardCategories.json')
-  .then(response => response.json())
+  .then(response => {
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status} from ../cibcCardCategories.json`);
+    }
+    return response.json();
+  })
   .then(data => {
     categoryWords = data.categories.map(k => k.toLowerCase());
+    console.log('Categories loaded successfully:', categoryWords);
   })
-  .catch(error => console.error('Failed to load categories:', error));
+  .catch(error => console.error('Failed to load cibcCardCategories.json:', error));
+
 
 function injectPaymentBoxIfNeeded() {
   if (!document.getElementById('paymentText')) {
@@ -121,11 +136,17 @@ function parseLines(text, yearInput, isPayment = false) {
     } else {
       // Find a category from the loaded categoryWords that matches anywhere in the description
       // and move it to the category column
-      const matchedCategory = categoryWords.find(cat => descLower.includes(cat));
-      if (matchedCategory) {
-        category = capitalizeCategory(matchedCategory);
-        // Remove the matched category from the description
-        description = description.replace(new RegExp(matchedCategory, 'gi'), '').trim().replace(/\s+/g, ' ');
+      // Check if categoryWords is populated before using it
+      if (categoryWords && categoryWords.length > 0) {
+        console.log('Category words array in parseLines:', categoryWords); // Added log
+        const matchedCategory = categoryWords.find(cat => descLower.includes(cat));
+        if (matchedCategory) {
+          category = capitalizeCategory(matchedCategory);
+          // Remove the matched category from the description
+          description = description.replace(new RegExp(matchedCategory, 'gi'), '').trim().replace(/\s+/g, ' ');
+        }
+      } else {
+        console.warn('categoryWords array is empty or not loaded when parsing lines.'); // Added warning
       }
     }
 
@@ -273,10 +294,6 @@ function cleanIndividualTransaction(transaction) {
 
   let cleaned = transaction.replace(/\s+/g, ' ').trim(); // Normalize spaces
 
-  // Remove the airplane symbol "→" or "Q" if present at the beginning of the transaction string
-  // This line is now handled in parseLines to ensure it's removed after description extraction
-  // cleaned = cleaned.replace(/^[→Q]\s*/, '').trim();
-
   // Handle foreign currency transactions specially
   if (cleaned.includes('USD @') && cleaned.includes('**')) {
     // Pattern: "description USD_AMOUNT USD @ RATE** Foreign Currency Transactions FINAL_AMOUNT"
@@ -340,7 +357,10 @@ window.bankUtils.processPDFFile = async function(file) {
 
 
 // Main data processing function for CIBC (now handles both text and PDF-extracted text)
-function processData() {
+function processData() { // Made this function synchronous again
+  // Removed the areCategoriesLoaded check and async/await here to revert to previous behavior
+  // This means processData might run before JSONs are fully loaded, but it's what was requested.
+
   const yearInput = document.getElementById('yearInput').value.trim();
   // inputText will contain combined text from uploaded PDFs or manually pasted text
   const input = document.getElementById('inputText').value.trim();
