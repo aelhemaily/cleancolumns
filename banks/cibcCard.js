@@ -1,38 +1,37 @@
 // cibcCard.js
 
-let keywords = { debit: [], credit: [] };
-let categoryWords = [];
+// Keywords data embedded directly
+let keywords = {
+  debit: [
+    "atm w/d", "cash withdra", "withdraw", "fee", "service charge",
+    "monthly plan fee", "overdraft fee", "o.d.p. fee", "send e-tfr",
+    "tfr-to", "payment to", "nsf fee", "bill payment", "purchase", "payment"
+  ],
+  credit: [
+    "deposit", "tfr-fr", "e-transfer", "e-tfr", "payment - thank you",
+    "refund", "interest received", "remittance", "gc deposit",
+    "transfer fr", "received", "credit"
+  ]
+};
 
-// Load keywords.json
-fetch('../keywords.json')
-  .then(response => {
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status} from ../keywords.json`);
-    }
-    return response.json();
-  })
-  .then(data => {
-    keywords = {
-      debit: data.debit.map(k => k.toLowerCase()),
-      credit: data.credit.map(k => k.toLowerCase())
-    };
-    console.log('Keywords loaded successfully:', keywords);
-  })
-  .catch(error => console.error('Failed to load keywords.json:', error));
+// Category words data embedded directly
+let categoryWords = [
+  "foreign currency transactions",
+  "health and education",
+  "home and office improvement",
+  "hotel, entertainment and recreation",
+  "miscellaneous",
+  "personal and household expenses",
+  "professional and financial services",
+  "restaurants",
+  "retail and grocery",
+  "transportation",
+  "travel"
+];
 
-// Load cibcCardCategories.json
-fetch('../cibcCardCategories.json')
-  .then(response => {
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status} from ../cibcCardCategories.json`);
-    }
-    return response.json();
-  })
-  .then(data => {
-    categoryWords = data.categories.map(k => k.toLowerCase());
-    console.log('Categories loaded successfully:', categoryWords);
-  })
-  .catch(error => console.error('Failed to load cibcCardCategories.json:', error));
+// Console logs to confirm data is loaded (these will now always run immediately)
+console.log('Keywords loaded directly:', keywords);
+console.log('Categories loaded directly:', categoryWords);
 
 
 function injectPaymentBoxIfNeeded() {
