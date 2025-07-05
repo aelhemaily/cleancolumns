@@ -75,16 +75,18 @@ function parseLines(text, yearInput, isPayment = false) {
     line.replace(/Ý/g, '').trim()
   ).filter(Boolean);
 
-  // Helper to identify a new transaction line
+  // Helper to identify a new transaction line (starts with two dates)
   const isNewTransaction = (line) => /^[A-Za-z]{3} \d{1,2} [A-Za-z]{3} \d{1,2}/.test(line);
 
   const transactions = [];
   let current = '';
   lines.forEach(line => {
+    // If it's a new transaction, push the previous one and start a new 'current'
     if (isNewTransaction(line)) {
       if (current) transactions.push(current.trim());
       current = line;
     } else {
+      // If it's not a new transaction, append to the current one
       current += ' ' + line; // Concatenate multi-line transactions
     }
   });
@@ -217,118 +219,172 @@ async function extractTextFromPDF(file) {
 
 // This function takes the raw text and cleans it for transaction parsing
 function cleanAndParseTransactions(text) {
-  // Split text into lines and clean them
   const lines = text.split(/\r?\n/).map(line => line.trim()).filter(line => line.length > 0);
   const transactions = [];
-  let i = 0;
+  let currentTransactionBuffer = []; // Buffer to hold lines of a single transaction
 
-  while (i < lines.length) {
-    const line = lines[i];
+  // Regex to identify the start of a new transaction (two dates at the beginning)
+  const transactionStartPattern = /^[A-Z][a-z]{2}\s+\d{1,2}\s+[A-Z][a-z]{2}\s+\d{1,2}\s+/;
 
-    // Look for transaction pattern: Sep 07 Sep 09 or Oct 06 Oct 07 etc.
-    const transactionMatch = line.match(/^([A-Z][a-z]{2})\s+(\d{1,2})\s+([A-Z][a-z]{2})\s+(\d{1,2})\s+(.+)/);
+  // Patterns to explicitly exclude as noise (summary lines, headers, page numbers, etc.)
+  const noisePatterns = [
+    // General headers and footers
+    /^(Your|Total|Previous|New|Interest|Limit|Available|Card number|Trans date|Post date|Description)/i,
+    /^(Amount|Transactions|Spend Categories|\$|Page \d+ of \d+)/,
+    /^Page \d+ of \d+$/i,
+    /^\*?\d{9}\*?$/i, // The *0201550000* type lines
+    /^CIBC Aventura® Visa Infinite™ Card$/i, // Card name
+    /^CIBC CreditSmart™™™ Spend Report$/i, // Spend report header
+    /^This month Year-to-date$/i, // Spend report sub-header
 
-    if (transactionMatch) {
-      let transactionText = line;
-      let nextLineIndex = i + 1;
+    // Specific CIBC statement sections/headers
+    /^Trans date Post date Description Amount\(\$\)$/i, // Payments table header
+    /^Trans date Post date Description Annual interest rate Amount\(\$\)$/i, // Interest table header
+    /^Trans date Post date Description$/i, // Charges/credits table header (first part)
+    /^Spend Categories Amount\(\$\)$/i, // Charges/credits table header (second part)
+    /^Q Identifies Points Multiplier.*$/i, // The long explanatory line
+    /^Information about your CIBC Aventura Visa Infinite Card account$/i, // Section header
+    /^Prepared for: MR MUHAMMAD HARIS ABBASI January \d{1,2} to February \d{1,2}, \d{4} Account number: \d{4} XXXX XXXX \d{4}$/i, // Header on page 3
+    /^Spend Categories Transactions Amount\(\$\) Budget \(\$\) Difference \(\$\) Transactions Amount \(\$\)$/i, // Spend report table header
+    /^Total for \d{4} XXXX XXXX \d{4}$/i, // "Total for 4500 XXXX XXXX 5438" line
+    /^Total payments$/i, // "Total payments" line in payments section
+    /^Total interest this period$/i, // "Total interest this period" line
+    /^Total$/i, // "Total" line in spend report
+    /^Amount\(\$\) Budget \(\$\) Difference \(\$\)$/i, // Specific line from spend report
 
-      // Check if next lines are continuation of this transaction
-      while (nextLineIndex < lines.length) {
-        const nextLine = lines[nextLineIndex];
+    // Legal/explanatory text blocks (often multi-line, so match start)
+    /^If you find an error or irregularity.*$/i,
+    /^How we charge interest:.*$/i,
+    /^Payment period extensions:.*$/i,
+    /^Your statement \(including the Balance and Minimum Payment\).*$/i,
+    /^\*\*Foreign currency Transactions, except Convenience Cheques, are converted to Canadian dollars.*$/i,
+    /^Amount Due is the amount you must pay if you want to avoid interest.*$/i,
+    /^Minimum Payment is the minimum amount you must pay this month.*$/i,
+    /^For more information, please refer to the CIBC Cardholder Agreement.$/i,
+    /^Trademark of CIBC\.$/i,
+    /^Registered trademark of CIBC$/i,
+    /^Transactions are assigned a spend category based on where the goods or services are purchased.*$/i,
+    /^A negative difference \(–\) means you spent more than you budgeted\.$/i,
+    /^Reminder : If you only make the minimum payment every month.*$/i,
+    /^Your Promotional Balance Transfer Summary$/i,
+    /^Annual Interest Rate Remaining Balance E xpiry Date 1$/i,
+    /^1 Your Promotional Balance Transfer offer will end on the Statement Date of the month and year listed here.*$/i,
+    /^Your message centre$/i,
+    /^You have promotional interest rate Balance Transfer \(BT\).*$/i,
+    /^Since your credit card has been replaced, please notify any merchants processing pre-authorized payments.*$/i,
+    /^Visit CIBCRewards\.com or call CIBC Rewards Centre at.*$/i,
+    /^Payment options$/i,
+    /^Online Banking: www\.cibc\.com$/i,
+    /^Telephone Banking: 1 800 465-CIBC \(2422\)$/i,
+    /^CIBC bank machines and most financial institutions$/i,
+    /^Mail: Return completed slip with your cheque or money order payable to CIBC\.$/i,
+    /^For general inquiries call$/i,
+    /^Do not staple or attach correspondence\.$/i,
+    /^MR MUHAMMAD HARIS ABBASI$/i, // Specific name from the PDF
+    /^\d{3}-\d{7}$/i, // e.g., 188-024464
 
-        // Stop if we hit another transaction line
-        if (nextLine.match(/^[A-Z][a-z]{2}\s+\d{1,2}\s+[A-Z][a-z]{2}\s+\d{1,2}\s+/)) {
-          break;
+    // Specific problematic merged lines identified from user's output
+    // These patterns are designed to catch the *entire merged line* as noise
+    /^Feb \d{1,2} Feb \d{1,2} PAYMENT THANK YOU\/PAIEMENT MERCI \d+\.\d+\s+Trans date Post date Description Annual interest rate Amount\(\$\)$/i,
+    /^Feb \d{1,2} Feb \d{1,2} REGULAR PURCHASES \d+\.\d+%\s+\d+\.\d+\s+Q Identifies Points Multiplier TM\* transactions that have earned 1\.5 Aventura Points for every dollar spent \(a Bonus of 50%\s+more\)\. Any returns\/credits are deducted at the same rate\.$/i,
+    // New patterns for the large merged blocks
+    /^Feb \d{1,2} Feb \d{1,2} SUN LIFE CHOICES A&A 800-669-7921 ON Professional and Financial Services \d+\.\d+\s+fraudulent Transactions\).*Minimum Payment is the minimum amount you must pay this month and it includes your monthly installment payments due \(if applicable\)\.\s+TM\* Trademark of CIBC\.\s+® Registered trademark of CIBC\.\s+\d{6}\s+date Description Spend Categories Amount\(\$\)$/i,
+    /^Feb \d{1,2} Feb \d{1,2} Q PIONEER STN #187 BRAMPTON ON Transportation \d+\.\d+\s+\*0202560000\*\s+\*0202560000\*\s+CIBC CreditSmart Spend Report.*You can find your current regular Cash Advances interest rate in the “Interest Rates” section of this statement\.$/i,
+  ];
+
+  for (const line of lines) {
+    // First, check if the line is global noise and should be discarded immediately
+    let isGlobalNoise = false;
+    for (const pattern of noisePatterns) {
+      if (pattern.test(line)) {
+        isGlobalNoise = true;
+        break;
+      }
+    }
+    if (isGlobalNoise) {
+      // If we were accumulating a transaction, and this noise line interrupts it,
+      // try to save the accumulated part if it's a valid transaction.
+      if (currentTransactionBuffer.length > 0) {
+        const fullTransactionString = currentTransactionBuffer.join(' ');
+        if (isValidTransaction(fullTransactionString)) {
+          transactions.push(fullTransactionString);
         }
+        currentTransactionBuffer = []; // Reset buffer
+      }
+      continue; // Skip this noise line
+    }
 
-        // Stop if we hit section headers or other non-transaction content
-        if (nextLine.match(/^(Your|Total|Previous|New|Interest|Limit|Available|Card number|Trans date|Post date|Description)/i)) {
-          break;
-        }
-
-        // Stop if line looks like a table header or summary
-        if (nextLine.match(/^(Amount|Transactions|Spend Categories|\$|Page \d+ of \d+)/)) {
-          break;
-        }
-
-        // Check if this line could be a continuation based on specific patterns
-        if (nextLine.length > 0 && nextLine.length < 200) {
-          if (nextLine.match(/^\d+\.\d+\s+USD\s+@/) || // Foreign currency conversion line
-            nextLine.match(/^Foreign Currency Transactions\s+\d+\.\d+/) || // Foreign currency final amount
-            nextLine.match(/^[A-Z][a-z]+(\s+(and\s+)?[A-Z][a-z]+)*\s*$/) || // Category names
-            nextLine.match(/^\d+\.\d+\s*\*?\*?\s*$/) || // Amount with possible **
-            nextLine.match(/^\*\*/) || // Foreign currency marker
-            (nextLine.match(/^[A-Z\s]+$/) && nextLine.length < 50) || // Short all-caps continuation
-            // Special case: if current line ends with ** and next line starts with category or amount
-            (transactionText.endsWith('**') && (nextLine.match(/^[A-Z][a-z]/) || nextLine.match(/^\d/)))) {
-
-            transactionText += ' ' + nextLine;
-            nextLineIndex++;
-          } else {
-            break;
-          }
-        } else {
-          break;
+    // Check if the current line starts a new transaction
+    if (transactionStartPattern.test(line)) {
+      // If we have a buffered transaction, process it before starting a new one
+      if (currentTransactionBuffer.length > 0) {
+        const fullTransactionString = currentTransactionBuffer.join(' ');
+        if (isValidTransaction(fullTransactionString)) {
+          transactions.push(fullTransactionString);
         }
       }
-
-      // Clean and add the transaction if valid
-      const cleanedTransaction = cleanIndividualTransaction(transactionText);
-      if (cleanedTransaction && isValidTransaction(cleanedTransaction)) {
-        transactions.push(cleanedTransaction);
-      }
-
-      i = nextLineIndex; // Move index to the next unprocessed line
+      // Start buffering the new transaction
+      currentTransactionBuffer = [line];
     } else {
-      i++; // Move to the next line if no transaction pattern found
+      // If it's not a new transaction start, and we have an active transaction being built,
+      // append the line if it seems like a continuation (e.g., part of description/category)
+      // and doesn't look like a new transaction or a known noise pattern.
+      if (currentTransactionBuffer.length > 0 && line.length > 3) { // Small length check to avoid very short junk lines
+         // If the line contains an amount, it might be the end of the transaction,
+         // or it's a new transaction that wasn't caught by transactionStartPattern.
+         // For now, append it and let isValidTransaction handle the final check.
+         currentTransactionBuffer.push(line);
+      }
+    }
+  }
+
+  // After the loop, process any remaining buffered transaction
+  if (currentTransactionBuffer.length > 0) {
+    const fullTransactionString = currentTransactionBuffer.join(' ');
+    if (isValidTransaction(fullTransactionString)) {
+      transactions.push(fullTransactionString);
     }
   }
 
   return transactions;
 }
 
-// Function to clean an individual transaction string
-function cleanIndividualTransaction(transaction) {
-  if (!transaction) return '';
-
-  let cleaned = transaction.replace(/\s+/g, ' ').trim(); // Normalize spaces
-
-  // Handle foreign currency transactions specially
-  if (cleaned.includes('USD @') && cleaned.includes('**')) {
-    // Pattern: "description USD_AMOUNT USD @ RATE** Foreign Currency Transactions FINAL_AMOUNT"
-    cleaned = cleaned.replace(/(\d+\.\d+)\s+USD\s+@\s+([\d\.]+)\*\*/, '$1 USD @ $2**');
-
-    // Ensure proper spacing around "Foreign Currency Transactions"
-    cleaned = cleaned.replace(/\*\*\s*Foreign\s+Currency\s+Transactions\s+/, '** Foreign Currency Transactions ');
-  }
-
-  return cleaned;
-}
-
 // Function to validate if a string is a well-formed transaction
 function isValidTransaction(transaction) {
   if (!transaction || transaction.length < 15) return false;
 
-  // Must start with two dates in format: Sep 07 Sep 09
+  // Must start with two dates in format: e.g., "Feb 05 Feb 05"
   const datePattern = /^[A-Z][a-z]{2}\s+\d{1,2}\s+[A-Z][a-z]{2}\s+\d{1,2}\s+/;
   if (!datePattern.test(transaction)) return false;
 
-  // Must contain a merchant/description name (at least two uppercase letters)
-  if (!transaction.match(/[A-Z]{2,}/)) return false;
+  // Must contain a merchant/description name (at least two uppercase letters or a common word)
+  if (!transaction.match(/[A-Z]{2,}|[a-z]{3,}/)) return false;
 
-  // Must end with a number (amount) - could be just digits.decimals or with ** for foreign currency
-  // Also accept "Foreign Currency Transactions X.XX" format
-  // Updated to specifically look for the amount at the end, including optional asterisks
-  if (!transaction.match(/(-?\d{1,3}(?:,\d{3})*\.\d{2}(?:\*+)?|Foreign\s+Currency\s+Transactions\s+\d+\.\d+)$/)) return false;
+  // Crucially, it must contain an amount. The amount should be near the end of the valid transaction part.
+  // This regex captures the amount and any optional category that might follow immediately.
+  // The key is to ensure there isn't significant *other* text after the amount/category.
+  const amountAndOptionalCategoryPattern = /(-?\d{1,3}(?:[,\s]\d{3})*(?:\.\d{2})?(\*+)?)\s*([A-Za-z\s&,-]+)?$/;
+  const match = transaction.match(amountAndOptionalCategoryPattern);
 
-  // Filter out summary lines and totals
+  if (!match) return false;
+
+  // Check if there's any significant text *before* the date pattern, which would indicate noise at the start
+  const preDateText = transaction.substring(0, transaction.indexOf(match[0])).trim();
+  if (preDateText.length > 0 && !datePattern.test(preDateText)) {
+      // If there's text before the date, and it's not itself a date pattern, it's likely noise.
+      return false;
+  }
+
+
+  // Filter out summary lines and totals. These patterns should be robust.
   const excludePatterns = [
     /^.*TOTAL\s+(CHARGES|CREDITS)\s+\$?\d+\.\d+$/i,
     /^.*PREVIOUS\s+BALANCE\s+\$?\d+\.\d+$/i,
     /^.*NEW\s+BALANCE\s+\$?\d+\.\d+$/i,
     /^.*Total\s+for\s+\d{4}\s+\d{4}\s+\d{4}\s+\d{4}/i,
     /^.*Total\s+payments\s+\$?\d+\.\d+$/i,
-    /^.*Total\s+\d+\s+\$?\d+\.\d+$/i
+    /^.*Total\s+\d+\s+\$?\d+\.\d+$/i,
+    /^Page \d+ of \d+$/i // Exclude page numbers
   ];
 
   for (const pattern of excludePatterns) {

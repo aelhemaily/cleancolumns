@@ -1875,166 +1875,167 @@ function sortColumn(columnIndex, direction) {
 
     // Show context menu on right-click
     table.addEventListener('contextmenu', (e) => {
-        // Don't show context menu if clicking in an input field
-        if (e.target.tagName === 'INPUT') {
-            return;
-        }
+      // Don't show context menu if clicking in an input field
+      if (e.target.tagName === 'INPUT') {
+        return; // Allow default browser context menu for inputs
+      }
 
-        e.preventDefault();
+      e.preventDefault();
 
-        targetRow = e.target.closest('tr');
-        targetCell = e.target.closest('td, th');
+      targetRow = e.target.closest('tr');
+      targetCell = e.target.closest('td, th');
 
-        if (!targetRow || !targetCell) return;
+      if (!targetRow || !targetCell) return;
 
-        targetIsHeader = targetRow.rowIndex === 0;
+      targetIsHeader = targetRow.rowIndex === 0;
 
-        // Position menu at cursor with smart boundary checks
-        const menuRect = contextMenu.getBoundingClientRect();
-        const menuWidth = menuRect.width;
-        const menuHeight = menuRect.height;
-        
-        // Get viewport dimensions
-        const viewportWidth = window.innerWidth;
-        const viewportHeight = window.innerHeight;
-        
-        // Calculate ideal position (right below cursor)
-        let left = e.clientX;
-        let top = e.clientY;
-        
-        // Adjust if menu would go off right edge
-        if (left + menuWidth > viewportWidth) {
-            left = viewportWidth - menuWidth - 5;
-        }
-        
-        // Adjust if menu would go off bottom edge
-        if (top + menuHeight > viewportHeight) {
-            top = viewportHeight - menuHeight - 5;
-            // If still doesn't fit, try above the cursor
-            if (top < 0) {
-                top = e.clientY - menuHeight - 5;
-            }
-        }
-        
-        // Ensure minimum padding from edges
-        left = Math.max(5, left);
-        top = Math.max(5, top);
+      // Position menu at cursor
+      contextMenu.style.display = 'block';
+      contextMenu.style.left = `${Math.min(e.pageX, window.innerWidth - 200)}px`;
+      contextMenu.style.top = `${Math.min(e.pageY, window.innerHeight - 160)}px`;
 
-        contextMenu.style.display = 'block';
-        contextMenu.style.left = `${left + window.pageXOffset}px`;
-        contextMenu.style.top = `${top + window.pageYOffset}px`;
-        contextMenu.style.position = 'absolute';
+      // Show/hide relevant options
+      document.querySelector('[data-action="delete-row"]').style.display = targetIsHeader ? 'none' : 'flex';
+      document.querySelector('[data-action="delete-col"]').style.display = targetIsHeader ? 'flex' : 'none';
+      document.querySelector('[data-action="copy-row"]').style.display = targetIsHeader ? 'none' : 'flex';
+      document.querySelector('[data-action="copy-col"]').style.display = targetIsHeader ? 'flex' : 'none';
 
-        // Show/hide relevant options
-        document.querySelector('[data-action="delete-row"]').style.display = targetIsHeader ? 'none' : 'flex';
-        document.querySelector('[data-action="delete-col"]').style.display = targetIsHeader ? 'flex' : 'none';
-        document.querySelector('[data-action="copy-row"]').style.display = targetIsHeader ? 'none' : 'flex';
-        document.querySelector('[data-action="copy-col"]').style.display = targetIsHeader ? 'flex' : 'none';
-
-        // Show/hide "Copy Selected Cells" based on selection
-        const copySelectedMenuItem = document.querySelector('[data-action="copy-selected-cells"]');
-        if (copySelectedMenuItem) {
-            copySelectedMenuItem.style.display = selectedCells.length > 1 ? 'flex' : 'none';
-        }
+      // Show/hide "Copy Selected Cells" based on selection
+      const copySelectedMenuItem = document.querySelector('[data-action="copy-selected-cells"]');
+      if (copySelectedMenuItem) {
+        copySelectedMenuItem.style.display = selectedCells.length > 1 ? 'flex' : 'none';
+      }
     });
 
     // Hide menu when clicking elsewhere
     document.addEventListener('click', (e) => {
-        if (e.button !== 2 && !contextMenu.contains(e.target)) {
-            contextMenu.style.display = 'none';
-        }
+      if (e.button !== 2) { // Not right click
+        contextMenu.style.display = 'none';
+      }
     });
 
     // Handle menu actions
     contextMenu.addEventListener('click', (e) => {
-        const menuItem = e.target.closest('.menu-item');
-        if (!menuItem) return;
+      const menuItem = e.target.closest('.menu-item');
+      if (!menuItem) return;
 
-        const action = menuItem.dataset.action;
+      const action = menuItem.dataset.action;
+      contextMenu.style.display = 'none';
+
+      if (!targetRow || !targetCell) return;
+
+
+      if (action === 'insert-col-left') {
+        if (isInserting) return;
+        isInserting = true;
+        setTimeout(() => { isInserting = false; }, 50);
+
+        const table = document.querySelector('#output table');
+        if (!table || !targetCell) return;
+
+        // *** NEW: Prevent insertion to the left of the '#' column ***
+        // Check if the target cell is the first column (index 0) and its content is '#'
+        if (targetCell.cellIndex === 0 && targetCell.textContent.trim() === '#') {
+          showToast("Cannot insert a column to the left of the '#' column.", "error");
+          contextMenu.style.display = 'none'; // Hide the context menu
+          return; // Stop the function execution
+        }
+        // *** END NEW ***
+
+        e.stopPropagation();
         contextMenu.style.display = 'none';
 
-        if (!targetRow || !targetCell) return;
+        const colIndex = targetCell.cellIndex;
+        const rowCount = table.rows.length;
 
-        if (action === 'insert-col-left') {
-            if (isInserting) return;
-            isInserting = true;
-            setTimeout(() => { isInserting = false; }, 50);
-
-            const table = document.querySelector('#output table');
-            if (!table || !targetCell) return;
-
-            // Prevent insertion to the left of the '#' column
-            if (targetCell.cellIndex === 0 && targetCell.textContent.trim() === '#') {
-                showToast("Cannot insert a column to the left of the '#' column.", "error");
-                return;
-            }
-
-            const colIndex = targetCell.cellIndex;
-            const rowCount = table.rows.length;
-
-            for (let i = 0; i < rowCount; i++) {
-                const row = table.rows[i];
-                const cell = i === 0 ? document.createElement('th') : document.createElement('td');
-                cell.textContent = '';
-                row.insertBefore(cell, row.cells[colIndex]);
-            }
-
-            createCopyColumnButtons();
-            saveState();
+        for (let i = 0; i < rowCount; i++) {
+          const row = table.rows[i];
+          const cell = i === 0 ? document.createElement('th') : document.createElement('td');
+          cell.textContent = ''; // empty
+          row.insertBefore(cell, row.cells[colIndex]);
         }
 
-        if (action === 'insert-row-below') {
-            if (isInserting) return;
-            isInserting = true;
-            setTimeout(() => { isInserting = false; }, 50);
+        createCopyColumnButtons();
+        saveState();
+      }
 
-            const table = document.querySelector('#output table');
-            if (!table || !targetRow) return;
+      if (action === 'insert-row-below') {
+        if (isInserting) return;
+        isInserting = true;
+        setTimeout(() => { isInserting = false; }, 50);
 
-            const hasNumberColumn = table.rows[0]?.cells[0]?.textContent === '#';
-            const newRow = table.insertRow(targetRow.rowIndex + 1);
+        const table = document.querySelector('#output table');
+        if (!table || !targetRow) return;
 
-            for (let i = 0; i < table.rows[0].cells.length; i++) {
-                newRow.insertCell();
-            }
+        const hasNumberColumn = table.rows[0]?.cells[0]?.textContent === '#';
+        const colCount = table.rows[0].cells.length;
+        const dataColCount = hasNumberColumn ? colCount - 1 : colCount;
 
-            // Rebuild number column if needed
-            if (hasNumberColumn) {
-                Array.from(table.rows).forEach((row, i) => {
-                    if (i === 0) {
-                        row.cells[0].textContent = '#';
-                    } else {
-                        row.cells[0].textContent = i;
-                    }
-                });
-            }
+        const newRow = table.insertRow(targetRow.rowIndex + 1);
 
-            createCopyColumnButtons();
-            saveState();
+        // Leave space for # column if present
+        const startIndex = hasNumberColumn ? 1 : 0;
+        for (let i = 0; i < colCount; i++) {
+          const cell = newRow.insertCell();
+          cell.textContent = '';
         }
 
-        switch (action) {
-            case 'delete-row':
-                deleteTableRow(targetRow);
-                break;
-            case 'delete-col':
-                deleteTableColumn(targetCell.cellIndex);
-                break;
-            case 'copy-row':
-                copyTableRow(targetRow);
-                break;
-            case 'copy-col':
-                window.bankUtils.copyColumn(targetCell.cellIndex);
-                break;
-            case 'copy-cell':
-                copyCellContent(targetCell);
-                break;
-            case 'copy-selected-cells':
-                copySelectedCells();
-                break;
+        // ✅ Rebuild just the number column safely
+        Array.from(table.rows).forEach((row, i) => {
+          // If # column already exists, update it
+          if (hasNumberColumn) {
+            if (i === 0) {
+              row.cells[0].textContent = '#';
+            } else {
+              row.cells[0].textContent = i;
+            }
+          }
+        });
+
+        // If # column is missing, insert it properly
+        if (!hasNumberColumn) {
+          const headerRow = table.rows[0];
+          const th = document.createElement('th');
+          th.textContent = '#';
+          headerRow.insertBefore(th, headerRow.firstChild);
+
+          for (let i = 1; i < table.rows.length; i++) {
+            const row = table.rows[i];
+            const td = document.createElement('td');
+            td.textContent = i;
+            row.insertBefore(td, row.firstChild);
+          }
         }
+
+        createCopyColumnButtons(); // restores resizers, styles, etc.
+        saveState();
+      }
+
+
+      // In the contextMenu.addEventListener('click', (e) => { ... } section
+      // Add this case to the switch statement:
+      switch (action) {
+        case 'delete-row':
+          deleteTableRow(targetRow);
+          break;
+        case 'delete-col':
+          deleteTableColumn(targetCell.cellIndex);
+          break;
+        case 'copy-row':
+          copyTableRow(targetRow);
+          break;
+        case 'copy-col':
+          window.bankUtils.copyColumn(targetCell.cellIndex);
+          break;
+        case 'copy-cell': // Add this new case
+          copyCellContent(targetCell);
+          break;
+        case 'copy-selected-cells': // New action for copying multiple selected cells
+          copySelectedCells();
+          break;
+      }
     });
-}
+  }
 
   function deleteTableRow(row) {
     saveState(); // Save BEFORE deletion

@@ -96,11 +96,10 @@
         </div>
         <div id="status" class="status">Ready to process statements</div>
 
-        <!-- New textarea for displaying results - 'readonly' attribute removed -->
+        <!-- Textarea for displaying results - 'readonly' attribute removed -->
         <textarea id="resultsInput" class="results-input" rows="15" placeholder="Extracted transactions will appear here..."></textarea>
         
-        <!-- New placeholder Convert button -->
-        <button id="convertButton">Convert</button>
+        <!-- The Convert button has been removed as per your request -->
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
@@ -110,9 +109,9 @@
         const dropArea = document.getElementById('dropArea');
         const fileInput = document.getElementById('fileInput');
         const selectButton = document.getElementById('selectButton');
-        const resultsInput = document.getElementById('resultsInput'); // Changed from resultsDiv
+        const resultsInput = document.getElementById('resultsInput');
         const statusDiv = document.getElementById('status');
-        const convertButton = document.getElementById('convertButton'); // Get the new convert button
+        // The convertButton variable and its event listener have been removed.
 
         // Add hover effect for drag and drop area
         dropArea.addEventListener('dragover', (e) => {
@@ -135,14 +134,6 @@
 
         selectButton.addEventListener('click', () => fileInput.click());
         fileInput.addEventListener('change', handleFiles);
-
-        // Placeholder for the Convert button functionality
-        convertButton.addEventListener('click', () => {
-            // This is where you would add the logic for the "Convert" feature.
-            // For now, it just shows an alert.
-            // You can access the extracted text using resultsInput.value
-            alert('Convert button clicked! The extracted text is:\n' + resultsInput.value);
-        });
 
         /**
          * Handles the files selected by the user, processes them, and displays the results.
