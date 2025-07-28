@@ -235,7 +235,7 @@ function shouldShowPDFUpload(bankKey) {
     const allowedTypes = {
       cdt: ['card'],
       tangerine: ['account'],
-      td: ['account', 'card', 'inPerson'],
+      td: ['account', 'card', 'inPerson', 'history'],
       firstontario: ['account'],
       meridian: ['account'],
       simplii: ['account'],
@@ -253,7 +253,8 @@ function shouldShowPDFUpload(bankKey) {
       account: 'Account',
       card: 'Card',
       inPerson: 'In-Person',
-      loc: 'LOC'
+      loc: 'LOC',
+      history: 'History'
     };
 
     const allowed = allowedTypes[bank] || ['account', 'card'];

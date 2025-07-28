@@ -74,7 +74,8 @@ function processData() {
   const transactions = [];
   let current = '';
   lines.forEach(line => {
-    if (isNewTransaction(line)) {
+    // Check for "Opening balance" or "Closing totals" to ensure they are treated as new lines if they start a new logical entry
+    if (isNewTransaction(line) || /opening balance|closing totals/i.test(line.trim())) {
       if (current) transactions.push(current.trim());
       current = line;
     } else {
@@ -122,8 +123,15 @@ function processData() {
       balance = parseFloat(allAmountMatches[0][0].replace(/,/g, ''));
       desc = contentAfterDate.substring(0, allAmountMatches[0].index).trim();
 
-      if (/opening balance|closing totals/i.test(desc)) {
-        previousBalance = balance; // Always update previous balance for these rows
+      // MODIFIED LOGIC: If it's an opening balance, set previousBalance but DO NOT add to table
+      if (/opening balance/i.test(desc)) {
+        previousBalance = balance;
+        // Do NOT return here, instead continue to add this row to the `rows` array
+        // However, the user explicitly asked to NOT bring it into the table.
+        // So, we will set previousBalance and then skip adding it to `rows`.
+        return; // Skip adding this row to the output table
+      } else if (/closing totals/i.test(desc)) {
+        previousBalance = balance; // Still update previous balance for closing totals
         return; // Skip these rows from the output table
       }
     } else {
@@ -144,6 +152,7 @@ function processData() {
       }
     } else {
       // If no previous balance, assume the first transaction amount is a debit
+      // This logic will now apply to the first *actual transaction* after an opening balance
       debit = amount.toFixed(2);
     }
 
@@ -198,63 +207,93 @@ window.bankUtils.processPDFFile = async function(file) {
           allLines.push(...pageText);
         }
 
-        // Remove everything before "Opening balance" or the first real transaction
-        let startIndex = allLines.findIndex(line => /Opening balance/i.test(line));
-        if (startIndex === -1) {
-          // If "Opening balance" not found, fall back to the first line with a date
-          startIndex = allLines.findIndex(line => /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s\d{1,2}/i.test(line));
+        // Find the specific starting point: "Mar 01" followed by "Opening balance"
+        let contentStartLineIndex = -1;
+        for (let i = 0; i < allLines.length; i++) {
+            // Look for "Mar 01" and then check the next line for "Opening balance"
+            // This assumes "Mar 01" and "Opening balance" are on consecutive lines.
+            if (allLines[i].includes("Mar 01") && (i + 1 < allLines.length && allLines[i+1].includes("Opening balance"))) {
+                contentStartLineIndex = i;
+                break;
+            }
         }
-        if (startIndex === -1) startIndex = 0; // fallback if nothing found
-        allLines = allLines.slice(startIndex + 1); // Skip "Opening balance" line
+
+        if (contentStartLineIndex !== -1) {
+            // Slice the array to start from "Mar 01" line
+            allLines = allLines.slice(contentStartLineIndex);
+        } else {
+            // Fallback: If the specific "Mar 01 Opening balance" isn't found,
+            // try to find the first line that starts with a month and day (a date)
+            let firstDateLineIndex = allLines.findIndex(line => /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s\d{1,2}/i.test(line));
+            if (firstDateLineIndex !== -1) {
+                allLines = allLines.slice(firstDateLineIndex);
+            }
+            // If no date found, allLines remains as is. This might include more junk, but ensures no data is lost.
+        }
 
         const transactionLines = [];
         const dateRegex = /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s\d{1,2}/i;
         const skipPatterns = [
-          /Page \d+ of \d+/i,
-          /Your branch address/i,
-          /Everyday Banking/i,
-          /Your Everyday Banking statement/i,
-          /Your Plan/i,
-          /Summary of your account/i,
-          /Here's what happened/i,
-          /Amounts deducted/i,
-          /Amounts added/i,
-          /Closing totals/i, // Keep this pattern to skip the full "Closing totals" line
-          /Please report/i,
-          /Trade-marks/i,
-          /A member of/i
+          /Page \d+ of \d+/i, // Page numbers
+          /Closing totals/i, // Summary line, should not be in the input box
+          /Transaction details \(continued\)/i, // Continuation header
+          /Date Description/i, // Column headers that might repeat on new pages
+          /Amounts debited/i,
+          /Amounts credited/i,
+          /Balance \(\$\)/i,
+          /from your account \(\$\)/i,
+          /to your account \(\$\)/i,
+          /Business Account # \d{4} \d{4}-\d{3}/i, // Account number that might repeat
+          /\(continued\)/i, // General continuation text
+          // New patterns to filter out unwanted summary blocks and headers
+          /^\s*Business Account\s*$/i, // "Business Account" standalone
+          /^\s*# \d{4} \d{4}-\d{3}\s*$/i, // Account number standalone
+          /^\s*\d{1,3}(?:,\d{3})*\.\d{2}\s*\d{1,3}(?:,\d{3})*\.\d{2}\s*\d{1,3}(?:,\d{3})*\.\d{2}/, // Lines with multiple amounts, typical of summary
+          /^\s*Account Type:/i, // "Account Type:" line
+          /^\s*Business name:/i, // "Business name:" line
+          /^\s*Transaction details\s*$/i, // The "Transaction details" header itself
+          /^\s*(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},\s+\d{4}\s*$/i, // Dates like "Jun 30, 2023" as standalone lines
+          /^\s*Business Banking statement/i,
+          /^\s*For the period ending/i,
+          /^\s*Summary of account/i,
+          /^\s*Your Branch/i,
+          /^\s*Transit number:/i,
+          /^\s*For questions about your/i,
+          /^\s*Direct Banking/i,
+          /^\s*www\.bmo\.com/i,
+          /^\s*Your Plan/i,
+          /^\s*eBusiness Plan/i,
+          /^\s*Opening\s*Total\s*amounts/i, // Header for summary table
+          /^\s*balance \(\$\)\s*debited \(\$\)/i, // Header for summary table
+          /^\s*Account\s*balance \(\$\)/i, // Header for summary table
+          /^\s*When in doubt, don't click!/i, // Security message
+          /^\s*clicking links found in suspicious/i, // Security message
+          /^\s*View our phishing/i, // Security message
+          /^\s*videos by visiting/i // Security message
         ];
+
 
         for (let i = 0; i < allLines.length; i++) {
           const line = allLines[i];
-          if (skipPatterns.some(pattern => pattern.test(line))) continue;
 
+          // Skip lines that are part of the general header/footer or summary
+          if (skipPatterns.some(pattern => pattern.test(line))) {
+            continue;
+          }
+
+          // If it's a new transaction line (starts with a date)
           if (dateRegex.test(line)) {
             let combinedLine = line;
             let j = i + 1;
+            // Continue combining lines until a new date, a skip pattern, or end of lines is found
             while (j < allLines.length && !dateRegex.test(allLines[j]) && !skipPatterns.some(p => p.test(allLines[j]))) {
               combinedLine += '\n' + allLines[j];
               j++;
             }
-
-            // NEW LOGIC: Check if this "transaction" is just a date followed by a summary line (like "Closing totals")
-            const isJustDate = combinedLine.split('\n').length === 1 && dateRegex.test(combinedLine);
-            const nextLineIndex = j; // j is the index of the line that broke the while loop
-            const nextLineContent = allLines[nextLineIndex] || '';
-
-            // If it's just a date and the next line (which will likely be skipped by skipPatterns) contains "Closing totals"
-            if (isJustDate && /Closing totals/i.test(nextLineContent)) {
-                // This is the problematic standalone date from the summary, skip it.
-                // Also, advance 'i' past the 'Closing totals' line to prevent it from being processed again
-                i = nextLineIndex;
-                continue; // Skip adding this "transaction" and move to the next line in allLines
-            }
-
             transactionLines.push(combinedLine);
             i = j - 1; // Adjust i to the last line processed in this transaction
           }
         }
-        // Return the joined transaction lines, compatible with processData's expectation
         resolve(transactionLines.join('\n\n'));
       } catch (error) {
         console.error("Error parsing PDF:", error);

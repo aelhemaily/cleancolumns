@@ -158,3 +158,127 @@ function processData() {
 }
 
 window.processData = processData;
+
+// PDF Processing Function for NBC (integrated from nbcparser.html)
+window.bankUtils.processPDFFile = async function(file) {
+    const reader = new FileReader();
+    return new Promise((resolve, reject) => {
+        reader.onload = async function(event) {
+            const arrayBuffer = event.target.result;
+            try {
+                // pdfjsLib is expected to be loaded globally by index.html
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                let allPageLines = [];
+
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const textContent = await page.getTextContent();
+                    const items = textContent.items;
+
+                    // Group text items by their y-coordinate to reconstruct lines
+                    const linesMap = new Map(); // Map: y-coordinate (rounded) -> array of text items on that line
+                    const Y_TOLERANCE = 2; // Pixels
+
+                    items.forEach(item => {
+                        const y = Math.round(item.transform[5] / Y_TOLERANCE) * Y_TOLERANCE;
+                        let foundLine = false;
+
+                        for (const existingY of linesMap.keys()) {
+                            if (Math.abs(y - existingY) < Y_TOLERANCE) {
+                                linesMap.get(existingY).push(item);
+                                foundLine = true;
+                                break;
+                            }
+                        }
+                        if (!foundLine) {
+                            linesMap.set(y, [item]);
+                        }
+                    });
+
+                    // Sort lines by y-coordinate (descending, as y=0 is bottom of the page)
+                    const sortedYCoords = Array.from(linesMap.keys()).sort((a, b) => b - a);
+
+                    sortedYCoords.forEach(y => {
+                        const lineItems = linesMap.get(y);
+                        // Sort items within a line by x-coordinate to maintain reading order
+                        lineItems.sort((a, b) => a.transform[4] - b.transform[4]);
+
+                        let lineText = lineItems.map(item => item.str.replace(/"/g, '')).join(' ');
+                        lineText = lineText.replace(/\s+/g, ' ').trim();
+                        if (lineText) {
+                            allPageLines.push(lineText);
+                        }
+                    });
+                }
+                const extractedText = allPageLines.join('\n');
+                const parsedTransactions = parseNBCTransactions(extractedText);
+                resolve(parsedTransactions.join('\n')); // Return joined transactions for inputText
+            } catch (error) {
+                console.error("Error parsing PDF:", error);
+                // Assuming displayStatusMessage is available globally or via bankUtils
+                if (typeof displayStatusMessage === 'function') {
+                    displayStatusMessage("Failed to parse PDF file. " + error.message, 'error');
+                }
+                reject(new Error("Failed to parse PDF file. " + error.message));
+            }
+        };
+        reader.onerror = (error) => reject(error);
+        reader.readAsArrayBuffer(file);
+    });
+};
+
+/**
+ * Parses the extracted text to find National Bank account transactions.
+ * @param {string} text The full text extracted from the PDF.
+ * @returns {string[]} An array of formatted transaction strings.
+ */
+function parseNBCTransactions(text) {
+    const transactions = [];
+    const lines = text.split('\n');
+
+    // Regex for the "PREVIOUS BALANCE" line: MM DD PREVIOUS BALANCE BALANCE
+    const previousBalanceRegex = /^(\d{2})\s+(\d{2})\s+(PREVIOUS BALANCE)\s+([\d,\.]+)$/i;
+
+    // Regex for general transaction lines: MM DD DESCRIPTION AMOUNT BALANCE
+    const transactionLineRegex = /^(\d{2})\s+(\d{2})\s+([A-Z0-9\s\/\-\.]+?)\s+([\d,\.]+)\s+([\d,\.]+)$/i;
+
+    for (const line of lines) {
+        // Try to match previous balance first
+        const pbMatch = line.match(previousBalanceRegex);
+        if (pbMatch) {
+            const [, month, day, description, balance] = pbMatch;
+            transactions.push(`${month} ${day} ${description.trim()} ${balance.replace(/,/g, '')}`);
+            continue; // Move to the next line
+        }
+
+        // Then try to match general transaction lines
+        const transactionMatch = line.match(transactionLineRegex);
+        if (transactionMatch) {
+            const [, month, day, description, transactionAmount, balance] = transactionMatch;
+
+            // Format the output as requested: MM DD DESCRIPTION AMOUNT BALANCE
+            let formattedTransaction = `${month} ${day} ${description.trim()} ${transactionAmount.replace(/,/g, '')} ${balance.replace(/,/g, '')}`;
+            transactions.push(formattedTransaction);
+        }
+    }
+    return transactions;
+}
+
+// Ensure window.bankUtils exists to house bank-specific utilities
+window.bankUtils = window.bankUtils || {};
+
+// Re-adding this function as it was present in the original bmoAccount.js and used internally
+// This is needed for displayStatusMessage calls within processPDFFile
+function displayStatusMessage(message, type) {
+    const statusMessageDiv = document.querySelector('.status-message');
+    if (statusMessageDiv) {
+        statusMessageDiv.textContent = message;
+        statusMessageDiv.className = `status-message ${type}`;
+        statusMessageDiv.style.display = 'block';
+        setTimeout(() => {
+            statusMessageDiv.style.display = 'none'; // Hide after a few seconds
+        }, 5000); // Hide after 5 seconds
+    } else {
+        console.log(`Status (${type}): ${message}`);
+    }
+}

@@ -381,12 +381,12 @@ function processData() {
     debit: [
       "ATM W/D", "CASH WITHDRA", "WITHDRAW", "FEE", "SERVICE CHARGE",
       "MONTHLY PLAN FEE", "OVERDRAFT FEE", "O.D.P. FEE", "SEND E-TFR", // "SEND E-TFR" is here
-      "TFR-TO", "PAYMENT TO", "NSF FEE", "BILL PAYMENT", "PURCHASE", "PAYMENT"
+      "TFR-TO", "PAYMENT TO", "NSF FEE", "BILL PAYMENT", "PURCHASE", "PAYMENT", "MONTHLY PLAN FEE"
     ],
     credit: [
       "DEPOSIT", "TFR-FR", "E-TRANSFER", "E-TFR", // "E-TFR" is here
       "PAYMENT - THANK YOU", "REFUND", "INTEREST RECEIVED", "REMITTANCE", "GC DEPOSIT",
-      "TRANSFER FR", "RECEIVED", "CREDIT"
+      "TRANSFER FR", "RECEIVED", "CREDIT", "ELAVON", "TD ATM DEP"
     ]
   };
 
@@ -406,7 +406,7 @@ function processData() {
     const [, monthAbbr, day] = match;
     const months = {
       JAN: 'Jan', FEB: 'Feb', MAR: 'Mar', APR: 'Apr', MAY: 'May', JUN: 'Jun',
-      JUL: 'Jul', AUG: 'Aug', SEP: 'Oct', NOV: 'Nov', DEC: 'Dec'
+      JUL: 'Jul', AUG: 'Aug', SEP: 'Sep', OCT: 'Oct', NOV: 'Nov', DEC: 'Dec' // FIX: Changed 'Oct' to 'Sep' for SEP
     };
 
     const month = months[monthAbbr.toUpperCase()] || monthAbbr;
