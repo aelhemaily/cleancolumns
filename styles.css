@@ -2689,3 +2689,41 @@ th.selected-cell.editing {
 [data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
   background: #ffffff; /* White thumb on hover in dark mode */
 }
+/* New styles for transaction counts */
+.transaction-counts {
+  display: none; /* Hidden by default; JavaScript will show it */
+  width: fit-content; /* Make the box compact based on content */
+  margin: 20px auto 20px auto; /* Center horizontally and provide vertical spacing */
+  padding: 8px 15px; /* Slightly reduce padding for compactness */
+  background-color: var(--container-bg);
+  border: 1px solid var(--container-border);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  color: var(--text-color);
+  user-select: none;
+}
+
+.transaction-counts span {
+  font-weight: 600;
+  margin: 0 5px; /* Add slight margin between individual count spans */
+}
+
+.transaction-counts span span {
+  font-weight: 700;
+  color: var(--select-focus); /* Use the accent color for the numbers */
+}
+
+/* Dark mode adjustments for transaction counts */
+[data-theme="dark"] .transaction-counts {
+  background-color: var(--container-bg);
+  border-color: var(--container-border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  color: var(--text-color);
+}
+
+[data-theme="dark"] .transaction-counts span span {
+  color: var(--select-focus);
+}
+

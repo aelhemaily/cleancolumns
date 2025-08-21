@@ -63,8 +63,13 @@ function processData() {
   });
   if (currentTransaction) transactions.push(currentTransaction.trim());
 
+  // Filter out transactions containing "Interest Payment" before processing
+  const filteredTransactions = transactions.filter(transaction => 
+    !/Interest Payment/i.test(transaction)
+  );
+
   // Process each combined transaction
-  transactions.forEach(transaction => {
+  filteredTransactions.forEach(transaction => {
     // Skip balance summary lines
     if (/(Opening|Closing) Principal Balance|Balance Forward/i.test(transaction)) {
       return;
@@ -188,7 +193,7 @@ function parseTransactions(text) {
   }
 
   // Extract transactions
-  const transactionRegex = /((?:[JSFMASONJD][a-z]{2}\s+\d{1,2}\s+)?(?:[JSFMASONJD][a-z]{2}\s+\d{1,2}\s+)?(?!(?:Opening|Closing)\b)[^\d$]*)(-\$[\d,]+\.\d{2}|\$[\d,]+\.\d{2})?\s+\$[\d,]+\.\d{2}/gi;
+  const transactionRegex = /((?:[JSFMASONJD][a-z]{2}\s+\d{1,2}\s+)?(?:[JSFMFMASONJD][a-z]{2}\s+\d{1,2}\s+)?(?!(?:Opening|Closing)\b)[^\d$]*)(-\$[\d,]+\.\d{2}|\$[\d,]+\.\d{2})?\s+\$[\d,]+\.\d{2}/gi;
   let match;
   const transactionsFound = [];
   
@@ -199,7 +204,8 @@ function parseTransactions(text) {
     transactionLine = transactionLine.replace(/\s+/g, ' ');
     
     if (transactionLine.includes("Opening Principal Balance") || 
-        transactionLine.includes("Closing Principal Balance")) {
+        transactionLine.includes("Closing Principal Balance") ||
+        /Interest Payment/i.test(transactionLine)) { // Add rule for "Interest Payment"
       continue;
     }
     

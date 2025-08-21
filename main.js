@@ -12,13 +12,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   const convertBtn = document.getElementById('convertBtn');
   const copyTableBtn = document.getElementById('copyTableBtn');
   const outputDiv = document.getElementById('output');
-const pdfUpload = document.getElementById('pdfUpload');
-const dropArea = document.getElementById('dropArea');
-const fileList = document.getElementById('fileList');
-const clearAllFiles = document.getElementById('clearAllFiles');
-const fileListContainer = document.getElementById('fileListContainer');
-const refreshFileListBtn = document.getElementById('refreshFileList');
-let uploadedFilesData = []; // Store file objects and their processed text
+  const transactionCountsDiv = document.getElementById('transactionCounts'); // New: Get the transaction counts div
+  const totalCountSpan = document.getElementById('totalCount'); // New: Get the total count span
+  const drCountSpan = document.getElementById('drCount'); // New: Get the debit count span
+  const crCountSpan = document.getElementById('crCount'); // New: Get the credit count span
+  const pdfUpload = document.getElementById('pdfUpload');
+  const dropArea = document.getElementById('dropArea');
+  const fileList = document.getElementById('fileList');
+  const clearAllFiles = document.getElementById('clearAllFiles');
+  const fileListContainer = document.getElementById('fileListContainer');
+  const refreshFileListBtn = document.getElementById('refreshFileList');
+  let uploadedFilesData = []; // Store file objects and their processed text
   
   const inputText = document.getElementById('inputText'); // Ensure inputText is declared here
 
@@ -356,6 +360,7 @@ function shouldShowPDFUpload(bankKey) {
       checkAndRemoveEmptyBalanceColumn();
       saveState();
       updateTableCursor();
+      updateTransactionCounts(); // New: Call the function to update transaction counts
       
       // Hide file list container if no files are uploaded
       if (uploadedFilesData.length === 0) {
@@ -821,6 +826,7 @@ window.bankUtils.processPDFFile = async function(file) {
     // Rebuild numbered column, copy buttons, interactivity
     addNumberedColumn(table);
     createCopyColumnButtons();
+    updateTransactionCounts(); // New: Update counts after restoring state
 
     requestAnimationFrame(() => {
       if (state.selection) {
@@ -1202,9 +1208,10 @@ function clearSelection() {
       0: '40px',    // # column
       1: '80px',    // Date
       2: '120px',   // Description
-      3: '80px',    // Debit
-      4: '80px',    // Credit
-      5: '80px'     // Balance
+      3: '50px',    // ACC (NEWLY ADDED)
+      4: '80px',    // DR
+      5: '80px',    // CR
+      6: '80px'     // Balance
     };
 
     header.style.width = columnWidths[index] || '150px'; // Fallback width
@@ -1462,6 +1469,43 @@ function selectCell(cell) {
     // Add the numbers (1, 2, 3...)
     addNumberedColumn(table);
 
+    // --- Start of New Column Insertion ---
+    const headerRow = table.rows[0];
+    // Find the index of the "Description" column
+    const descriptionIndex = Array.from(headerRow.cells).findIndex(cell => cell.textContent.trim().toLowerCase() === 'description');
+
+    // If "Description" is found, insert "ACC" after it. Otherwise, insert after # (index 1).
+    const insertAtIndex = descriptionIndex !== -1 ? descriptionIndex + 1 : 2; // After # (index 1) if description not found, otherwise after description
+
+    // Check if 'ACC' column already exists to prevent duplicates on refresh
+    const accColumnExists = Array.from(headerRow.cells).some(cell => cell.textContent.trim() === 'ACC');
+
+    if (!accColumnExists) {
+        // Insert "ACC" header
+        const accTh = document.createElement('th');
+        accTh.textContent = 'ACC';
+        headerRow.insertBefore(accTh, headerRow.cells[insertAtIndex]);
+
+        // Insert empty "ACC" cells in all data rows
+        for (let i = 1; i < table.rows.length; i++) {
+            const row = table.rows[i];
+            const accTd = document.createElement('td');
+            accTd.textContent = ''; // Always empty
+            row.insertBefore(accTd, row.cells[insertAtIndex]);
+        }
+    }
+    // --- End of New Column Insertion ---
+
+    // Update 'Debit' to 'DR' and 'Credit' to 'CR' in headers
+    Array.from(headerRow.cells).forEach(cell => {
+        if (cell.textContent.trim().toLowerCase() === 'debit') {
+            cell.textContent = 'DR';
+        } else if (cell.textContent.trim().toLowerCase() === 'credit') {
+            cell.textContent = 'CR';
+        }
+    });
+
+
     // Add copy buttons to each header
     const headers = table.querySelectorAll('th');
     headers.forEach((header, index) => {
@@ -1508,7 +1552,7 @@ function selectCell(cell) {
 
   // Check if this is a numeric column
   const headerText = columnHeader.toLowerCase();
-  const isNumericColumn = ['debit', 'credit', 'balance'].includes(headerText);
+  const isNumericColumn = ['dr', 'cr', 'balance'].includes(headerText); // Changed 'debit', 'credit' to 'dr', 'cr'
 
   // Create the menu
   const menu = document.createElement('div');
@@ -1648,9 +1692,9 @@ function sortColumn(columnIndex, direction) {
   const rows = Array.from(table.rows).slice(1);
   const headerRow = table.rows[0];
   
-  // Check if this is a numeric column (debit, credit, or balance)
+  // Check if this is a numeric column (DR, CR, or balance)
   const headerText = headerRow.cells[columnIndex]?.textContent.trim().toLowerCase();
-  const isNumericColumn = ['debit', 'credit', 'balance'].includes(headerText);
+  const isNumericColumn = ['dr', 'cr', 'balance'].includes(headerText); // Changed 'debit', 'credit' to 'dr', 'cr'
 
   // Extract the column data with row references
   const columnData = rows.map(row => ({
@@ -1783,6 +1827,7 @@ function sortColumn(columnIndex, direction) {
     } else {
       showToast('No matches found', 'info');
     }
+    updateTransactionCounts(); // New: Update counts after replacing
   }
 
   function escapeRegExp(string) {
@@ -1853,6 +1898,7 @@ function sortColumn(columnIndex, direction) {
         selectCell(e.target); // update selection visually
         showToast('Cells swapped', 'success');
         saveState();
+        updateTransactionCounts(); // New: Update counts after swap
       }
     }
 
@@ -1958,6 +2004,7 @@ function sortColumn(columnIndex, direction) {
 
         createCopyColumnButtons();
         saveState();
+        updateTransactionCounts(); // New: Update counts after insertion
       }
 
       if (action === 'insert-row-below') {
@@ -2010,6 +2057,7 @@ function sortColumn(columnIndex, direction) {
 
         createCopyColumnButtons(); // restores resizers, styles, etc.
         saveState();
+        updateTransactionCounts(); // New: Update counts after insertion
       }
 
 
@@ -2045,6 +2093,7 @@ function sortColumn(columnIndex, direction) {
     setTimeout(() => {
       row.remove();
       showToast('Row deleted', 'success');
+      updateTransactionCounts(); // New: Update counts after deletion
     }, 300);
   }
 
@@ -2061,6 +2110,7 @@ function sortColumn(columnIndex, direction) {
 
     showToast('Column deleted', 'success');
     updateCopyButtonIndices();
+    updateTransactionCounts(); // New: Update counts after deletion
   }
 
   function copyTableRow(row) {
@@ -2118,11 +2168,13 @@ function sortColumn(columnIndex, direction) {
             }
           });
           showToast('Selected cells cleared', 'success');
+          updateTransactionCounts(); // New: Update counts after clearing selected cells
           e.preventDefault(); // Prevent default browser back/forward for backspace
         } else if (selectedCell && selectedCell.tagName === 'TD') { // Fallback for single selected data cell
           saveState(); // Save before clearing
           selectedCell.textContent = '';
           showToast('Cell cleared', 'success');
+          updateTransactionCounts(); // New: Update counts after clearing single cell
           e.preventDefault();
         }
       } else if (e.ctrlKey && e.key === 'c') { // Handle Ctrl+C for copy
@@ -2320,5 +2372,60 @@ function sortColumn(columnIndex, direction) {
 
  // Initialize file upload handling
 setupFileUpload();
+
+// New: Function to calculate and update transaction counts
+function updateTransactionCounts() {
+    const table = document.querySelector('#output table');
+    if (!table) {
+        transactionCountsDiv.style.display = 'none'; // Hide if no table
+        return;
+    }
+
+    transactionCountsDiv.style.display = 'flex'; // Show if table exists
+
+    let total = 0;
+    let debitCount = 0;
+    let creditCount = 0;
+
+    // Find the column indices for 'DR' and 'CR'
+    const headerRow = table.rows[0];
+    const headers = Array.from(headerRow.cells).map(cell => cell.textContent.trim().toLowerCase());
+    const drIndex = headers.indexOf('dr');
+    const crIndex = headers.indexOf('cr');
+
+    if (drIndex === -1 && crIndex === -1) {
+        // If no DR/CR columns, hide counts and return
+        transactionCountsDiv.style.display = 'none';
+        return;
+    }
+
+    // Iterate through data rows (skip header row)
+    for (let i = 1; i < table.rows.length; i++) {
+        const row = table.rows[i];
+        let isTransaction = false; // Flag to check if this row represents a transaction
+
+        if (drIndex !== -1) {
+            const drCell = row.cells[drIndex];
+            if (drCell && drCell.textContent.trim() !== '') {
+                debitCount++;
+                isTransaction = true;
+            }
+        }
+        if (crIndex !== -1) {
+            const crCell = row.cells[crIndex];
+            if (crCell && crCell.textContent.trim() !== '') {
+                creditCount++;
+                isTransaction = true;
+            }
+        }
+        if (isTransaction) {
+            total++;
+        }
+    }
+
+    totalCountSpan.textContent = total;
+    drCountSpan.textContent = debitCount;
+    crCountSpan.textContent = creditCount;
+}
 
 });

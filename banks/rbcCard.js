@@ -184,8 +184,8 @@ function processRBCCardData() {
 // Export processRBCCardData globally
 window.processData = processRBCCardData;
 
-// Initialize PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
+// Initialize PDF.js worker (matching version in index.html)
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.12.313/pdf.worker.min.js';
 
 // PDF Processing Functions (adapted from cardrbc.html)
 window.bankUtils.parseRBCFormat = function(text) {
@@ -248,22 +248,33 @@ window.bankUtils.parseRBCFormat = function(text) {
 
 window.bankUtils.parseVisaFormat = function(text) {
     const transactions = [];
-    const transactionRegex = /([A-Z]{3}\s\d{2})\s+([A-Z]{3}\s\d{2})\s+([^\$\n]+?)\s+(\d{21,23})\s+(-?\$?\d{1,3}(?:,\d{3})*\.\d{2})/g;
+    // Updated regex to correctly capture description and amount.
+    // Group 1: Posting Date (e.g., "JAN 19")
+    // Group 2: Transaction Date (e.g., "JAN 19")
+    // Group 3: Activity Description (non-greedy, captures everything until optional ID or final amount)
+    // Group 4 (optional capturing group for ID): The transaction ID (e.g., "74510204085619986268200")
+    // Group 5: Amount (e.g., "$254.10", "-$500.00")
+    const transactionRegex = /^([A-Z]{3}\s\d{2})\s+([A-Z]{3}\s\d{2})\s+(.*?)(?:\s+(\d{21,23}))?\s*(-?\$?\d{1,3}(?:,\d{3})*\.\d{2})$/gm;
 
     let match;
     while ((match = transactionRegex.exec(text)) !== null) {
         const postingDate = match[1];
         const transactionDate = match[2];
-        const description = match[3].trim();
-        const id = match[4];
-        let amount = match[5];
+        let description = match[3].trim(); // Group 3 is the description
+        const id = match[4]; // Group 4 is the optional ID, will be undefined if not present
+        let amount = match[5]; // Group 5 is the amount
+
+        // Append the ID to the description if it was found
+        if (id) {
+            description += ` ${id}`;
+        }
 
         // Fix negative amounts that appear as "$-123.45" to "-$123.45"
         if (amount.includes('$-')) {
             amount = amount.replace('$-', '-$');
         }
 
-        transactions.push(`${postingDate} ${transactionDate} ${description} ${id} ${amount}`);
+        transactions.push(`${postingDate} ${transactionDate} ${description} ${amount}`);
     }
 
     return transactions.join('\n');

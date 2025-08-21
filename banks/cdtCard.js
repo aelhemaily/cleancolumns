@@ -32,8 +32,8 @@ function parseLines(text, yearInput, isPayment = false) {
 
   // Regex to find ANY date pattern within a line (e.g., "Dec 14")
   const datePatternFinder = /[A-Za-z]{3}\s+\d{1,2}/;
-  // Regex to find ANY amount pattern within a line (e.g., "34.96")
-  const amountPatternFinder = /(-?\s*\d{1,3}(?:,\d{3})*\.\d{2}(?:\s*USD)?)/;
+  // Regex to find ANY amount pattern within a line, now explicitly handling spaces or commas as thousands separators
+  const amountPatternFinder = /(-?\s*\d{1,3}(?:[,\s]\d{3})*\.\d{2}(?:\s*USD)?)/;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -81,8 +81,8 @@ function parseLines(text, yearInput, isPayment = false) {
 function processBufferedTransaction(fullText, yearInput, isPayment, transactionsArray) {
   // General regex to find all date patterns in the text
   const datePatternRegex = /([A-Za-z]{3}\s+\d{1,2})/g;
-  // Regex to find all amount patterns in the text
-  const amountRegex = /(-?\s*\d{1,3}(?:,\d{3})*\.\d{2}(?:\s*USD)?)/g;
+  // Regex to find all amount patterns in the text, handling spaces or commas
+  const amountRegex = /(-?\s*\d{1,3}(?:[,\s]\d{3})*\.\d{2}(?:\s*USD)?)/g;
 
   // Find all matches for dates and amounts
   const allDateMatches = [...fullText.matchAll(datePatternRegex)];
@@ -102,7 +102,6 @@ function processBufferedTransaction(fullText, yearInput, isPayment, transactions
   const sortDate = parseDateForSorting(date1Part, yearInput);
   // Store the second date for secondary sorting purposes (if available)
   const sortDate2 = date2Part ? parseDateForSorting(date2Part, yearInput) : null;
-
 
   // Construct the displayDate string, combining both dates if the second one exists
   let displayDate = date1Part;
@@ -124,7 +123,8 @@ function processBufferedTransaction(fullText, yearInput, isPayment, transactions
 
   // Determine the actual transaction amount, which is the LAST numeric value in the string
   const rawAmountString = allAmountMatches[allAmountMatches.length - 1][0];
-  const amount = parseFloat(rawAmountString.replace(/[^0-9.-]/g, ''));
+  // Normalize the amount string by removing all spaces and then parsing
+  const amount = parseFloat(rawAmountString.replace(/\s/g, '').replace(/,/g, ''));
 
   // Extract the description: everything before the last amount, after removing date parts and optional leading numbers.
   let description = fullText;
@@ -154,10 +154,14 @@ function processBufferedTransaction(fullText, yearInput, isPayment, transactions
   let credit = '';
 
   // Determine if the amount is a debit or credit based on its value and keywords.
-  if (amount < 0 || isPayment || keywords.credit.some(kw => description.toLowerCase().includes(kw))) {
-    credit = Math.abs(amount).toFixed(2);
-  } else {
-    debit = amount.toFixed(2);
+  // Use toLocaleString for consistent number formatting with commas.
+  const formattedAmount = Math.abs(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  // Apply the rule: Positive numbers are Debit, Negative numbers are Credit.
+  if (amount < 0) { // If the amount is negative, it's a credit
+    credit = formattedAmount;
+  } else { // If the amount is positive (or zero), it's a debit
+    debit = formattedAmount;
   }
 
   // Add the processed transaction to the array, including sortDate2 for secondary sorting.
@@ -209,21 +213,38 @@ window.bankUtils.processPDFFile = async function(file) {
 
 function parseFormat1(text) {
   const transactions = [];
-  // This regex matches the transaction pattern: date date description amount
-  const transactionRegex = /((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2})\s+((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2})\s+((?:(?!\d+\.\d{2}).)*?)(\d+\.\d{2})/g;
+
+  // Regex to find the start of the section to be banned
+  // It looks for "QUANTITY" followed by optional whitespace, then "DETAILS"
+  const bannedSectionHeaderRegex = /QUANTITY\s+DETAILS/;
+  const bannedSectionMatch = text.match(bannedSectionHeaderRegex);
+
+  let textToParse = text;
+  if (bannedSectionMatch) {
+    // If the banned section header is found, truncate the text at that point
+    // This assumes the banned section always appears at the end of the relevant text for this format.
+    textToParse = text.substring(0, bannedSectionMatch.index);
+  }
+
+  // Original transaction regex
+  const transactionRegex = /((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2})\s+((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2})\s+((?:(?!-?\d{1,3}(?:[,\s]\d{3})*\.\d{2}).)*?)(-?\d{1,3}(?:[,\s]\d{3})*\.\d{2})/g;
 
   let match;
-  while ((match = transactionRegex.exec(text)) !== null) {
+  while ((match = transactionRegex.exec(textToParse)) !== null) {
     const transDate = match[1].trim();
     const postDate = match[2].trim();
     let description = match[3].trim();
-    const amount = match[4].trim();
+    
+    // Normalize and format the amount before adding to transactions
+    const rawAmount = match[4].trim();
+    const amountFloat = parseFloat(rawAmount.replace(/\s/g, '').replace(/,/g, ''));
+    const formattedAmount = amountFloat.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
     // Clean up description and remove excessive spaces
     description = description.replace(/[^a-zA-Z0-9\s#*&@-]+$/g, '').trim();
     description = description.replace(/\s+/g, ' ');
 
-    transactions.push(`${transDate} ${postDate} ${description} ${amount}`.replace(/\s+/g, ' '));
+    transactions.push(`${transDate} ${postDate} ${description} ${formattedAmount}`.replace(/\s+/g, ' '));
   }
 
   return transactions;
@@ -237,16 +258,31 @@ function parseFormat2(textItems) {
   let currentDescription = null;
   let currentAmount = null;
 
-  // Process text items line by line
-  for (let i = 0; i < textItems.length; i++) {
-    const item = textItems[i].str;
+  let inBannedSection = false;
 
-    // Check for main transaction lines (Ref TransDate PostDate Description Amount)
-    const mainTransactionRegex = /^(\d+)\s+((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2})\s+((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2})\s+(.*?)\s+(-?\d+\.\d{2})$/;
+  for (let i = 0; i < textItems.length; i++) {
+    const item = textItems[i].str.trim();
+
+    // Check for the start of the banned section
+    // Looking for "QUANTITY" on the current line and "DETAILS" on the next.
+    if (item.includes("QUANTITY") && textItems[i + 1] && textItems[i + 1].str.trim().includes("DETAILS")) {
+      inBannedSection = true;
+      // If there's a pending transaction, add it before breaking the loop.
+      if (currentRef !== null && currentTransDate !== null && currentAmount !== null) {
+        transactions.push(`${currentTransDate} ${currentPostDate} ${currentDescription} ${currentAmount}`.replace(/\s+/g, ' '));
+      }
+      break; // Stop processing further items from this PDF page as we've hit the banned section
+    }
+
+    if (inBannedSection) {
+      continue; // Skip lines if we are already in the banned section
+    }
+
+    // Process main transaction lines (Ref TransDate PostDate Description Amount)
+    const mainTransactionRegex = /^(\d+)\s+((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2})\s+((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2})\s+(.*?)\s+(-?\d{1,3}(?:[,\s]\d{3})*\.\d{2})$/;
     const mainMatch = item.match(mainTransactionRegex);
 
     if (mainMatch) {
-      // If we have a pending transaction, add it first
       if (currentRef !== null && currentTransDate !== null && currentAmount !== null) {
         transactions.push(`${currentTransDate} ${currentPostDate} ${currentDescription} ${currentAmount}`.replace(/\s+/g, ' '));
       }
@@ -255,13 +291,14 @@ function parseFormat2(textItems) {
       currentTransDate = mainMatch[2];
       currentPostDate = mainMatch[3];
       currentDescription = mainMatch[4].trim();
-      currentAmount = mainMatch[5];
+      
+      const amountFloat = parseFloat(mainMatch[5].replace(/\s/g, '').replace(/,/g, ''));
+      currentAmount = amountFloat.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
     // Check for partial transaction lines (without amount)
     else if (/^\d+\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\s+.*$/.test(item)) {
       const parts = item.split(/\s+/);
       if (parts.length >= 4) {
-        // If we have a pending transaction, add it first
         if (currentRef !== null && currentTransDate !== null && currentAmount !== null) {
           transactions.push(`${currentTransDate} ${currentPostDate} ${currentDescription} ${currentAmount}`.replace(/\s+/g, ' '));
         }
@@ -270,31 +307,17 @@ function parseFormat2(textItems) {
         currentTransDate = parts[1] + ' ' + parts[2];
         currentPostDate = parts[3] + ' ' + parts[4];
         currentDescription = parts.slice(5).join(' ').trim();
-        currentAmount = null;
+        currentAmount = null; // Reset as amount is not yet found
       }
     }
     // Check for amount-only lines (could be continuation of previous transaction)
-    else if (/^-?\d+\.\d{2}$/.test(item.trim()) && currentTransDate !== null && currentAmount === null) {
-      currentAmount = item.trim();
+    else if (/^-?\d{1,3}(?:[,\s]\d{3})*\.\d{2}$/.test(item.trim()) && currentTransDate !== null && currentAmount === null) {
+      const amountFloat = parseFloat(item.trim().replace(/\s/g, '').replace(/,/g, ''));
+      currentAmount = amountFloat.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
-    // Check for itemized transactions in the bottom section
-    else if (/^\d+\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\s+\d+\s+.*\d+\.\d{2}$/.test(item)) {
-      const itemizedRegex = /^(\d+)\s+((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2})\s+((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2})\s+\d+\s+(.*?)\s+(-?\d+\.\d{2})$/;
-      const itemizedMatch = item.match(itemizedRegex);
-
-      if (itemizedMatch) {
-        // If we have a pending transaction, add it first
-        if (currentRef !== null && currentTransDate !== null && currentAmount !== null) {
-          transactions.push(`${currentTransDate} ${currentPostDate} ${currentDescription} ${currentAmount}`.replace(/\s+/g, ' '));
-        }
-
-        currentRef = itemizedMatch[1];
-        currentTransDate = itemizedMatch[2];
-        currentPostDate = itemizedMatch[3];
-        currentDescription = itemizedMatch[4].trim();
-        currentAmount = itemizedMatch[5];
-      }
-    }
+    // The previous `else if` block that specifically matched itemized transactions
+    // in the "Details of your Canadian Tire store purchases" section is implicitly
+    // skipped due to the `inBannedSection` flag and the `break` statement above.
   }
 
   // Add the last pending transaction if exists

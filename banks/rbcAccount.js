@@ -97,81 +97,100 @@ function processData() {
   }
 
   function processRbcTransaction(date, initialDescriptionParts) {
-    // Start description with the initial parts passed in (which should not contain the date)
-    let descriptionParts = [...initialDescriptionParts];
-    let amountLineIndex = i;
-    let amounts = [];
-    let transactionLines = []; // Store lines that form the transaction description
+    let transactionLines = []; 
+    let amountFound = false;
+    let newBalance = null;
+    let transactionAmount = null; // This will hold the debit/credit amount
 
-    // Add the initial description part to transactionLines
+    // Start with the initial description parts if they exist
     if (initialDescriptionParts.length > 0 && initialDescriptionParts[0].trim() !== '') {
         transactionLines.push(initialDescriptionParts[0].trim());
     }
 
     // Look ahead to find the amount line and collect description parts
-    while (amountLineIndex < lines.length) {
-      const currentLine = lines[amountLineIndex];
-      
-      // If the current line is a balance line, stop collecting description parts for the current transaction
-      const isCurrentLineBalance = currentLine.toLowerCase().includes('opening balance') ||
-                                   currentLine.toLowerCase().includes('balance forward') ||
-                                   currentLine.toLowerCase().includes('closing balance');
-      if (isCurrentLineBalance) {
-          break;
-      }
+    // j iterates from the current global 'i' (which is the start of the current transaction block)
+    // up to the end of the lines.
+    let amountLineFoundIndex = -1; // To store the index of the line where amounts are found
 
-      // Regex to find numbers that are NOT preceded by '@ ' AND NOT followed by a percentage sign or a letter.
-      // This ensures that numbers like '05.00' in '05.00%P.A' are not matched as amounts,
-      // and also that any number immediately following '@ ' is not matched as an amount.
-      const lineAmounts = currentLine.match(/(?<!@\s)(-?\d{1,3}(?:,\d{3})*\.\d{2})(?![%A-Za-z])/g) || [];
+    for (let j = i; j < lines.length; j++) {
+        const currentLine = lines[j];
+        
+        // If the current line is a balance line, stop collecting description parts for the current transaction
+        const isCurrentLineBalance = currentLine.toLowerCase().includes('opening balance') ||
+                                     currentLine.toLowerCase().includes('balance forward') ||
+                                     currentLine.toLowerCase().includes('closing balance');
+        if (isCurrentLineBalance) {
+            break; // Stop processing this transaction if a balance line is hit
+        }
 
+        // Regex to find 1 or 2 currency amounts at the very end of the line.
+        // Captures the part *before* the amounts (which is the description segment for this line).
+        // Group 1: description part (optional)
+        // Group 2: first amount string
+        // Group 3: second amount string (balance, optional)
+        const regexToEndOfLineAmounts = /(.*?)\s*(-?\d{1,3}(?:,\d{3})*\.\d{2})\s*(?:(-?\d{1,3}(?:,\d{3})*\.\d{2}))?$/;
+        const match = currentLine.match(regexToEndOfLineAmounts);
 
-      if (lineAmounts.length > 0) {
-        amounts = lineAmounts.map(a => parseFloat(a.replace(/,/g, '')));
+        if (match) {
+            // Found the amounts line.
+            // Match[1] is the description part from this line (before the amounts).
+            // Match[2] is the first amount.
+            // Match[3] is the second amount (balance), if present.
 
-        // Extract non-amount text from the amount line itself
-        // This regex now specifically targets numbers that are considered amounts (not preceded by '@ ' and not followed by % or letters)
-        const nonAmountText = currentLine.replace(/(?<!@\s)(-?\d{1,3}(?:,\d{3})*\.\d{2})(?![%A-Za-z])|\b\d{1,2}\s[A-Za-z]{3}\b/g, '').trim();
-        if (nonAmountText.length > 0) {
-            // Only add if it's not already covered by initialDescriptionParts
-            if (transactionLines.length === 0 || transactionLines[transactionLines.length - 1] !== nonAmountText) {
-                transactionLines.push(nonAmountText);
+            const descPart = match[1] ? match[1].trim() : ''; // Description from this line before the amounts
+            transactionAmount = parseFloat(match[2].replace(/,/g, ''));
+            newBalance = match[3] ? parseFloat(match[3].replace(/,/g, '')) : null;
+            
+            // Add the description part from this line if it's not empty and it's a new line,
+            // or if it's the first line and initialDescriptionParts was empty.
+            // This condition ensures we don't duplicate the first line's description if it was already pushed.
+            if (descPart !== '' && (j > i || initialDescriptionParts.length === 0 || initialDescriptionParts[0].trim() === '')) {
+                transactionLines.push(descPart);
+            } else if (j === i && initialDescriptionParts.length > 0 && initialDescriptionParts[0].trim() !== '') {
+                // If it's the very first line of the transaction and it had a description part,
+                // ensure we override it with the more accurate one from this regex match.
+                // This prevents cases where a prior date match was used to push a partial description.
+                if (transactionLines.length > 0 && transactionLines[0] !== descPart) {
+                    transactionLines[0] = descPart;
+                }
+            }
+            amountFound = true;
+            amountLineFoundIndex = j; // Store the index of the line where amounts are found
+            break; // Exit the loop, we found the amounts for this transaction
+        } else {
+            // This line does not contain the final amounts, so it's purely a description part.
+            // Add it to transactionLines.
+            // Only add if it's a new line (j > i) and it's not empty.
+            // The initialDescriptionParts[0] is handled by the first push to transactionLines outside this loop,
+            // or by the 'if (match)' block above if amounts are on the first line.
+            if (j > i && currentLine.trim() !== '') {
+                transactionLines.push(currentLine.trim());
             }
         }
-        break; // Found the amount line, stop looking for more description parts
-      }
-
-      // If it's a continuation line (not the initial line of the transaction)
-      // and it's not the amount line, add it to description parts.
-      if (amountLineIndex > i) {
-        transactionLines.push(currentLine.trim());
-      }
-
-      amountLineIndex++;
     }
 
-    if (amounts.length === 0) return; // No amounts found for this transaction, skip
+    if (!amountFound || transactionAmount === null) return; // No amounts found for this transaction, skip
 
-    const amount = amounts[0];
-    const newBalance = amounts.length > 1 ? amounts[1] : null;
-
-    // Filter out empty strings and duplicates, then join to form the full description
-    // Ensure no amounts or dates are re-added to the description
+    // The full description is now the joined transactionLines.
+    // Filter out potential empty strings from `transactionLines` before joining.
     let fullDescription = transactionLines
         .filter(part => part.trim() !== '')
-        .map(part => {
-            // Remove only the numbers that are identified as actual transaction amounts or dates
-            // Numbers preceded by '@ ' or followed by % or letters should NOT be removed from description
-            let cleanedPart = part.replace(/(?<!@\s)(-?\d{1,3}(?:,\d{3})*\.\d{2})(?![%A-Za-z])|\b\d{1,2}\s[A-Za-z]{3}\b/g, '').trim();
-            return cleanedPart;
-        })
-        .filter((value, index, self) => self.indexOf(value) === index && value !== '') // Remove duplicates and empty strings
         .join(' ')
+        .replace(/\s\s+/g, ' ') // Replace multiple spaces with a single space
         .trim();
 
-    // If after cleaning, the description is empty, use the original initialDescriptionParts
-    if (fullDescription === '' && initialDescriptionParts.length > 0) {
-        fullDescription = initialDescriptionParts[0].trim();
+    // NEW: Remove common date patterns from the fullDescription
+    // This regex looks for patterns like "DD Mon" or "DD Mon YYYY" at the beginning of the string
+    // and removes them. It's applied after the initial parsing to ensure dates are stripped
+    // specifically from the description, not from potential amount lines.
+    const datePatternInDescription = /^(?:(?:\d{1,2}\s(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)(?:\s+\d{2,4})?)\s*)+/i;
+    fullDescription = fullDescription.replace(datePatternInDescription, '').trim();
+
+
+    // Ensure the global 'i' (outer loop index) is updated correctly.
+    // It should move to the line *after* the amounts were found.
+    if (amountLineFoundIndex !== -1) {
+        i = amountLineFoundIndex; 
     }
 
     let debit = '', credit = '';
@@ -180,49 +199,68 @@ function processData() {
     // --- Start of Modified Logic for Hard Rules with intuitive overrides ---
 
     // Define hardcoded keyword arrays
-    const hardcodedDebitKeywords = ["e-transfer sent"];
-    const hardcodedCreditKeywords = ["nsf", "refund"];
+    const hardcodedDebitKeywords = ["e-transfer sent", "e-Transfer sent"];
+    const hardcodedCreditKeywords = ["nsf", "refund", "CPP CANADA"];
 
-    // Define keywords that override all other credit/debit rules and force a debit
-    const overrideDebitKeywords = ["fee"];
-
-    // Define keywords that override all other debit/credit rules and force a credit
-    // Add words here if you need a transaction to *always* be a credit.
-    const overrideCreditKeywords = []; // Currently empty, add words like ["interest earned"] if needed
+    // NEW: Rule #1 - Super Keywords (case-insensitive)
+    const superDebitKeywords = 
+    ["Online Transfer to Deposit Account", "Monthly Fee",  "PAY EMP-VENDOR",
+      "Telephone Banking transfer", "transfer sent", "special deposit"
+    ];
+    const superCreditKeywords = ["e-transfer received", "payment received", "Misc Payment Uber Holdings C" , "Misc Payment Lyft", "Prov/Local Gvt Payment",
+      "carbon rebate", "seniors rebate", "CPP CANADA", "Old Age Security", "Online banking transfer"
+    ];
 
     const lowerCaseDescription = fullDescription.toLowerCase();
 
-    // Priority 1: Check for override debit keywords (highest priority)
-    const isOverrideDebit = overrideDebitKeywords.some(keyword => lowerCaseDescription.includes(keyword));
-
-    if (isOverrideDebit) {
-      debit = amount.toFixed(2);
-      currentBalance = currentBalance !== null ? currentBalance - amount : null;
-      allocatedByKeywords = true;
-    } else {
-      // Priority 2: If no override debit, check for override credit keywords
-      const isOverrideCredit = overrideCreditKeywords.some(keyword => lowerCaseDescription.includes(keyword));
-      if (isOverrideCredit) {
-        credit = amount.toFixed(2);
-        currentBalance = currentBalance !== null ? currentBalance + amount : null;
+    // Priority 1: Check for SUPER debit keywords (highest priority)
+    const isSuperDebit = superDebitKeywords.some(keyword => lowerCaseDescription.includes(keyword.toLowerCase()));
+    if (isSuperDebit) {
+        debit = transactionAmount.toFixed(2); // Use transactionAmount
+        currentBalance = currentBalance !== null ? currentBalance - transactionAmount : null;
         allocatedByKeywords = true;
-      } else {
-        // Priority 3: If no overrides, check other hardcoded debit and credit keywords
-        let isHardcodedDebit = hardcodedDebitKeywords.some(keyword => lowerCaseDescription.includes(keyword));
-        let isHardcodedCredit = hardcodedCreditKeywords.some(keyword => lowerCaseDescription.includes(keyword));
+    } else {
+        // Priority 2: If no SUPER debit, check for SUPER credit keywords
+        const isSuperCredit = superCreditKeywords.some(keyword => lowerCaseDescription.includes(keyword.toLowerCase()));
+        if (isSuperCredit) {
+            credit = transactionAmount.toFixed(2); // Use transactionAmount
+            currentBalance = currentBalance !== null ? currentBalance + transactionAmount : null;
+            allocatedByKeywords = true;
+        } else {
+            // Original Priority 1: Check for override debit keywords (now effectively Priority 3)
+            const overrideDebitKeywords = ["fee"]; // Existing override keywords
+            const isOverrideDebit = overrideDebitKeywords.some(keyword => lowerCaseDescription.includes(keyword));
 
-        if (isHardcodedDebit) {
-          debit = amount.toFixed(2);
-          currentBalance = currentBalance !== null ? currentBalance - amount : null;
-          allocatedByKeywords = true;
-        } else if (isHardcodedCredit) {
-          credit = amount.toFixed(2);
-          currentBalance = currentBalance !== null ? currentBalance + amount : null;
-          allocatedByKeywords = true;
+            if (isOverrideDebit) {
+              debit = transactionAmount.toFixed(2); // Use transactionAmount
+              currentBalance = currentBalance !== null ? currentBalance - transactionAmount : null;
+              allocatedByKeywords = true;
+            } else {
+              // Original Priority 2: If no override debit, check for override credit keywords (now effectively Priority 4)
+              const overrideCreditKeywords = ["Misc Payment Uber Holdings C", "CPP CANADA"]; // Existing override keywords
+              const isOverrideCredit = overrideCreditKeywords.some(keyword => lowerCaseDescription.includes(keyword));
+              if (isOverrideCredit) {
+                credit = transactionAmount.toFixed(2); // Use transactionAmount
+                currentBalance = currentBalance !== null ? currentBalance + transactionAmount : null;
+                allocatedByKeywords = true;
+              } else {
+                // Original Priority 3: If no overrides, check other hardcoded debit and credit keywords (now effectively Priority 5)
+                let isHardcodedDebit = hardcodedDebitKeywords.some(keyword => lowerCaseDescription.includes(keyword));
+                let isHardcodedCredit = hardcodedCreditKeywords.some(keyword => lowerCaseDescription.includes(keyword));
+
+                if (isHardcodedDebit) {
+                  debit = transactionAmount.toFixed(2); // Use transactionAmount
+                  currentBalance = currentBalance !== null ? currentBalance - transactionAmount : null;
+                  allocatedByKeywords = true;
+                } else if (isHardcodedCredit) {
+                  credit = transactionAmount.toFixed(2); // Use transactionAmount
+                  currentBalance = currentBalance !== null ? currentBalance + transactionAmount : null;
+                  allocatedByKeywords = true;
+                }
+              }
+            }
         }
-      }
     }
-
     // --- End of Modified Logic for Hard Rules with intuitive overrides ---
 
     // 2. General Keyword Matching (if not already allocated by hard rules)
@@ -251,13 +289,13 @@ function processData() {
       // Determine allocation based on best match
       if (bestDebitMatch.length > 0 && bestDebitMatch.length >= bestCreditMatch.length) {
         // If there's a debit match and it's as good or better than credit match
-        debit = amount.toFixed(2);
-        currentBalance = currentBalance !== null ? currentBalance - amount : null;
+        debit = transactionAmount.toFixed(2); // Use transactionAmount
+        currentBalance = currentBalance !== null ? currentBalance - transactionAmount : null;
         allocatedByKeywords = true;
       } else if (bestCreditMatch.length > 0) {
         // If there's a credit match (and it's better than debit, or no debit match)
-        credit = amount.toFixed(2);
-        currentBalance = currentBalance !== null ? currentBalance + amount : null;
+        credit = transactionAmount.toFixed(2); // Use transactionAmount
+        currentBalance = currentBalance !== null ? currentBalance + transactionAmount : null;
         allocatedByKeywords = true;
       }
     }
@@ -266,14 +304,14 @@ function processData() {
     if (!allocatedByKeywords && currentBalance !== null && newBalance !== null) {
       const balanceChange = newBalance - currentBalance;
 
-      if (Math.abs(balanceChange - amount) < 0.01) {
-        credit = amount.toFixed(2);
+      if (Math.abs(balanceChange - transactionAmount) < 0.01) { // Use transactionAmount
+        credit = transactionAmount.toFixed(2); // Use transactionAmount
         currentBalance = newBalance;
-      } else if (Math.abs(balanceChange + amount) < 0.01) {
-        debit = amount.toFixed(2);
+      } else if (Math.abs(balanceChange + transactionAmount) < 0.01) { // Use transactionAmount
+        debit = transactionAmount.toFixed(2); // Use transactionAmount
         currentBalance = newBalance;
       } else {
-        debit = amount.toFixed(2);
+        debit = transactionAmount.toFixed(2); // Default to debit if balance tracking ambiguous
         currentBalance = newBalance;
       }
       allocatedByKeywords = true; // Mark as allocated to prevent default fallback
@@ -281,8 +319,8 @@ function processData() {
 
     // 4. Third Option: Default to Debit if all fails
     if (!allocatedByKeywords) {
-      debit = amount.toFixed(2);
-      currentBalance = currentBalance !== null ? currentBalance - amount : null;
+      debit = transactionAmount.toFixed(2); // Use transactionAmount
+      currentBalance = currentBalance !== null ? currentBalance - transactionAmount : null;
     }
 
     rows.push([
@@ -293,8 +331,9 @@ function processData() {
       newBalance !== null ? formatBalance(newBalance) : (currentBalance !== null ? formatBalance(currentBalance) : '')
     ]);
 
-    if (amountLineIndex > i) {
-      i = amountLineIndex; // Skip ahead to the amount line
+    // Update the global 'i' to the line where amounts were found, so the outer loop continues from there.
+    if (amountLineFoundIndex !== -1) {
+      i = amountLineFoundIndex; 
     }
   }
 
