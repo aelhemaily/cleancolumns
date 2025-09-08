@@ -1457,7 +1457,7 @@ function selectCell(cell) {
         .catch(err => console.error('Copy selected cells failed:', err));
 }
 
-    function createCopyColumnButtons() {
+   function createCopyColumnButtons() {
     const table = document.querySelector('#output table');
     if (!table) return;
 
@@ -1505,6 +1505,29 @@ function selectCell(cell) {
             cell.textContent = 'CR';
         }
     });
+
+    // --- NEW: Process date column to keep only the first date ---
+    // Find the Date column index
+    const dateColIndex = Array.from(headerRow.cells).findIndex(cell => 
+        cell.textContent.trim().toLowerCase() === 'date'
+    );
+    
+    if (dateColIndex !== -1) {
+        // Process all data rows
+        for (let i = 1; i < table.rows.length; i++) {
+            const dateCell = table.rows[i].cells[dateColIndex];
+            if (dateCell) {
+                const dateText = dateCell.textContent.trim();
+                // Split by space and take only the first two parts (Month and Day)
+                const dateParts = dateText.split(' ');
+                if (dateParts.length >= 2) {
+                    // Keep only the first date (first two parts: Month Day)
+                    dateCell.textContent = `${dateParts[0]} ${dateParts[1]}`;
+                }
+            }
+        }
+    }
+    // --- END NEW DATE PROCESSING ---
 
     // Apply word wrapping to description column to prevent horizontal scrolling
     const headers = Array.from(headerRow.cells);
@@ -1851,6 +1874,49 @@ function sortColumn(columnIndex, direction) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
   }
 
+
+function addColumnBeforeACC() {
+  const table = document.querySelector('#output table');
+  if (!table) return;
+  
+  saveState(); // Save before adding column
+  
+  // Find the ACC column index
+  const headers = Array.from(table.rows[0].cells);
+  const accIndex = headers.findIndex(cell => cell.textContent.trim() === 'ACC');
+  
+  if (accIndex === -1) {
+    showToast("ACC column not found!", "error");
+    return;
+  }
+  
+  // Add header
+  const headerRow = table.rows[0];
+  const newHeader = document.createElement('th');
+  newHeader.textContent = 'New';
+  headerRow.insertBefore(newHeader, headerRow.cells[accIndex]);
+  
+  // Add empty cells in all data rows
+  for (let i = 1; i < table.rows.length; i++) {
+    const row = table.rows[i];
+    const newCell = document.createElement('td');
+    newCell.textContent = '';
+    row.insertBefore(newCell, row.cells[accIndex]);
+  }
+  
+  // Update the numbered column if it exists
+  if (table.rows[0].cells[0].textContent === '#') {
+    for (let i = 1; i < table.rows.length; i++) {
+      table.rows[i].cells[0].textContent = i;
+    }
+  }
+  
+  createCopyColumnButtons();
+  showToast("Column added before ACC", "success");
+  updateTransactionCounts();
+}
+
+
   function setupCellDragAndDrop(table) {
     let draggedCell = null;
 
@@ -1927,6 +1993,7 @@ function sortColumn(columnIndex, direction) {
         cell.addEventListener('dragover', handleDragOver);
         cell.addEventListener('dragleave', handleDragLeave);
         cell.addEventListener('drop', handleDrop);
+        
       }
     });
   }
@@ -2165,7 +2232,8 @@ function sortColumn(columnIndex, direction) {
   // Undo/Redo button handlers
   document.getElementById('undoBtn').addEventListener('click', undo);
   document.getElementById('redoBtn').addEventListener('click', redo);
-
+// Add event listener for the add column button
+document.getElementById('addColumnBtn').addEventListener('click', addColumnBeforeACC);
   // Keyboard shortcuts
   document.addEventListener('keydown', (e) => {
     // Only process undo/redo when not in a text input
@@ -2444,5 +2512,11 @@ function updateTransactionCounts() {
     drCountSpan.textContent = debitCount;
     crCountSpan.textContent = creditCount;
 }
-
+  // Refresh page functionality
+  const refreshBtn = document.getElementById('refreshBtn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      window.location.reload();
+    });
+  }
 });

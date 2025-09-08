@@ -2727,3 +2727,44 @@ th.selected-cell.editing {
   color: var(--select-focus);
 }
 
+/* Refresh button styles */
+.refresh-btn {
+  background-color: #ffffff;
+  color: #475569;
+  font-family: monospace;
+  border: 2px solid #475569;
+  padding: 10px 14px;
+  border-radius: 0px;
+  box-shadow: -4px 4px 0 #15191f;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin: 0 8px 0 0;
+  height: 40px;
+  width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.refresh-btn:hover {
+  box-shadow: -2px 2px 0 #000000;
+  background-color: #f4f4f4;
+  transform: translateY(-1px);
+}
+
+.refresh-btn:active {
+  box-shadow: -1px 1px 0 #000000;
+  transform: translate(-3px, 3px);
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] .refresh-btn {
+  background-color: #1a1a1a;
+  color: #ffffff;
+  border: 2px solid #3a3a3a;
+  box-shadow: -4px 4px 0 #000000;
+}
+
+[data-theme="dark"] .refresh-btn:hover {
+  background-color: #2d2d2d;
+}

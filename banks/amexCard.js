@@ -36,7 +36,7 @@ function processData() {
   outputDiv.innerHTML = '';
 
   // Adjust headers to include Debit and Credit columns, like scotiaCard.js
-  const headers = ['Date', 'Posting Date', 'Description', 'Debit', 'Credit'];
+  const headers = ['Date', 'Description', 'Debit', 'Credit'];
   const transactions = []; // Use a temporary array to store parsed transactions for sorting
   const table = document.createElement('table');
 
@@ -108,7 +108,7 @@ function processData() {
     // Push an object with the sortable date and the row data
     transactions.push({
       sortDate: originalDateForSort,
-      row: [transDate, postDate, description.trim(), debit, credit]
+      row: [transDate, description.trim(), debit, credit]
     });
 
     buffer = []; // Clear buffer after processing
