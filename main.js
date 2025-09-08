@@ -1457,7 +1457,7 @@ function selectCell(cell) {
         .catch(err => console.error('Copy selected cells failed:', err));
 }
 
-  function createCopyColumnButtons() {
+    function createCopyColumnButtons() {
     const table = document.querySelector('#output table');
     if (!table) return;
 
@@ -1506,10 +1506,26 @@ function selectCell(cell) {
         }
     });
 
+    // Apply word wrapping to description column to prevent horizontal scrolling
+    const headers = Array.from(headerRow.cells);
+    const descriptionColIndex = headers.findIndex(cell => 
+        cell.textContent.trim().toLowerCase() === 'description'
+    );
+    
+    if (descriptionColIndex !== -1) {
+        for (let i = 1; i < table.rows.length; i++) {
+            const descriptionCell = table.rows[i].cells[descriptionColIndex];
+            if (descriptionCell) {
+                descriptionCell.style.wordWrap = 'break-word';
+                descriptionCell.style.whiteSpace = 'normal';
+                descriptionCell.style.maxWidth = '300px';
+            }
+        }
+    }
 
     // Add copy buttons to each header
-    const headers = table.querySelectorAll('th');
-    headers.forEach((header, index) => {
+    const headersAll = table.querySelectorAll('th');
+    headersAll.forEach((header, index) => {
       if (index === 0) return; // Skip number column
 
       const button = document.createElement('button');

@@ -1,324 +1,281 @@
-// baaCard.js
+// baaCard.js - Bank of America Account/Card statement parsing
 
-/**
- * Parses a date string for sorting purposes.
- * This function handles various date formats found in Bank of America statements.
- * @param {string} dateString - The raw date string from the statement.
- * @returns {Date} A Date object for consistent sorting.
- */
-function parseDate(dateString) {
-  // Try to parse common formats
-  // Format: MM/DD/YY or MM/DD/YYYY
-  const mdYMatch = dateString.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
-  if (mdYMatch) {
-    const [, month, day, year] = mdYMatch;
-    // Handle 2-digit year (assume 20xx for now)
-    const fullYear = year.length === 2 ? `20${year}` : year;
-    return new Date(`${month}/${day}/${fullYear}`);
-  }
-
-  // Fallback to a generic date for consistent sorting if no specific format matches
-  // This helps ensure items that couldn't be parsed specifically still get a sortable value
-  return new Date(dateString);
-}
-
-
-/**
- * Cleans and extracts transaction data from raw text, specifically for Bank of America statements.
- * It identifies transaction sections (deposits, withdrawals, service fees) and parses individual lines.
- * @param {string} text - The raw text extracted from the PDF.
- * @returns {Array<Object>} An array of transaction objects.
- */
-function cleanAndParseTransactions(text) {
-    const transactions = [];
-
-    // Define patterns for each section
-    // The (?=\nTotal...) ensures the section ends correctly, without consuming the total line itself.
-    const depositSectionPattern = /Deposits and other credits\s*\n(.*?)(?=\nTotal deposits and other credits|\nWithdrawals and other debits)/gs;
-    const withdrawalSectionPattern = /Withdrawals and other debits\s*\n(.*?)(?=\nTotal withdrawals and other debits|\nService fees|\nDaily ledger balances)/gs;
-    const serviceFeesSectionPattern = /Service fees\s*\n(.*?)(?=\nTotal service fees|\nDaily ledger balances)/gs;
-
-
-    // Helper to extract lines for a given section
-    const extractSectionLines = (sectionMatch, isDebit) => {
-        if (sectionMatch && sectionMatch[1]) { // Ensure sectionMatch and its captured group exist
-            const sectionText = sectionMatch[1];
-            // Split by newline and process each line
-            const lines = sectionText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-            for (const line of lines) {
-                const transaction = parseTransactionLine(line, isDebit);
-                if (transaction) {
-                    transactions.push(transaction);
-                }
-            }
-        }
-    };
-
-    // Extract deposits
-    const depositMatch = text.match(depositSectionPattern);
-    if (depositMatch) {
-      extractSectionLines(depositMatch, false); // Pass false for isDebit
-    }
-
-    // Extract withdrawals
-    const withdrawalMatch = text.match(withdrawalSectionPattern);
-    if (withdrawalMatch) {
-      extractSectionLines(withdrawalMatch, true); // Pass true for isDebit
-    }
-
-    // Extract service fees
-    const serviceFeeMatch = text.match(serviceFeesSectionPattern);
-    if (serviceFeeMatch) {
-      extractSectionLines(serviceFeeMatch, true); // Pass true for isDebit
-    }
-    
-    // Fallback for general transaction pattern if sections are not clearly defined or missed.
-    // This pattern looks for "MM/DD/YY" or "MM/DD/YYYY" followed by description and then an amount.
-    // Updated amount pattern to include optional '+' sign and allow for spaces or commas as thousands separators.
-    const generalTransactionPattern = /(\d{1,2}\/\d{1,2}\/\d{2,4})\s+([\s\S]*?)\s+([-+]?\$?\d{1,3}(?:[,\s]?\d{3})*\.\d{2})/g;
-    let match;
-    while ((match = generalTransactionPattern.exec(text)) !== null) {
-        const date = match[1];
-        const description = match[2].trim().replace(/\s+/g, ' '); // Clean description
-        let amount = match[3].replace('$', '').replace(/[\s,]/g, ''); // Remove spaces and commas from amount
-
-        const isDebit = amount.startsWith('-');
-        if (!isDebit && !amount.startsWith('+')) {
-            amount = '+' + amount; // Ensure credit amounts have a leading plus for consistency
-        }
-        
-        // Check for duplicates before adding, as section-based parsing might have already caught it
-        const isDuplicate = transactions.some(t => t.date === date && t.description === description && t.amount === amount);
-        if (!isDuplicate) {
-            transactions.push({ date, description, amount });
-        }
-    }
-
-    return transactions;
-}
-
-/**
- * Parses a single transaction line to extract date, description, and amount.
- * @param {string} line - A single line of text potentially containing transaction info.
- * @param {boolean} defaultIsDebit - Whether to default to debit if the sign is ambiguous.
- * @returns {Object|null} A transaction object or null if parsing fails.
- */
-function parseTransactionLine(line, defaultIsDebit) {
-    // Regex to match date (MM/DD/YY or MM/DD/YYYY) at the beginning
-    const datePattern = /(\d{1,2}\/\d{1,2}\/\d{2,4})/;
-    const dateMatch = line.match(datePattern);
-
-    if (!dateMatch) return null; // Must have a date
-
-    const date = dateMatch[1];
-    let restOfLine = line.substring(dateMatch[0].length).trim();
-
-    // Regex to match amount at the end, with optional negative/positive sign, commas, and dollar sign
-    // Updated to include optional '+' sign and allow for spaces or commas as thousands separators.
-    const amountPattern = /([-+]?\$?\d{1,3}(?:[,\s]?\d{3})*\.\d{2})$/;
-    const amountMatch = restOfLine.match(amountPattern);
-
-    if (!amountMatch) return null; // Must have an amount
-
-    let amount = amountMatch[1].replace('$', '').replace(/[\s,]/g, ''); // Remove spaces and commas from amount
-    let description = restOfLine.substring(0, restOfLine.length - amountMatch[0].length).trim();
-
-    // Clean up extra spaces in the description
-    description = description.replace(/\s+/g, ' ');
-
-    // Determine debit/credit based on the sign
-    const isDebit = amount.startsWith('-');
-    if (!isDebit && defaultIsDebit) {
-        amount = '-' + amount; // Force negative for withdrawal/fee if not already
-    } else if (!isDebit && !amount.startsWith('+')) {
-        amount = '+' + amount; // Ensure credit amounts have a leading plus
-    }
-
-    return { date, description, amount };
-}
-
-
-/**
- * Extracts text from a PDF file using PDF.js.
- * @param {File} file - The PDF file object.
- * @returns {Promise<string>} A promise that resolves with the extracted text.
- */
-async function extractTextFromPDF(file) {
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    let fullText = '';
-
-    for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        // Join items by string, adding a space if necessary for readability
-        const pageText = textContent.items.map(item => item.str).join(' ');
-        fullText += pageText + '\n';
-    }
-    return fullText;
-}
-
-// Expose the PDF processing function to window.bankUtils
+// Ensure window.bankUtils exists to house bank-specific utilities
 window.bankUtils = window.bankUtils || {};
+
+// Set up PDF.js worker source
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js';
+
+// --- UI Utility Functions ---
+function showMessage(message, type = 'info') {
+  const messageBox = document.getElementById('messageBox');
+  if (messageBox) {
+    messageBox.textContent = message;
+    messageBox.className = `message-box show bg-${type === 'error' ? 'red' : 'yellow'}-100 border-${type === 'error' ? 'red' : 'yellow'}-400 text-${type === 'error' ? 'red' : 'yellow'}-700`;
+  } else {
+    console.warn("Message box not found in DOM.");
+  }
+}
+
+function clearMessage() {
+  const messageBox = document.getElementById('messageBox');
+  if (messageBox) {
+    messageBox.textContent = '';
+    messageBox.classList.remove('show');
+  } else {
+    console.warn("Message box not found in DOM.");
+  }
+}
+
+// --- PDF Parsing Logic based on parser.html ---
+function parseTransactions(text) {
+    // Step 1: Clean up the text by removing junk data (adapted from parser.html)
+    let cleanedText = text.replace(/(\d{2}\/\d{2}\/\d{2})\s+(\1)/g, '$1');
+    cleanedText = cleanedText.replace(/Page \d+ of \d+/g, '');
+    cleanedText = cleanedText.replace(/This page intentionally left blank/g, '');
+    cleanedText = cleanedText.replace(/Note your Ending Balance already reflects the subtraction of Service Fees./g, '');
+    cleanedText = cleanedText.replace(/Daily ledger balances.*?AMZ MENTORS LLC ! Account #.*?/gs, '');  
+    cleanedText = cleanedText.replace(/AMZ MENTORS LLC ! Account #.*? - continued Date Description Amount/g, '');
+    cleanedText = cleanedText.replace(/AMZ MENTORS LLC ! Account #.*?/g, '');  
+    cleanedText = cleanedText.replace(/Total deposits and other credits.*?\s+\$\d{1,3}(?:,\d{3})*\.\d{2}/g, ''); 
+    cleanedText = cleanedText.replace(/Withdrawals and other debits(?:\s+Date\s+Description\s+Amount)?/g, '');
+    
+    // New rule to handle all "Total" lines at the end of transaction sections
+    cleanedText = cleanedText.replace(/Total (service fees|withdrawals and other debits|deposits and other credits).*?-?\$\d{1,3}(?:,\d{3})*\.\d{2}/g, '');
+    
+    cleanedText = cleanedText.replace(/Based on the activity on your business accounts.*?has not been met/g, '');
+    cleanedText = cleanedText.replace(/External transfer fee - Next Day - \s*\d{2}\/\d{2}\/\d{4}/g, 'External transfer fee - Next Day');
+    cleanedText = cleanedText.replace(/External transfer fee - 3 Day - \s*\d{2}\/\d{2}\/\d{4}/g, 'External transfer fee - 3 Day');
+    cleanedText = cleanedText.replace(/For information on Small Business products.*?businessfeesataglance./g, '');
+    cleanedText = cleanedText.replace(/continued on the next page/g, '');
+    
+    // Remove the "Daily ledger balances" section and all following content
+    cleanedText = cleanedText.replace(/Daily ledger balances.*?$/gs, '');
+
+    // NEW RULE: Remove the "Subtotal for card account" section and all following content
+    cleanedText = cleanedText.replace(/Subtotal for card account #.*?$/gs, '');
+    
+    // Step 2: Extract transactions.
+    const transactions = [];
+
+    // NUCLEAR RULE: Specifically look for the "Monthly Fee Business Adv Fundamentals" transaction and extract it.
+    // This is a direct match and will be prioritized.
+    const monthlyFeeRegex = /(\d{2}\/\d{2}\/\d{2})\s+Monthly Fee Business Adv Fundamentals\s+(-?\d{1,3}(?:,\d{3})*\.\d{2})/;
+    const monthlyFeeMatch = monthlyFeeRegex.exec(text);
+    if (monthlyFeeMatch) {
+        transactions.push(`${monthlyFeeMatch[1]} Monthly Fee Business Adv Fundamentals\n${monthlyFeeMatch[2]}`);
+        // Remove this transaction from the text to avoid double-counting
+        cleanedText = cleanedText.replace(monthlyFeeMatch[0], '');
+    }
+
+    // Regex to find a date, then capture everything until the next date or end of string.
+    const transactionBlockRegex = new RegExp('(\\d{2}\\/\\d{2}\\/\\d{2})\\s(.+?)(?=\\d{2}\\/\\d{2}\\/\\d{2}|$)', 'gs');
+    let match;
+
+    while ((match = transactionBlockRegex.exec(cleanedText)) !== null) {
+        const date = match[1];
+        const blockContent = match[2];
+
+        // Find the last number with a potential negative sign in the block
+        const amountRegex = new RegExp('(-?\\$?[\\d,]+\\.\\d{2})', 'g');
+        let amountMatch;
+        let lastAmount = null;
+
+        while ((amountMatch = amountRegex.exec(blockContent)) !== null) {
+            lastAmount = amountMatch[0];
+        }
+
+        if (lastAmount) {
+            // Remove the amount from the description and clean up extra whitespace
+            const description = blockContent.substring(0, blockContent.lastIndexOf(lastAmount)).trim();
+            transactions.push(`${date} ${description.replace(/\s+/g, ' ')}\n${lastAmount}`);
+        } else {
+            // If no amount is found, add the entire block as a transaction with a note
+            transactions.push(`${date} ${blockContent.trim()}\n[Amount not found]`);
+        }
+    }
+    
+    return transactions;
+}
+
+// --- Main PDF File Processing Function ---
 window.bankUtils.processPDFFile = async function(file) {
-    try {
-        const rawText = await extractTextFromPDF(file);
-        const transactions = cleanAndParseTransactions(rawText);
-        // The main.js expects a single string of combined text to then call parseLines.
-        // We need to format the extracted transactions into a string that parseLines can handle.
-        // Each transaction will be on a new line, mimicking pasted text.
-        return transactions.map(t => `${t.date} ${t.description} ${t.amount}`).join('\n');
-    } catch (error) {
-        console.error('Error in window.bankUtils.processPDFFile for BAA:', error);
-        throw new Error('Failed to process Bank of America PDF: ' + error.message);
-    }
+  clearMessage();
+  showMessage('Processing PDF... Please wait.', 'info');
+
+  if (!file || file.type !== 'application/pdf') {
+    showMessage('Please upload a valid PDF file.', 'error');
+    return "";
+  }
+
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let fullText = '';
+    
+    // Extract text from each page - exactly like parser.html
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      fullText += textContent.items.map(item => item.str).join(' ');
+    }
+
+    const transactions = parseTransactions(fullText);
+    
+    if (transactions.length > 0) {
+      showMessage('Parsing complete. ' + transactions.length + ' transactions found.', 'success');
+      // FIX #2a: Join with a single newline for a more compact list.
+      // This makes the input text cleaner for a single PDF.
+      return transactions.join('\n');
+    } else {
+      showMessage('No transactions were found. Please check the PDF format.', 'error');
+      return '';
+    }
+
+  } catch (error) {
+    console.error('Error processing PDF:', error);
+    showMessage(`An error occurred while processing the PDF: ${error.message}`, 'error');
+    return '';
+  }
 };
 
-/**
- * Helper to convert numeric month to abbreviated month name.
- * @param {string} monthNum - The numeric month (e.g., "01" for January).
- * @returns {string} Abbreviated month name (e.g., "Jan").
- */
-function getMonthAbbreviation(monthNum) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return months[parseInt(monthNum, 10) - 1];
-}
-
-
-/**
- * Parses lines of text (from manual input or PDF extraction) into structured transaction objects.
- * This function is adapted for Bank of America, using only positive/negative amounts for debit/credit.
- * It does NOT use keywords or categories as per the user's instructions.
- * @param {string} text - The input text containing transaction lines.
- * @param {string} yearInput - Optional year to append to dates for full date context.
- * @returns {Array<Object>} An array of processed transaction items.
- */
-function parseLines(text, yearInput) {
-  const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
-
-  return lines.map(line => {
-    // Regex to extract date, description, and amount based on the format: "MM/DD/YY or YYYY Description Amount"
-    // Updated amount pattern to include optional '+' sign and allow for spaces or commas as thousands separators.
-    const transactionPattern = /^(\d{1,2}\/\d{1,2}\/\d{2,4})\s+([\s\S]*?)\s*([-+]?\$?\d{1,3}(?:[,\s]?\d{3})*\.\d{2})$/;
-    const match = line.match(transactionPattern);
-
-    if (!match) {
-        console.warn('Skipping unmatchable line:', line);
-        return null; // Skip lines that don't match the expected pattern
-    }
-
-    let [, date, description, amount] = match;
-
-    // Clean and normalize data
-    date = date.trim();
-    description = description.trim().replace(/\s+/g, ' '); // Replace multiple spaces with single
-    amount = amount.replace('$', '').replace(/[\s,]/g, '').trim(); // Remove spaces and commas from amount before processing
-
-    // --- Date Formatting (mm/dd/yy or mm/dd/yyyy to Mon DD YYYY) ---
-    let formattedDate = '';
-    const dateParts = date.split('/');
-    if (dateParts.length === 3) {
-        let month = dateParts[0];
-        let day = dateParts[1];
-        let year = dateParts[2];
-
-        // Ensure year is 4 digits
-        if (year.length === 2) {
-            year = `20${year}`;
-        }
-
-        // Use yearInput if provided and applicable
-        if (yearInput && yearInput.length === 4) {
-            year = yearInput;
-        }
-        
-        formattedDate = `${getMonthAbbreviation(month)} ${day.padStart(2, '0')} ${year}`;
-    } else {
-        // Fallback to original date if format is unexpected for transformation
-        formattedDate = date;
-    }
-    // --- End Date Formatting ---
-
-    // Determine debit/credit based on amount sign
-    const isDebit = amount.startsWith('-');
-    // Remove '+' or '-' signs for display in DR/CR columns
-    const cleanAmount = amount.replace(/[-+]/, ''); 
-
-    const debit = isDebit ? cleanAmount : '';
-    const credit = !isDebit ? cleanAmount : '';
-
-    return {
-      rawDate: formattedDate, // Use formatted date for display
-      parsedDate: parseDate(date), // Keep original date string for sorting
-      row: [formattedDate, description, '', debit, credit, ''] // No category for BAA
-    };
-  }).filter(Boolean); // Filter out any null returns from unmatchable lines
-}
-
-
-/**
- * Main function to process data and render the table for Bank of America statements.
- * This function will be called by main.js.
- */
+// --- Main Data Processing Function ---
 function processData() {
-  const yearInput = document.getElementById('yearInput').value.trim();
-  const input = document.getElementById('inputText').value.trim();
-  const outputDiv = document.getElementById('output');
-  outputDiv.innerHTML = ''; // Clear previous output
+  const input = document.getElementById('inputText').value.trim();
+  const yearInput = document.getElementById('yearInput').value.trim();
+  const outputDiv = document.getElementById('output');
+  outputDiv.innerHTML = '';
 
-  const allItems = parseLines(input, yearInput);
+  const headers = ['Date', 'Description', 'Debit', 'Credit', 'Balance'];
+  const rows = [];
+  const table = document.createElement('table');
 
-  // Sort all items by parsed date
-  allItems.sort((a, b) => a.parsedDate - b.parsedDate);
+  // Copy buttons row
+  const copyRow = document.createElement('tr');
+  headers.forEach((_, index) => {
+    const th = document.createElement('th');
+    const div = document.createElement('div');
+    div.className = 'copy-col';
+    const btn = document.createElement('button');
+    btn.textContent = 'Copy';
+    btn.className = 'copy-btn';
+    btn.onclick = () => window.bankUtils.copyColumn(index);
+    div.appendChild(btn);
+    th.appendChild(div);
+    copyRow.appendChild(th);
+  });
+  table.appendChild(copyRow);
 
-  const headers = ['Date', 'Description', 'ACC', 'DR', 'CR', 'Balance']; // Adjusted headers
-  const table = document.createElement('table');
+  // Header row
+  const headerRow = document.createElement('tr');
+  headers.forEach(header => {
+    const th = document.createElement('th');
+    th.textContent = header;
+    headerRow.appendChild(th);
+  });
+  table.appendChild(headerRow);
 
-  // Create and append the header row with column names
-  const headerRow = document.createElement('tr');
-  headers.forEach(header => {
-    const th = document.createElement('th');
-    th.textContent = header;
-    headerRow.appendChild(th);
-  });
-  table.appendChild(headerRow);
+  // FIX #2b: Split input using a regex that looks for a newline followed by a date.
+  // This correctly separates transactions even with single line breaks,
+  // and still allows you to use blank lines to separate content from different files.
+  const blocks = input.split(/\n(?=\d{2}\/\d{2}\/\d{2})/).filter(block => block.trim());
+  const transactions = [];
 
-  const rows = []; // Array to store processed row data
+  blocks.forEach(block => {
+    const lines = block.split('\n').map(line => line.trim()).filter(line => line);
+    if (lines.length >= 2) {
+      const lastLine = lines[lines.length - 1];
+      const amountMatch = lastLine.match(/^(-?\$?[\d,]+\.\d{2})$/);
+      
+      if (amountMatch) {
+        const amount = amountMatch[1];
+        const dateDescLine = lines.slice(0, -1).join(' ');
+        
+        // Extract date from the beginning
+        const dateMatch = dateDescLine.match(/^(\d{2}\/\d{2}\/\d{2})\s+(.+)/);
+        
+        if (dateMatch) {
+          const date = dateMatch[1];
+          const description = dateMatch[2];
+          
+          // Convert amount to number and determine debit/credit
+          let numAmount = parseFloat(amount.replace(/[\$,]/g, ''));
+          let debit = '';
+          let credit = '';
+          
+          // Based on your requirement: credit is positive, debit is negative
+          // So negative amounts in the statement become debits, positive become credits
+          if (numAmount < 0) {
+            debit = Math.abs(numAmount).toFixed(2);
+          } else {
+            credit = numAmount.toFixed(2);
+          }
 
-  // Populate the table with transaction rows
-  allItems.forEach(({ row }) => {
-    rows.push(row);
-    const tr = document.createElement('tr');
-    row.forEach(cell => {
-      const td = document.createElement('td');
-      td.textContent = cell;
-      tr.appendChild(td);
-    });
-    table.appendChild(tr);
-  });
+          // Format date with year if provided
+          let formattedDate = date;
+          if (yearInput && /^\d{2}\/\d{2}\/\d{2}$/.test(date)) {
+            const parts = date.split('/');
+            formattedDate = `${parts[0]}/${parts[1]}/${yearInput}`;
+          }
 
-  outputDiv.appendChild(table);
-  table.dataset.rows = JSON.stringify(rows); // Store rows in dataset for external use (e.g., saving)
+          transactions.push({
+            date: formattedDate,
+            description: description,
+            debit: debit,
+            credit: credit
+          });
+        }
+      }
+    }
+  });
 
-  // Ensure toolbar is visible and interactive features are setup after table generation
-  document.getElementById('toolbar').classList.add('show');
-  if (typeof window.bankUtils.setupCellSelection === 'function') {
-    window.bankUtils.setupCellSelection(table);
-  }
-  if (typeof window.bankUtils.setupTableContextMenu === 'function') {
-    window.bankUtils.setupTableContextMenu(table);
-  }
-  if (typeof window.bankUtils.setupCellDragAndDrop === 'function') {
-    window.bankUtils.setupCellDragAndDrop(table);
-  }
-  if (typeof window.bankUtils.setupColumnResizing === 'function') {
-    window.bankUtils.setupColumnResizing(table);
-  }
-  // Save the state of the table for undo/redo functionality
-  if (typeof saveState === 'function') { // saveState is defined in main.js
-    saveState();
-  }
+  // Process collected transactions and add to table
+  transactions.forEach(tx => {
+    // FIX #1: Removed the duplicate date `tx.date + ' ' + tx.date`
+    const row = [tx.date, tx.description, tx.debit, tx.credit, '']; // Balance not available
+    rows.push(row);
+
+    const tr = document.createElement('tr');
+    row.forEach(cell => {
+      const td = document.createElement('td');
+      td.textContent = cell;
+      tr.appendChild(td);
+    });
+    table.appendChild(tr);
+  });
+
+  outputDiv.appendChild(table);
+  table.dataset.rows = JSON.stringify(rows);
+
+  // Update UI elements from main.js
+  if (typeof document.getElementById('toolbar') !== 'undefined') {
+    document.getElementById('toolbar').classList.add('show');
+  }
+  if (typeof window.bankUtils.setupCellSelection === 'function') {
+    window.bankUtils.setupCellSelection(table);
+  }
+  if (typeof window.bankUtils.setupTableContextMenu === 'function') {
+    window.bankUtils.setupTableContextMenu(table);
+  }
+  if (typeof window.bankUtils.setupCellDragAndDrop === 'function') {
+    window.bankUtils.setupCellDragAndDrop(table);
+  }
+  if (typeof window.bankUtils.setupColumnResizing === 'function') {
+    window.bankUtils.setupColumnResizing(table);
+  }
+  if (typeof saveState === 'function') {
+    saveState();
+  }
+  if (typeof createCopyColumnButtons === 'function') {
+    createCopyColumnButtons();
+  }
+  if (typeof checkAndRemoveEmptyBalanceColumn === 'function') {
+    checkAndRemoveEmptyBalanceColumn();
+  }
+  if (typeof updateTableCursor === 'function') {
+    updateTableCursor();
+  }
 }
 
-// Export processData globally for main.js to call
+// Export processData globally so main.js can call it
 window.processData = processData;
