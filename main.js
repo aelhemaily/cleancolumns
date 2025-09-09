@@ -47,7 +47,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 function shouldShowPDFUpload(bankKey) {
   // List of bank combinations where PDF upload should be hidden
   const restrictedBanks = [
-    'rbcAccount' // Add more bank keys here as needed
+    'rbcAccount', 'tdCard' // Add more bank keys here as needed
   ];
   return !restrictedBanks.includes(bankKey);
 }
@@ -239,6 +239,7 @@ function shouldShowPDFUpload(bankKey) {
     const allowedTypes = {
       baa: ['card'],
       cdt: ['card'],
+      cra: ['payroll'],
       tangerine: ['account'],
       td: ['account', 'card', 'inPerson', 'history'],
       firstontario: ['account'],
@@ -251,7 +252,7 @@ function shouldShowPDFUpload(bankKey) {
       wallmart: ['card'],
       nbc: ['account', 'card'],
       bmo: ['account', 'card', 'loc'],
-      rbc: ['account', 'card', 'loc']
+      rbc: ['account', 'card', 'history', 'loc']
     };
 
     const allTypes = {
@@ -259,7 +260,8 @@ function shouldShowPDFUpload(bankKey) {
       card: 'Card',
       inPerson: 'In-Person',
       loc: 'LOC',
-      history: 'History'
+      history: 'History',
+      payroll: 'Payroll'
     };
 
     const allowed = allowedTypes[bank] || ['account', 'card'];
@@ -1457,7 +1459,7 @@ function selectCell(cell) {
         .catch(err => console.error('Copy selected cells failed:', err));
 }
 
-   function createCopyColumnButtons() {
+function createCopyColumnButtons() {
     const table = document.querySelector('#output table');
     if (!table) return;
 
@@ -1518,12 +1520,21 @@ function selectCell(cell) {
             const dateCell = table.rows[i].cells[dateColIndex];
             if (dateCell) {
                 const dateText = dateCell.textContent.trim();
-                // Split by space and take only the first two parts (Month and Day)
-                const dateParts = dateText.split(' ');
-                if (dateParts.length >= 2) {
-                    // Keep only the first date (first two parts: Month Day)
-                    dateCell.textContent = `${dateParts[0]} ${dateParts[1]}`;
+                const dateParts = dateText.split(/\s+/);
+                
+                // Heuristic to check if a year exists. A year is typically a 4-digit number.
+                const hasYear = dateParts.length >= 3 && /^\d{4}$/.test(dateParts[2]);
+
+                let newDate = '';
+                if (hasYear) {
+                    // Keep Month Day Year
+                    newDate = `${dateParts[0]} ${dateParts[1]} ${dateParts[2]}`;
+                } else if (dateParts.length >= 2) {
+                    // Keep only Month Day
+                    newDate = `${dateParts[0]} ${dateParts[1]}`;
                 }
+
+                dateCell.textContent = newDate;
             }
         }
     }
@@ -1576,7 +1587,8 @@ function selectCell(cell) {
       selectCell(table.rows[1].cells[0]);
     }
     updateTableCursor(); // Ensure cursor is set after table creation
-  }
+}
+
 
  function showColumnMenu(e, columnIndex) {
   e.stopPropagation();

@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TD Visa Transaction Extractor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --text-color: #334155;
+            --container-bg: #fff;
+            --container-border: #e2e8f0;
+            --shadow-color: rgba(0, 0, 0, 0.08);
+            --heading-color: #1e293b;
+            --label-color: #475569;
+            --select-border: #cbd5e1;
+            --select-focus: #3b82f6;
+            --th-bg: #f1f5f9;
+            --th-border: #cbd5e1;
+            --td-bg: #ffffff;
+            --td-border: #e2e8f0;
+            --hover-bg: #e6f0ff;
+            --input-bg: #ffffff;
+            --zebra-odd: #ffffff;
+            --zebra-even: #f5f5f5;
+            --header-bg: #e2e8f0;
+            --header-text: #1e293b;
+            --header-border: #94a3b8;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #1a1a1a;
+            --text-color: #e0e0e0;
+            --container-bg: #2d2d2d;
+            --container-border: #444;
+            --shadow-color: rgba(0, 0, 0, 0.3);
+            --heading-color: #f0f0f0;
+            --label-color: #b0b0b0;
+            --select-border: #555;
+            --select-focus: #4a90e2;
+            --th-bg: #3a3a3a;
+            --th-border: #444;
+            --td-bg: #2d2d2d;
+            --td-border: #444;
+            --hover-bg: #3a4a6b;
+            --input-bg: #3a3a3a;
+            --zebra-odd: #2d2d2d;
+            --zebra-even: #3a3a3a;
+            --header-bg: #334155;
+            --header-text: #f8fafc;
+            --header-border: #04042c;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background-color: var(--bg-color);
+            padding: 40px;
+            margin: 0;
+            color: var(--text-color);
+            line-height: 1.5;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: auto;
+            background: var(--container-bg);
+            padding: 35px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px var(--shadow-color);
+            border: 1px solid var(--container-border);
+            transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        h1 {
+            margin-top: 0;
+            font-size: 30px;
+            font-weight: 700;
+            margin-bottom: 26px;
+            letter-spacing: -0.01em;
+            color: var(--heading-color);
+            text-shadow: 
+                -1px -1px 0px rgba(255,255,255,0.9), 
+                -2px -2px 0px rgba(255,255,255,0.5), 
+                -3px -3px 0px rgba(255,255,255,0.2), 
+                1px 1px 0px rgba(0,0,0,0.2), 
+                2px 2px 0px rgba(0,0,0,0.15), 
+                3px 3px 0px rgba(0,0,0,0.1),
+                4px 4px 0px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }
+
+        [data-theme="dark"] h1 {
+            color: var(--heading-color);
+            text-shadow: 
+                -1px -1px 0px rgba(0,0,0,0.9), 
+                -2px -2px 0px rgba(0,0,0,0.5), 
+                -3px -3px 0px rgba(0,0,0,0.2), 
+                1px 1px 0px rgba(255,255,255,0.2), 
+                2px 2px 0px rgba(255,255,255,0.15), 
+                3px 3px 0px rgba(255,255,255,0.1),
+                4px 4px 0px rgba(255,255,255,0.05);
+        }
+
+        .drop-area {
+            border: 2px dashed #475569;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            background-color: rgba(255, 255, 255, 0.5);
+            margin-bottom: 20px;
+            transition: all 0.2s ease;
+            box-shadow: -2px 2px 0 #15191f;
+            cursor: pointer;
+        }
+
+        .drop-area:hover {
+            background-color: rgba(255, 255, 255, 0.8);
+        }
+
+        .drop-area.highlight {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+
+        [data-theme="dark"] .drop-area {
+            background-color: rgba(30, 30, 30, 0.5);
+            border-color: #3a3a3a;
+        }
+
+        [data-theme="dark"] .drop-area:hover {
+            background-color: rgba(30, 30, 30, 0.8);
+        }
+
+        [data-theme="dark"] .drop-area.highlight {
+            border-color: #60a5fa;
+            background-color: rgba(30, 58, 138, 0.3);
+        }
+
+        .upload-button {
+            background-color: #ffffff;
+            color: #475569;
+            font-family: monospace;
+            border: 2px solid #475569;
+            padding: 10px 22px;
+            border-radius: 0px;
+            box-shadow: -4px 4px 0 #15191f;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 15px;
+        }
+
+        .upload-button:hover {
+            box-shadow: -2px 2px 0 #000000;
+            background-color: #f4f4f4;
+            transform: translateY(-1px);
+        }
+
+        .upload-button:active {
+            box-shadow: -1px 1px 0 #000000;
+            transform: translate(-3px, 3px);
+        }
+
+        [data-theme="dark"] .upload-button {
+            background-color: #1a1a1a;
+            color: #ffffff;
+            border: 2px solid #3a3a3a;
+            box-shadow: -4px 4px 0 #000000;
+        }
+
+        [data-theme="dark"] .upload-button:hover {
+            background-color: #2d2d2d;
+        }
+
+        .status {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-weight: bold;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .processing {
+            background-color: #cfe2ff;
+            color: #052c65;
+            border: 1px solid #b6d4fe;
+        }
+
+        .results-input {
+            font-family: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', monospace;
+            white-space: pre-wrap;
+            background-color: var(--input-bg);
+            padding: 20px;
+            border-radius: 8px;
+            max-height: 600px;
+            overflow-y: auto;
+            margin-top: 20px;
+            border: none;
+            width: 100%;
+            box-sizing: border-box;
+            resize: both;
+            color: var(--text-color);
+            box-shadow: inset 0 0 10px rgba(50, 80, 120, 0.3),
+                        inset 0 0 0 1px var(--container-border);
+            transition: all 0.2s ease;
+        }
+
+        .results-input:focus {
+            outline: none;
+            box-shadow: inset 0 0 8px rgba(50, 80, 120, 0.2),
+                        inset 0 0 0 1px var(--select-focus);
+        }
+
+        [data-theme="dark"] .results-input {
+            background-color: var(--input-bg);
+            color: var(--text-color);
+            box-shadow: inset 0 0 10px rgba(150, 190, 230, 0.2),
+                        inset 0 0 0 1px var(--container-border);
+        }
+
+        [data-theme="dark"] .results-input:focus {
+            box-shadow: inset 0 0 8px rgba(150, 190, 230, 0.12),
+                        inset 0 0 0 1px var(--select-focus);
+        }
+
+        .copy-button {
+            background-color: #ffffff;
+            color: #475569;
+            font-family: monospace;
+            border: 2px solid #475569;
+            padding: 10px 18px;
+            border-radius: 0px;
+            box-shadow: -4px 4px 0 #15191f;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 15px;
+        }
+
+        .copy-button:hover {
+            box-shadow: -2px 2px 0 #000000;
+            background-color: #f4f4f4;
+            transform: translateY(-1px);
+        }
+
+        .copy-button:active {
+            box-shadow: -1px 1px 0 #000000;
+            transform: translate(-3px, 3px);
+        }
+
+        [data-theme="dark"] .copy-button {
+            background-color: #1a1a1a;
+            color: #ffffff;
+            border: 2px solid #3a3a3a;
+            box-shadow: -4px 4px 0 #000000;
+        }
+
+        [data-theme="dark"] .copy-button:hover {
+            background-color: #2d2d2d;
+        }
+
+        #toast {
+            position: fixed;
+            bottom: 60px;
+            right: 10px;
+            background-color: #1eac52;
+            color: #0f172a;
+            font-family: monospace;
+            padding: 10px 18px;
+            border: 2px solid #0f172a;
+            border-radius: 0;
+            opacity: 0;
+            pointer-events: none;
+            font-size: 13px;
+            font-weight: 600;
+            box-shadow: 4px 4px 0 #0f172a;
+            transform: translateY(10px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            z-index: 1000;
+        }
+
+        #toast.show {
+            opacity: 0.8;
+            transform: translateY(0);
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .controls-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>TD Visa Statement Parser</h1>
+        
+        <div class="drop-area" id="dropArea">
+            <p><i class="fas fa-file-pdf fa-2x"></i></p>
+            <p><strong>Drag & drop your TD Visa PDF statements here</strong></p>
+            <p>or</p>
+            <button class="upload-button" id="selectButton">
+                <i class="fas fa-upload"></i> Select PDF Files
+            </button>
+            <input type="file" id="fileInput" class="file-input" accept=".pdf" multiple>
+        </div>
+        
+        <div id="status" class="status">Ready to process statements</div>
+
+        <textarea id="resultsInput" class="results-input" rows="15" placeholder="Extracted transactions will appear here..."></textarea>
+        
+        <div class="controls-row">
+            <div></div> <!-- Empty spacer -->
+            <button class="copy-button" id="copyButton">
+                <i class="fas fa-copy"></i> Copy to Clipboard
+            </button>
+        </div>
+    </div>
+
+    <div id="toast">Copied to clipboard!</div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
+
+        const dropArea = document.getElementById('dropArea');
+        const fileInput = document.getElementById('fileInput');
+        const selectButton = document.getElementById('selectButton');
+        const resultsInput = document.getElementById('resultsInput');
+        const statusDiv = document.getElementById('status');
+        const copyButton = document.getElementById('copyButton');
+        const toast = document.getElementById('toast');
+
+        // Add hover effect for drag and drop area
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropArea.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight() {
+            dropArea.classList.add('highlight');
+        }
+
+        function unhighlight() {
+            dropArea.classList.remove('highlight');
+        }
+
+        dropArea.addEventListener('drop', handleDrop, false);
+        
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            fileInput.files = files;
+            handleFiles();
+        }
+
+        selectButton.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', handleFiles);
+
+        copyButton.addEventListener('click', () => {
+            resultsInput.select();
+            document.execCommand('copy');
+            
+            // Show toast notification
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2000);
+        });
+
+        /**
+         * Handles the files selected by the user, processes them, and displays the results.
+         */
+        async function handleFiles() {
+            const files = fileInput.files;
+            if (!files || files.length === 0) {
+                statusDiv.textContent = "Please select PDF file(s) to process.";
+                statusDiv.className = 'status error';
+                resultsInput.value = ''; // Clear the textarea
+                return;
+            }
+
+            statusDiv.textContent = `Processing ${files.length} file(s)...`;
+            statusDiv.className = 'status processing';
+            resultsInput.value = ''; // Clear the textarea
+
+            let allTransactions = []; 
+            
+            for (const file of files) {
+                try {
+                    const transactions = await parsePDF(file);
+                    allTransactions.push(...transactions);
+                } catch (error) {
+                    statusDiv.className = 'status error';
+                    statusDiv.textContent = `Error processing ${file.name}: ${error.message}. Please try again with a valid PDF.`;
+                    console.error(`Error processing ${file.name}:`, error);
+                    return;
+                }
+            }
+
+            if (allTransactions.length === 0) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = "No transactions found. Ensure you're uploading valid TD Visa statements with recognizable transaction data.";
+                return;
+            }
+
+            displayResults(allTransactions);
+        }
+
+        /**
+         * Parses a PDF file to extract its text content.
+         * @param {File} file The PDF file to parse.
+         * @returns {Promise<string[]>} A promise that resolves with an array of extracted transaction strings.
+         */
+        async function parsePDF(file) {
+            return new Promise(async (resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = async function(event) {
+                    try {
+                        const typedArray = new Uint8Array(event.target.result);
+                        const pdf = await pdfjsLib.getDocument(typedArray).promise;
+                        
+                        let fullText = '';
+                        
+                        for (let i = 1; i <= pdf.numPages; i++) {
+                            const page = await pdf.getPage(i);
+                            const textContent = await page.getTextContent();
+                            
+                            const sortedItems = textContent.items.sort((a, b) => {
+                                const yDiff = b.transform[5] - a.transform[5];
+                                if (Math.abs(yDiff) > 5) return yDiff;
+                                return a.transform[4] - b.transform[4];
+                            });
+                            
+                            let pageLines = [];
+                            let currentLine = '';
+                            let lastY = null;
+
+                            for (const item of sortedItems) { 
+                                if (lastY === null || Math.abs(item.transform[5] - lastY) < 5) {
+                                    currentLine += item.str + ' ';
+                                } else {
+                                    pageLines.push(currentLine.trim());
+                                    currentLine = item.str + ' ';
+                                }
+                                lastY = item.transform[5];
+                            }
+                            if (currentLine) {
+                                pageLines.push(currentLine.trim());
+                            }
+                            fullText += pageLines.join('\n') + '\n';
+                        }
+                        
+                        const transactions = extractTransactions(fullText);
+                        
+                        resolve(transactions);
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        /**
+         * Extracts transaction details from the raw text content of a PDF.
+         * @param {string} text The full text content extracted from the PDF.
+         * @returns {string[]} An array of formatted transaction strings.
+         */
+        function extractTransactions(text) {
+            const transactions = [];
+            
+            const lines = text.replace(/\r\n/g, '\n').split('\n').map(line => line.trim()).filter(line => line.length > 0);
+            
+            let transactionStartIndex = -1;
+            for (let i = 0; i < lines.length; i++) {
+                // Improved header detection: check for presence of all key header words
+                const line = lines[i];
+                if (line.includes('TRANSACTION') && line.includes('DATE') && 
+                    line.includes('ACTIVITY') && line.includes('DESCRIPTION') && 
+                    line.includes('AMOUNT')) {
+                    transactionStartIndex = i;
+                    break;
+                }
+            }
+
+            if (transactionStartIndex === -1) {
+                return extractTransactionsFallback(text);
+            }
+
+            let transactionEndIndex = lines.length; 
+            for (let i = transactionStartIndex + 1; i < lines.length; i++) {
+                const line = lines[i];
+                if (line.includes('NET AMOUNT OF MONTHLY ACTIVITY') ||
+                    line.includes('TOTAL NEW BALANCE') ||
+                    line.includes('CALCULATING YOUR BALANCE') ||
+                    line.includes('PAYMENT INFORMATION') || 
+                    line.includes('TD MESSAGE CENTRE') ||
+                    line.includes('Estimated Time to Pay')
+                    ) {
+                    transactionEndIndex = i;
+                    break;
+                }
+            }
+
+            const relevantLines = lines.slice(transactionStartIndex + 1, transactionEndIndex);
+            
+            let i = 0;
+            while (i < relevantLines.length) {
+                let line = relevantLines[i];
+                
+                if (!line || line.length < 10) {
+                    i++;
+                    continue;
+                }
+                
+                // Revised Regex: ^.*? allows any characters at the beginning of the line
+                // Group 1: Transaction Date (e.g., "MAR 15")
+                // Group 2: Posting Date (e.g., "MAR 18")
+                // Group 3: Description (non-greedy, captures everything until amount)
+                // Group 4: Amount (e.g., "$8.11" or "-$10.00")
+                // Group 5: Any trailing characters after amount (e.g., page numbers, document IDs)
+                const transactionMatch = line.match(/^.*?([A-Z]{3}\s+\d{1,2})\s+([A-Z]{3}\s+\d{1,2})\s+(.*?)(-?\$[\d,]+\.\d{2})(.*)$/);
+                
+                if (transactionMatch) {
+                    const transactionDate = transactionMatch[1];
+                    const postingDate = transactionMatch[2];
+                    let description = transactionMatch[3].trim();
+                    const amount = transactionMatch[4];
+                    const trailingChars = transactionMatch[5].trim();
+
+                    description = cleanDescription(description);
+                    
+                    let foreignInfo = '';
+                    if (i + 1 < relevantLines.length) {
+                        const nextLine = relevantLines[i + 1];
+                        
+                        // Check for explicit foreign currency line (e.g., "FOREIGN CURRENCY USD ...")
+                        if (nextLine.includes('FOREIGN CURRENCY') && nextLine.includes('USD')) {
+                            foreignInfo += ' ' + nextLine.trim(); // Append first part of foreign info
+                            i++; // Consume this line
+
+                            // Now, check if there's *another* next line for the exchange rate
+                            if (i + 1 < relevantLines.length) {
+                                const nextNextLine = relevantLines[i + 1];
+                                if (nextNextLine.includes('EXCHANGE RATE')) {
+                                    foreignInfo += ' ' + nextNextLine.trim(); // Append the exchange rate
+                                    i++; // Consume this line
+                                }
+                            }
+                        }
+                        // Keep the existing city appending logic (else if) as it's separate
+                        else if (
+                            nextLine.match(/^[A-Z][a-zA-Z0-9\s.-]+$/) &&
+                            !nextLine.match(/^[A-Z]{3}\s+\d{1,2}\s+[A-Z]{3}\s+\d{1,2}/) &&
+                            !nextLine.includes('NET AMOUNT') && !nextLine.includes('TOTAL') && 
+                            !nextLine.includes('CALCULATING') && !nextLine.includes('PAYMENT INFORMATION') &&
+                            !nextLine.includes('MINIMUM PAYMENT') && !nextLine.includes('TD MESSAGE CENTRE') &&
+                            !nextLine.includes('Estimated Time to Pay') &&
+                            !nextLine.includes('Annual Interest Rate:') && 
+                            nextLine.length > 1 && nextLine.length < 50
+                        ) {
+                            description += ' ' + nextLine.trim();
+                            i++; // Consume this line
+                        }
+                    }
+                    
+                    transactions.push(`${transactionDate} ${postingDate} ${description} ${amount}${foreignInfo}`);
+                }
+                
+                i++;
+            }
+
+            if (transactions.length === 0) {
+                return extractTransactionsFallback(text);
+            }
+            
+            return transactions;
+        }
+
+        /**
+         * Cleans up transaction descriptions by removing common artifacts and normalizing spaces.
+         * @param {string} description The raw description.
+         * @returns {string} The cleaned description.
+         */
+        function cleanDescription(description) {
+            // Aggressively remove 'Continued' regardless of case or surrounding characters
+            // Replace with a single space to avoid concatenation of surrounding words
+            let cleaned = description.replace(/continued/gi, ' '); 
+            
+            // Remove "CALCULATING YOUR BALANCE" and its variations
+            cleaned = cleaned.replace(/CALCULATING\s*YOUR\s*BALANCE/gi, ' ');
+
+            // Remove "TheestimatedtimetopayyourNewBalanceinfull" and its variations
+            cleaned = cleaned.replace(/The\s*estimated\s*time\s*to\s*pay\s*your\s*New\s*Balance\s*in\s*full/gi, ' ');
+            
+            // Remove "EstimatedTimetoPay" and its variations
+            cleaned = cleaned.replace(/Estimated\s*Time\s*to\s*Pay/gi, ' ');
+
+            // Remove "AnnualInterestRate:Purchases[percentage]" and its variations
+            cleaned = cleaned.replace(/Annual\s*Interest\s*Rate:\s*Purchases\s*\d+\.\d+%/gi, ' ');
+
+            // Remove "CashAdvances[percentage]" and its variations
+            cleaned = cleaned.replace(/Cash\s*Advances\s*\d+\.\d+%/gi, ' ');
+
+            // Then, normalize all whitespace to single spaces (important after aggressive replacement)
+            cleaned = cleaned.replace(/\s+/g, ' '); 
+            
+            // Remove other known artifacts
+            cleaned = cleaned.replace(/The yourNewBalanceinfull.*$/i, ''); 
+            cleaned = cleaned.replace(/NETAMOUNTOFMONTHLY.*$/i, '');
+            cleaned = cleaned.replace(/ACTIVITY.*$/i, '');
+            cleaned = cleaned.replace(/AMOUNT\s*\(S\)\s*\$.*$/i, '');
+            cleaned = cleaned.replace(/^\s*-\s*/, '');
+
+            return cleaned.trim(); // Finally, trim any leading/trailing whitespace
+        }
+
+        /**
+         * Fallback function using a different, more lenient approach to extract transactions,
+         * in case the primary method fails to find the transaction header or enough transactions.
+         * @param {string} text The full text content.
+         * @returns {string[]} An array of formatted transaction strings.
+         */
+        function extractTransactionsFallback(text) {
+            const transactions = [];
+            
+            const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                
+                if (line.includes('TRANSACTION DATE') || 
+                    line.includes('POSTING DATE') || 
+                    line.includes('ACTIVITY DESCRIPTION') ||
+                    line.includes('AMOUNT (S)') ||
+                    line.includes('PREVIOUS STATEMENT BALANCE') ||
+                    line.includes('NET AMOUNT OF MONTHLY ACTIVITY') ||
+                    line.includes('TOTAL NEW BALANCE') ||
+                    line.includes('CALCULATING YOUR BALANCE') ||
+                    line.includes('PAYMENT INFORMATION') ||
+                    line.includes('Minimum Payment') ||
+                    line.includes('TD MESSAGE CENTRE') ||
+                    line.includes('Estimated Time to Pay')) {
+                    continue; 
+                }
+
+                const match = line.match(/^([A-Z]{3}\s+\d{1,2})\s+([A-Z]{3}\s+\d{1,2})\s+(.*?)(-?\$[\d,]+\.\d{2})/);
+                
+                if (match) {
+                    const transactionDate = match[1];
+                    const postingDate = match[2];
+                    let description = match[3].trim();
+                    const amount = match[4];
+                    
+                    description = cleanDescription(description);
+                    
+                    if (description.length < 3 || 
+                        description.includes('BALANCE') || 
+                        description.includes('STATEMENT') ||
+                        description.includes('MINIMUM') ||
+                        description.includes('ANNUAL INTEREST RATE')) {
+                        continue;
+                    }
+                    
+                    let foreignInfo = '';
+                    if (i + 1 < lines.length) {
+                        const nextLine = lines[i + 1];
+                        // Modified fallback: check for foreign currency on next line
+                        if (nextLine.includes('FOREIGN CURRENCY') && nextLine.includes('USD')) {
+                            foreignInfo += ' ' + nextLine.trim();
+                            i++;
+
+                            // Check for exchange rate on the line after foreign currency
+                            if (i + 1 < lines.length) {
+                                const nextNextLine = lines[i + 1];
+                                if (nextNextLine.includes('EXCHANGE RATE')) {
+                                    foreignInfo += ' ' + nextNextLine.trim();
+                                    i++;
+                                }
+                            }
+                        }
+                        // Keep city appending logic (else if)
+                        else if (
+                            nextLine.match(/^[A-Z][a-zA-Z0-9\s.-]+$/) &&
+                            !nextLine.match(/^[A-Z]{3}\s+\d{1,2}\s+[A-Z]{3}\s+\d{1,2}/) &&
+                            !nextLine.includes('TOTAL') && !nextLine.includes('BALANCE') &&
+                            !nextLine.includes('Annual Interest Rate:') &&
+                            nextLine.length > 1 && nextLine.length < 50
+                        ) {
+                            description += ' ' + nextLine.trim();
+                            i++;
+                        }
+                    }
+                    
+                    transactions.push(`${transactionDate} ${postingDate} ${description} ${amount}${foreignInfo}`);
+                }
+            }
+            
+            return transactions;
+        }
+
+        /**
+         * Displays the extracted transactions in the results input box and updates the status.
+         * @param {string[]} transactions An array of formatted transaction strings.
+         */
+        function displayResults(transactions) {
+            // Post-process to remove unwanted phrases from all final transaction strings
+            const finalTransactions = transactions.map(transaction => {
+                let cleanedTransaction = transaction.replace(/\bcontinued\b/gi, ' ');
+                cleanedTransaction = cleanedTransaction.replace(/CALCULATING\s*YOUR\s*BALANCE/gi, ' ');
+                cleanedTransaction = cleanedTransaction.replace(/The\s*estimated\s*time\s*to\s*pay\s*your\s*New\s*Balance\s*in\s*full/gi, ' ');
+                cleanedTransaction = cleanedTransaction.replace(/Estimated\s*Time\s*to\s*Pay/gi, ' '); 
+                cleanedTransaction = cleanedTransaction.replace(/Annual\s*Interest\s*Rate:\s*Purchases\s*\d+\.\d+%/gi, ' '); // Post-process here
+                cleanedTransaction = cleanedTransaction.replace(/Cash\s*Advances\s*\d+\.\d+%/gi, ' '); // Post-process here
+                cleanedTransaction = cleanedTransaction.replace(/\s+/g, ' ').trim(); // Normalize spaces and trim
+                return cleanedTransaction;
+            });
+
+            resultsInput.value = finalTransactions.join('\n'); // Set the value of the textarea
+            statusDiv.className = 'status success';
+            statusDiv.textContent = `Successfully extracted ${finalTransactions.length} transactions`;
+        }
+    </script>
+</body>
+</html>
