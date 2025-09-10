@@ -1,4 +1,6 @@
-function processData() {
+// tdinperson.js
+
+window.processData = function() {
   const input = document.getElementById('inputText').value.trim();
   const yearInput = document.getElementById('yearInput').value.trim();
   const outputDiv = document.getElementById('output');
@@ -35,22 +37,24 @@ function processData() {
 
   // Helper to normalize date into MM/DD/YYYY
   function normalizeDate(dateStr) {
-    const months = {Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12'};
-    // Match formats like Jan31,2024 or Jan 31, 2024
+    const months = {
+      Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06',
+      Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12'
+    };
+    
+    // Match formats like Sep 27, 2024 or Sep27,2024
     const m = dateStr.match(/^([A-Za-z]{3})\s?(\d{1,2}),\s?(\d{4})$/);
     if (!m) return dateStr;
+    
     const mm = months[m[1]] || '01';
     const dd = m[2].padStart(2, '0');
     const yyyy = yearInput || m[3]; // Use yearInput if provided, otherwise use year from match
     return `${mm}/${dd}/${yyyy}`;
   }
 
-  // Keywords to infer credit transactions when delta & amount don't match
-  const creditKeywords = ['DEPOSIT', 'REBATE', 'ACCT BAL REBATE'];
-
   const lines = input.split('\n').map(l => l.trim()).filter(Boolean);
   let lastBalance = null;
-  let buffer = []; // Added buffer for multi-line transactions
+  let buffer = [];
 
   const flushBuffer = () => {
     if (buffer.length === 0) return;
@@ -63,12 +67,13 @@ function processData() {
     }
 
     const rawDate = dateMatch[1];
-    const date = normalizeDate(rawDate);
+    // Format the date to be compatible with main.js processing
+    // Use a format that won't be split by the date processing logic
+    const date = `${rawDate.split(' ')[0]} ${rawDate.split(' ')[1].replace(',', '')}`;
 
     let rest = fullLine.slice(rawDate.length).trim();
 
-    // Regex to capture balance, allowing for -$ or $- at the beginning, and optional OD
-    // This regex now explicitly handles $ before or after -
+    // Balance regex
     const balanceRegex = /(?:-?\s*\$|(?:\s*\$)?-)\s*([\d,]+\.\d{2})(OD)?$/i;
     const balanceMatch = rest.match(balanceRegex);
 
@@ -77,23 +82,20 @@ function processData() {
       return;
     }
 
-    const balanceNumericPart = balanceMatch[1]; // Just the digits and comma/decimal
-    const isOverdraftFlag = balanceMatch[2] ? true : false; // Check for OD suffix
+    const balanceNumericPart = balanceMatch[1];
+    const isOverdraftFlag = balanceMatch[2] ? true : false;
 
-    // Clean and parse balance number
     let balanceNum = parseFloat(balanceNumericPart.replace(/,/g, ''));
 
-    // Determine if the balance should be negative based on original string or OD flag
-    // Check if the original matched string (balanceMatch[0]) contains a negative sign
     if (balanceMatch[0].includes('-') || isOverdraftFlag) {
-        balanceNum = -Math.abs(balanceNum); // Ensure it's negative
+      balanceNum = -Math.abs(balanceNum);
     } else {
-        balanceNum = Math.abs(balanceNum); // Ensure it's positive if no negative indicator
+      balanceNum = Math.abs(balanceNum);
     }
 
-    rest = rest.slice(0, rest.lastIndexOf(balanceMatch[0])).trim(); // Remove balance string from rest
+    rest = rest.slice(0, rest.lastIndexOf(balanceMatch[0])).trim();
 
-    // Regex to capture amount, which is the last number before the balance
+    // Amount regex
     const amountRegex = /(-?[\d,]+\.\d{2})$/;
     const amountMatch = rest.match(amountRegex);
     if (!amountMatch) {
@@ -104,14 +106,12 @@ function processData() {
     const amountStr = amountMatch[1];
     const amountNum = parseFloat(amountStr.replace(/,/g, ''));
 
-    let description = rest.slice(0, rest.lastIndexOf(amountMatch[0])).trim(); // Remove amount string from description
+    let description = rest.slice(0, rest.lastIndexOf(amountMatch[0])).trim();
 
     let debit = '';
     let credit = '';
 
     if (lastBalance === null) {
-      // First line special case, if it's an opening balance, no debit/credit
-      // Otherwise, if it's the very first transaction, infer debit/credit based on amount sign
       if (description.toLowerCase().includes('opening balance') || description.toLowerCase().includes('balance forward')) {
         debit = '';
         credit = '';
@@ -124,37 +124,54 @@ function processData() {
       }
     } else {
       const delta = balanceNum - lastBalance;
-      const epsilon = 0.01; // tolerance for floating point precision
+      const epsilon = 0.01;
 
       if (Math.abs(delta - amountNum) < epsilon) {
-        // Delta matches amount: assign debit/credit according to your bank's rules
         if (delta > 0) {
-          // Balance increased → CREDIT transaction (money in)
           credit = amountNum.toFixed(2);
         } else if (delta < 0) {
-          // Balance decreased → DEBIT transaction (money out)
-          debit = amountNum.toFixed(2);
+          debit = Math.abs(amountNum).toFixed(2);
         } else {
-          // No significant change; assign debit by default
           debit = amountNum.toFixed(2);
         }
       } else {
-        // Delta and amount do not match; use keywords to infer credit, else debit
+        const creditKeywords = ['DEPOSIT', 'REBATE', 'ACCT BAL REBATE', 'E-TRANSFER'];
         const upperDesc = description.toUpperCase();
         const isCredit = creditKeywords.some(k => upperDesc.includes(k));
         if (isCredit) {
           credit = amountNum.toFixed(2);
         } else {
-          debit = amountNum.toFixed(2);
+          debit = Math.abs(amountNum).toFixed(2);
         }
       }
     }
 
-    lastBalance = balanceNum; // Update lastBalance for the next transaction
+    lastBalance = balanceNum;
 
     const row = [date, description, debit, credit, balanceNum.toFixed(2)];
     rows.push(row);
 
+    buffer = [];
+  };
+
+  lines.forEach(line => {
+    if (/^[A-Za-z]{3}\s?\d{1,2},\s?\d{4}/.test(line)) {
+      flushBuffer();
+    }
+    buffer.push(line);
+  });
+
+  flushBuffer();
+
+  // Sort the rows array by date in ascending order
+  rows.sort((a, b) => {
+    const dateA = new Date(`${a[0]} ${yearInput || '2000'}`);
+    const dateB = new Date(`${b[0]} ${yearInput || '2000'}`);
+    return dateA - dateB;
+  });
+
+  // Rebuild the table with the sorted rows
+  rows.forEach(row => {
     const tr = document.createElement('tr');
     row.forEach(cell => {
       const td = document.createElement('td');
@@ -162,22 +179,57 @@ function processData() {
       tr.appendChild(td);
     });
     table.appendChild(tr);
-
-    buffer = [];
-  };
-
-  lines.forEach(line => {
-    // Check if line starts with a date (e.g., "Jan 31, 2024")
-    if (/^[A-Za-z]{3}\s?\d{1,2},\s?\d{4}/.test(line)) {
-      flushBuffer(); // Process previous transaction
-    }
-    buffer.push(line); // Add to current transaction
   });
-
-  flushBuffer(); // Process last transaction
 
   outputDiv.appendChild(table);
   table.dataset.rows = JSON.stringify(rows);
-}
+};
 
-window.processData = processData;
+// PDF processing function for TD In-Person
+window.bankUtils.processPDFFile = async function(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    
+    reader.onload = async function(e) {
+      try {
+        const pdfData = new Uint8Array(e.target.result);
+        const pdf = await pdfjsLib.getDocument({data: pdfData}).promise;
+        let fullText = '';
+        
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const textContent = await page.getTextContent();
+          const textItems = textContent.items;
+          let lastY = null;
+          let line = '';
+          
+          for (const item of textItems) {
+            if (lastY !== item.transform[5]) {
+              if (line.trim() !== '') {
+                fullText += line + '\n';
+              }
+              line = item.str;
+              lastY = item.transform[5];
+            } else {
+              line += ' ' + item.str;
+            }
+          }
+          
+          if (line.trim() !== '') {
+            fullText += line + '\n';
+          }
+        }
+        
+        resolve(fullText);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    
+    reader.onerror = function(error) {
+      reject(error);
+    };
+    
+    reader.readAsArrayBuffer(file);
+  });
+};
