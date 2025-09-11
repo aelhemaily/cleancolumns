@@ -239,7 +239,7 @@ function shouldShowPDFUpload(bankKey) {
     const allowedTypes = {
       baa: ['card'],
       cdt: ['card'],
-      cra: ['payroll'],
+      cra: ['history', 'payroll'],
       tangerine: ['account'],
       td: ['account', 'card', 'inPerson', 'history'],
       firstontario: ['account'],
@@ -252,7 +252,7 @@ function shouldShowPDFUpload(bankKey) {
       wallmart: ['card'],
       nbc: ['account', 'card'],
       bmo: ['account', 'card', 'loc'],
-      rbc: ['account', 'card', 'history', 'loc']
+      rbc: ['account', 'card', 'loc']
     };
 
     const allTypes = {
