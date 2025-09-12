@@ -759,6 +759,7 @@ window.bankUtils.processPDFFile = async function(file) {
 // --- Main Data Processing Function (Existing bmoCard.js logic) ---
 // This function processes the text content (either manually entered or from PDF)
 // and populates the HTML table.
+// New and improved processData function to handle both single-line and multi-line BMO formats
 function processData() {
   const input = document.getElementById('inputText').value.trim();
   const yearInput = document.getElementById('yearInput').value.trim();
@@ -795,66 +796,129 @@ function processData() {
   table.appendChild(headerRow);
 
   const lines = input.split('\n').map(l => l.trim()).filter(Boolean);
-  const transactions = [];
+  let transactions = [];
 
-  // Updated Regex pattern:
-  // - Captures date1 (group 1)
-  // - Captures date2 (group 2)
-  // - Captures description (group 3)
-  // - Captures debit or credit amount (group 4)
-  // - The last part is optional, only there to catch any stray CR for consistency, but the parsing
-  //   logic for debit/credit happens inside processFormat1TransactionBlock for format 1 and
-  //   processData for all parsed lines
-  const fullLinePattern =
-    /^((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?\s+\d{1,2})\s+((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?\s+\d{1,2})\s+(.*?)\s+([\d,]+\.\d{2})(?:\s+(CR))?$/i;
+  // Determine which parsing logic to use
+  // If the input starts with a date followed by a line break, it's likely the multi-line format
+  const multiLineStartPattern = /^(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?\s+\d{1,2}$/i;
+  const isMultiLineFormat = lines.length > 0 && multiLineStartPattern.test(lines[0]);
 
+  if (isMultiLineFormat) {
+    // New logic for multi-line parsing
+    const datePattern = /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?\s+\d{1,2}$/i;
+    const amountPattern = /^[\d,]+\.\d{2}$/i;
+    const creditIndicatorPattern = /^CR$/i;
 
-  lines.forEach(line => {
-    const match = fullLinePattern.exec(line);
-    if (match) {
-      const [, date1, date2, desc, amountRaw, crIndicator] = match;
-      
-      // Determine if it's a credit transaction based on the presence of crIndicator group
-      const isCreditTransaction = !!crIndicator;
-      // Parse the numeric amount, removing commas if present
-      const amount = parseFloat(amountRaw.replace(/,/g, '').trim());
-      
-      // Assign to debit or credit based on isCreditTransaction
-      let debitAmount = '';
-      let creditAmount = '';
-      if (isCreditTransaction) {
-        creditAmount = amount !== null ? amount.toFixed(2) : '';
-      } else {
-        debitAmount = amount !== null ? amount.toFixed(2) : '';
+    let currentTransaction = null;
+    let expectingPostingDate = false;
+
+    lines.forEach(line => {
+      if (datePattern.test(line)) {
+        if (!currentTransaction) {
+          // This is the start of a new transaction, likely the transaction date
+          currentTransaction = {
+            transDate: line,
+            postingDate: '',
+            description: [],
+            amount: '',
+            isCredit: false
+          };
+          expectingPostingDate = true;
+        } else if (expectingPostingDate) {
+          // This is the second date, the posting date
+          currentTransaction.postingDate = line;
+          expectingPostingDate = false;
+        } else {
+          // New transaction, save the old one
+          if (currentTransaction.amount) {
+            transactions.push({
+              startDate: currentTransaction.transDate.replace('.', ''),
+              endDate: currentTransaction.postingDate.replace('.', ''),
+              description: currentTransaction.description.join(' ').trim(),
+              debit: currentTransaction.isCredit ? '' : parseFloat(currentTransaction.amount.replace(/,/g, '')).toFixed(2),
+              credit: currentTransaction.isCredit ? parseFloat(currentTransaction.amount.replace(/,/g, '')).toFixed(2) : ''
+            });
+          }
+          currentTransaction = {
+            transDate: line,
+            postingDate: '',
+            description: [],
+            amount: '',
+            isCredit: false
+          };
+          expectingPostingDate = true;
+        }
+      } else if (amountPattern.test(line)) {
+        if (currentTransaction) {
+          currentTransaction.amount = line;
+        }
+      } else if (creditIndicatorPattern.test(line)) {
+        if (currentTransaction) {
+          currentTransaction.isCredit = true;
+        }
+      } else if (currentTransaction) {
+        // This is a line of description
+        currentTransaction.description.push(line);
       }
-      
-      // Append year if provided and dates are just Month Day
-      const formattedStartDate = yearInput && /^\w{3}\s\d{1,2}$/.test(date1) ? `${date1} ${yearInput}` : date1;
-      const formattedEndDate = yearInput && /^\w{3}\s\d{1,2}$/.test(date2) ? `${date2} ${yearInput}` : date2;
+    });
 
+    // Add the last transaction if it exists
+    if (currentTransaction && currentTransaction.amount) {
       transactions.push({
-        startDate: formattedStartDate,
-        endDate: formattedEndDate,
-        description: desc.trim(),
-        debit: debitAmount,
-        credit: creditAmount
+        startDate: currentTransaction.transDate.replace('.', ''),
+        endDate: currentTransaction.postingDate.replace('.', ''),
+        description: currentTransaction.description.join(' ').trim(),
+        debit: currentTransaction.isCredit ? '' : parseFloat(currentTransaction.amount.replace(/,/g, '')).toFixed(2),
+        credit: currentTransaction.isCredit ? parseFloat(currentTransaction.amount.replace(/,/g, '')).toFixed(2) : ''
       });
     }
-  });
+
+  } else {
+    // Existing logic for single-line format
+    const fullLinePattern =
+      /^((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?\s+\d{1,2})\s+((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?\s+\d{1,2})\s+(.*?)\s+([\d,]+\.\d{2})(?:\s+(CR))?$/i;
+
+    lines.forEach(line => {
+      const match = fullLinePattern.exec(line);
+      if (match) {
+        const [, date1, date2, desc, amountRaw, crIndicator] = match;
+        const isCreditTransaction = !!crIndicator;
+        const amount = parseFloat(amountRaw.replace(/,/g, '').trim());
+
+        let debitAmount = '';
+        let creditAmount = '';
+        if (isCreditTransaction) {
+          creditAmount = amount !== null ? amount.toFixed(2) : '';
+        } else {
+          debitAmount = amount !== null ? amount.toFixed(2) : '';
+        }
+
+        transactions.push({
+          startDate: date1,
+          endDate: date2,
+          description: desc.trim(),
+          debit: debitAmount,
+          credit: creditAmount
+        });
+      }
+    });
+  }
 
   // Process collected transactions and add to table
   transactions.forEach(tx => {
-    let startDate = tx.startDate;
-    let endDate = tx.endDate;
-    let description = tx.description;
+    let formattedStartDate = tx.startDate;
+    let formattedEndDate = tx.endDate;
 
-    let debit = tx.debit;
-    let credit = tx.credit;
+    // Append year if provided and dates are just Month Day
+    if (yearInput && /^\w{3}\s\d{1,2}$/.test(tx.startDate)) {
+      formattedStartDate = `${tx.startDate} ${yearInput}`;
+    }
+    if (yearInput && /^\w{3}\s\d{1,2}$/.test(tx.endDate)) {
+      formattedEndDate = `${tx.endDate} ${yearInput}`;
+    }
 
-    // Format date column - always show both dates even if same
-    const dateColumn = startDate + ' ' + endDate;
-
-    const row = [dateColumn, description, debit, credit, '']; // Balance not available
+    const dateColumn = formattedStartDate + ' ' + formattedEndDate;
+    const row = [dateColumn, tx.description, tx.debit, tx.credit, '']; // Balance not available
     rows.push(row);
 
     const tr = document.createElement('tr');
@@ -869,8 +933,7 @@ function processData() {
   outputDiv.appendChild(table);
   table.dataset.rows = JSON.stringify(rows);
 
-  // Update UI elements from main.js (assuming they are globally available or imported)
-  // These functions are expected to be present in main.js
+  // Call other UI setup functions
   if (typeof document.getElementById('toolbar') !== 'undefined') {
     document.getElementById('toolbar').classList.add('show');
   }
@@ -886,16 +949,16 @@ function processData() {
   if (typeof window.bankUtils.setupColumnResizing === 'function') {
     window.bankUtils.setupColumnResizing(table);
   }
-  if (typeof saveState === 'function') { // saveState is defined in main.js
+  if (typeof saveState === 'function') {
     saveState();
   }
-  if (typeof createCopyColumnButtons === 'function') { // createCopyColumnButtons is defined in main.js
+  if (typeof createCopyColumnButtons === 'function') {
     createCopyColumnButtons();
   }
-  if (typeof checkAndRemoveEmptyBalanceColumn === 'function') { // checkAndRemoveEmptyBalanceColumn is defined in main.js
+  if (typeof checkAndRemoveEmptyBalanceColumn === 'function') {
     checkAndRemoveEmptyBalanceColumn();
   }
-  if (typeof updateTableCursor === 'function') { // updateTableCursor is defined in main.js
+  if (typeof updateTableCursor === 'function') {
     updateTableCursor();
   }
 }

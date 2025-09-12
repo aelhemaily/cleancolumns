@@ -237,7 +237,7 @@ function shouldShowPDFUpload(bankKey) {
 
   function enforceTypeRestrictions(bank) {
     const allowedTypes = {
-      baa: ['card'],
+      boa: ['card'],
       cdt: ['card'],
       cra: ['history', 'payroll'],
       tangerine: ['account'],

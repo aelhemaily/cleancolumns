@@ -339,112 +339,185 @@ window.bankUtils.processPDFFile = async function(file) {
 // --- Main Data Processing Function (Existing bmoCard.js logic, adapted for Triangle) ---
 // This function processes the text content (either manually entered or from PDF)
 // and populates the HTML table.
+/**
+ * This function processes the text content (either manually entered or from PDF)
+ * and populates the HTML table. It is now capable of parsing both single-line
+ * and multi-line transaction formats.
+ */
 function processData() {
-  const input = document.getElementById('inputText').value.trim();
-  const yearInput = document.getElementById('yearInput').value.trim();
-  const outputDiv = document.getElementById('output');
-  outputDiv.innerHTML = ''; // Clear previous output
+    const input = document.getElementById('inputText').value.trim();
+    const yearInput = document.getElementById('yearInput').value.trim();
+    const outputDiv = document.getElementById('output');
+    outputDiv.innerHTML = ''; // Clear previous output
 
-  const headers = ['Date', 'Description', 'Debit', 'Credit', 'Balance'];
-  const rows = [];
-  const table = document.createElement('table');
+    const headers = ['Date', 'Description', 'Debit', 'Credit', 'Balance'];
+    const rows = [];
+    const table = document.createElement('table');
 
-  // Header row
-  const headerRow = document.createElement('tr');
-  headers.forEach(header => {
-    const th = document.createElement('th');
-    th.textContent = header;
-    headerRow.appendChild(th);
-  });
-  table.appendChild(headerRow);
+    // Header row
+    const headerRow = document.createElement('tr');
+    headers.forEach(header => {
+        const th = document.createElement('th');
+        th.textContent = header;
+        headerRow.appendChild(th);
+    });
+    table.appendChild(headerRow);
 
-  const lines = input.split('\n').map(l => l.trim()).filter(Boolean);
+    const lines = input.split('\n').map(l => l.trim()).filter(Boolean);
 
-  // Regex pattern for the expected input format: Date Description Debit Credit
-  // Date: (Month Day) e.g., Jan 15
-  // Description: (any text)
-  // Debit/Credit: (numeric amount, optional)
-  // Updated to allow for optional negative sign for both debit and credit amounts
-  const linePattern = /^(\w{3}\s+\d{1,2})\s+(.*?)\s+(-?\d{1,3}(?:,\d{3})*\.\d{2})?\s*(-?\d{1,3}(?:,\d{3})*\.\d{2})?$/;
+    // Regex patterns for different parts of a line
+    const datePattern = /^\w{3}\s+\d{1,2}$/;
+    const amountPattern = /^-?\d{1,3}(?:,\d{3})*\.\d{2}$/;
 
-  lines.forEach(line => {
-    const match = line.match(linePattern);
-    if (match) {
-      const [, dateRaw, description, debitRaw, creditRaw] = match;
+    let currentTransaction = null;
 
-      const date = yearInput ? `${dateRaw} ${yearInput}` : dateRaw;
-      let debit = '';
-      let credit = '';
+    lines.forEach(line => {
+        // Case 1: Start of a new transaction (multi-line format)
+        if (datePattern.test(line)) {
+            // If a previous multi-line transaction was being built, finalize it
+            if (currentTransaction && currentTransaction.description && currentTransaction.amount) {
+                const row = [
+                    yearInput ? `${currentTransaction.date} ${yearInput}` : currentTransaction.date,
+                    currentTransaction.description,
+                    currentTransaction.amount >= 0 ? currentTransaction.amount.toFixed(2) : '',
+                    currentTransaction.amount < 0 ? Math.abs(currentTransaction.amount).toFixed(2) : '',
+                    ''
+                ];
+                rows.push(row);
+            }
 
-      // Logic to correctly assign amounts to Debit/Credit columns
-      if (debitRaw && debitRaw.trim() !== '') {
-        const amount = parseFloat(debitRaw.replace(/,/g, ''));
-        if (!isNaN(amount)) {
-          if (amount >= 0) {
-            debit = amount.toFixed(2);
-          } else {
-            // If a negative amount is found in the debit position, treat as credit
-            credit = Math.abs(amount).toFixed(2);
-          }
+            // Start a new transaction. The current line is the first date.
+            currentTransaction = {
+                date: line,
+                description: '',
+                amount: null,
+                isMultiLine: true
+            };
+        } else if (currentTransaction && currentTransaction.isMultiLine) {
+            // Case 2: Continuing a multi-line transaction
+            if (amountPattern.test(line)) {
+                // The amount is found, so this is the end of the transaction
+                const amount = parseFloat(line.replace(/,/g, ''));
+                currentTransaction.amount = amount;
+
+                // Finalize the transaction and add it to the rows
+                const row = [
+                    yearInput ? `${currentTransaction.date} ${yearInput}` : currentTransaction.date,
+                    currentTransaction.description.trim(),
+                    currentTransaction.amount >= 0 ? currentTransaction.amount.toFixed(2) : '',
+                    currentTransaction.amount < 0 ? Math.abs(currentTransaction.amount).toFixed(2) : '',
+                    ''
+                ];
+                rows.push(row);
+                currentTransaction = null; // Reset for the next transaction
+            } else {
+                // Not an amount, so it's part of the description
+                // We'll append the line, but skip the second date if it's there
+                const dateMatch = line.match(datePattern);
+                if (!dateMatch) {
+                    currentTransaction.description += ` ${line}`;
+                }
+            }
+        } else {
+            // Case 3: Single-line format
+            // Regex to match a full single-line transaction
+            const singleLinePattern = /^(\w{3}\s+\d{1,2})\s+(.*?)\s+(-?\d{1,3}(?:,\d{3})*\.\d{2})$/;
+            const singleLineMatch = line.match(singleLinePattern);
+            if (singleLineMatch) {
+                const [, dateRaw, description, amountRaw] = singleLineMatch;
+                const amount = parseFloat(amountRaw.replace(/,/g, ''));
+                const date = yearInput ? `${dateRaw} ${yearInput}` : dateRaw;
+
+                const row = [
+                    date,
+                    description.trim(),
+                    amount >= 0 ? amount.toFixed(2) : '',
+                    amount < 0 ? Math.abs(amount).toFixed(2) : '',
+                    ''
+                ];
+                rows.push(row);
+            }
         }
-      } else if (creditRaw && creditRaw.trim() !== '') {
-        const amount = parseFloat(creditRaw.replace(/,/g, ''));
-        if (!isNaN(amount)) {
-          if (amount < 0) {
-            // Negative amount in credit position means it's a credit (display as positive)
-            credit = Math.abs(amount).toFixed(2);
-          } else {
-            // If a positive amount is found in the credit position, treat as debit
-            debit = amount.toFixed(2);
-          }
-        }
-      }
-      
-      const row = [date, description.trim(), debit, credit, '']; // Balance not available
-      rows.push(row);
+    });
 
-      const tr = document.createElement('tr');
-      row.forEach(cell => {
-        const td = document.createElement('td');
-        td.textContent = cell;
-        tr.appendChild(td);
-      });
-      table.appendChild(tr);
+    // Finalize any remaining transaction at the end of the loop
+    if (currentTransaction && currentTransaction.description && currentTransaction.amount) {
+        const row = [
+            yearInput ? `${currentTransaction.date} ${yearInput}` : currentTransaction.date,
+            currentTransaction.description.trim(),
+            currentTransaction.amount >= 0 ? currentTransaction.amount.toFixed(2) : '',
+            currentTransaction.amount < 0 ? Math.abs(currentTransaction.amount).toFixed(2) : '',
+            ''
+        ];
+        rows.push(row);
     }
-  });
+    
+    // Sort transactions by date
+    const monthOrder = {
+        "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
+        "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12
+    };
 
-  outputDiv.appendChild(table);
-  table.dataset.rows = JSON.stringify(rows);
+    rows.sort((a, b) => {
+        const [aDateStr] = a;
+        const [bDateStr] = b;
 
-  // Update UI elements from main.js (assuming they are globally available or imported)
-  // These functions are expected to be present in main.js
-  if (typeof document.getElementById('toolbar') !== 'undefined') {
-    document.getElementById('toolbar').classList.add('show');
-  }
-  if (typeof window.bankUtils.setupCellSelection === 'function') {
-    window.bankUtils.setupCellSelection(table);
-  }
-  if (typeof window.bankUtils.setupTableContextMenu === 'function') {
-    window.bankUtils.setupTableContextMenu(table);
-  }
-  if (typeof window.bankUtils.setupCellDragAndDrop === 'function') {
-    window.bankUtils.setupCellDragAndDrop(table);
-  }
-  if (typeof window.bankUtils.setupColumnResizing === 'function') {
-    window.bankUtils.setupColumnResizing(table);
-  }
-  if (typeof saveState === 'function') { // saveState is defined in main.js
-    saveState();
-  }
-  if (typeof createCopyColumnButtons === 'function') { // createCopyColumnButtons is defined in main.js
-    createCopyColumnButtons();
-  }
-  if (typeof checkAndRemoveEmptyBalanceColumn === 'function') { // checkAndRemoveEmptyBalanceColumn is defined in main.js
-    checkAndRemoveEmptyBalanceColumn();
-  }
-  if (typeof updateTableCursor === 'function') { // updateTableCursor is defined in main.js
-    updateTableCursor();
-  }
+        const aParts = aDateStr.split(' ');
+        const bParts = bDateStr.split(' ');
+
+        const aMonth = monthOrder[aParts[0]];
+        const aDay = parseInt(aParts[1]);
+        const bMonth = monthOrder[bParts[0]];
+        const bDay = parseInt(bParts[1]);
+
+        if (aMonth !== bMonth) {
+            return aMonth - bMonth;
+        }
+        return aDay - bDay;
+    });
+
+    // Populate the table with the sorted rows
+    rows.forEach(row => {
+        const tr = document.createElement('tr');
+        row.forEach(cell => {
+            const td = document.createElement('td');
+            td.textContent = cell;
+            tr.appendChild(td);
+        });
+        table.appendChild(tr);
+    });
+
+    outputDiv.appendChild(table);
+    table.dataset.rows = JSON.stringify(rows);
+
+    // Update UI elements from main.js
+    if (typeof document.getElementById('toolbar') !== 'undefined') {
+        document.getElementById('toolbar').classList.add('show');
+    }
+    if (typeof window.bankUtils.setupCellSelection === 'function') {
+        window.bankUtils.setupCellSelection(table);
+    }
+    if (typeof window.bankUtils.setupTableContextMenu === 'function') {
+        window.bankUtils.setupTableContextMenu(table);
+    }
+    if (typeof window.bankUtils.setupCellDragAndDrop === 'function') {
+        window.bankUtils.setupCellDragAndDrop(table);
+    }
+    if (typeof window.bankUtils.setupColumnResizing === 'function') {
+        window.bankUtils.setupColumnResizing(table);
+    }
+    if (typeof saveState === 'function') {
+        saveState();
+    }
+    if (typeof createCopyColumnButtons === 'function') {
+        createCopyColumnButtons();
+    }
+    if (typeof checkAndRemoveEmptyBalanceColumn === 'function') {
+        checkAndRemoveEmptyBalanceColumn();
+    }
+    if (typeof updateTableCursor === 'function') {
+        updateTableCursor();
+    }
 }
 
 // Export processData globally so main.js can call it

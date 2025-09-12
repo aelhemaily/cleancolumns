@@ -119,75 +119,75 @@ function processData() {
 }
 
 function parseBmoLocStatement(inputText, yearInput) {
-  const lines = inputText.split('\n').map(l => l.trim()).filter(Boolean);
-  const transactions = [];
-  const buffer = [];
+    const lines = inputText.split('\n').map(l => l.trim()).filter(Boolean);
+    const transactions = [];
 
-  const flushBuffer = () => {
-    if (buffer.length === 0) return;
+    // Regex to detect if the first line starts with a transaction number followed by a space.
+    const hasLeadingNumber = /^\d+\s/.test(lines[0]);
 
-    const fullLine = buffer.join(' ');
-    // Expects two date patterns, then the rest of the description/amount.
-    // No leading transaction number here.
-    const linePattern = /^([A-Za-z]{3,4}\.?\s*\d{1,2})\s+([A-Za-z]{3,4}\.?\s*\d{1,2})\s+(.+)$/;
-    const match = fullLine.match(linePattern);
+    if (hasLeadingNumber) {
+        // Logic for the format with a leading transaction number
+        const linePatternWithNumber = /^(\d+)\s+([A-Za-z]{3,4}\.?\s*\d{1,2})\s+([A-Za-z]{3,4}\.?\s*\d{1,2})\s+(.*?)\s+([\d,]+\.\d{2})(CR)?$/i;
 
-    if (!match) {
-      buffer.length = 0;
-      return;
-    }
+        lines.forEach(line => {
+            const match = linePatternWithNumber.exec(line);
+            if (match) {
+                // The first group is the number, which we'll ignore as per the request
+                const [, , startDateRaw, endDateRaw, descriptionRaw, amountRaw, isCreditRaw] = match;
 
-    let [, startDateRaw, endDateRaw, rest] = match;
+                const normalizeDate = (dateStr) => {
+                    dateStr = dateStr.replace('.', '');
+                    return yearInput ? `${dateStr} ${yearInput}` : dateStr;
+                };
 
-    // Normalize dates: append year only if yearInput is provided
-    function normalizeDate(dateStr) {
-      dateStr = dateStr.replace('.', ''); // Remove period if present
-      return yearInput ? `${dateStr} ${yearInput}` : dateStr;
-    }
+                const startDate = normalizeDate(startDateRaw);
+                const endDate = normalizeDate(endDateRaw);
+                const description = descriptionRaw.trim();
+                const amount = parseFloat(amountRaw.replace(/,/g, ''));
+                const isCredit = !!isCreditRaw;
 
-    const startDate = normalizeDate(startDateRaw);
-    const endDate = normalizeDate(endDateRaw);
+                transactions.push({
+                    startDate,
+                    endDate,
+                    description,
+                    amount,
+                    type: isCredit ? 'credit' : 'debit'
+                });
+            }
+        });
 
-    // Amount pattern at the end of the 'rest' string, optionally followed by 'CR'
-    let amountMatch = rest.match(/([\d,]+\.\d{2})(CR)?$/i);
-    if (!amountMatch) {
-      buffer.length = 0;
-      return;
-    }
-
-    let amountStr = amountMatch[1].replace(/,/g, '');
-    let amount = parseFloat(amountStr);
-    let isCredit = !!amountMatch[2];
-
-    // Description is everything before the matched amount part
-    let description = rest.slice(0, rest.length - amountMatch[0].length).trim();
-
-    transactions.push({
-      startDate,
-      endDate,
-      description,
-      amount,
-      type: isCredit ? 'credit' : 'debit'
-    });
-
-    buffer.length = 0;
-  };
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    // This regex checks if a line starts with a month and day, then another month and day.
-    // It NO LONGER expects a number at the very beginning.
-    if (/^[A-Za-z]{3,4}\.?\s*\d{1,2}\s+[A-Za-z]{3,4}\.?\s*\d{1,2}/.test(line)) {
-      flushBuffer(); // Flush previous transaction if any
-      buffer.push(line); // Start new buffer with this line
     } else {
-      // If it's not a new transaction line, it's part of the current transaction's description
-      buffer.push(line);
-    }
-  }
+        // Original logic for the format without a leading transaction number
+        const linePatternWithoutNumber = /^([A-Za-z]{3,4}\.?\s*\d{1,2})\s+([A-Za-z]{3,4}\.?\s*\d{1,2})\s+(.*?)\s+([\d,]+\.\d{2})(CR)?$/i;
 
-  flushBuffer(); // Final flush to process any remaining data in the buffer
-  return transactions;
+        lines.forEach(line => {
+            const match = linePatternWithoutNumber.exec(line);
+            if (match) {
+                const [, startDateRaw, endDateRaw, descriptionRaw, amountRaw, isCreditRaw] = match;
+
+                const normalizeDate = (dateStr) => {
+                    dateStr = dateStr.replace('.', '');
+                    return yearInput ? `${dateStr} ${yearInput}` : dateStr;
+                };
+
+                const startDate = normalizeDate(startDateRaw);
+                const endDate = normalizeDate(endDateRaw);
+                const description = descriptionRaw.trim();
+                const amount = parseFloat(amountRaw.replace(/,/g, ''));
+                const isCredit = !!isCreditRaw;
+
+                transactions.push({
+                    startDate,
+                    endDate,
+                    description,
+                    amount,
+                    type: isCredit ? 'credit' : 'debit'
+                });
+            }
+        });
+    }
+
+    return transactions;
 }
 
 // Export the processData function globally for the main script to use
