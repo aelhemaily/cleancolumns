@@ -19,18 +19,22 @@
   <h2>Clean Columns</h2>
 
  <div class="top-controls">
-  <label for="bankSelector">Select Bank:</label>
-  <select id="bankSelector">
-    <optgroup label="Big 5">
+  <!-- Replace the existing bankSelector with this new version -->
+<label for="bankSelector">Select Bank:</label>
+<div class="custom-select">
+  <div class="select-selected" id="bankSelectorDisplay">Big 5</div>
+  <div class="select-items select-hide">
+    <div class="search-container">
+      <input type="text" id="bankSearch" placeholder="Search banks..." class="search-input">
+    </div>
+    <optgroup label="Big 5" class="optgroup">
       <option value="bmo">BMO</option>
       <option value="cibc">CIBC</option>
       <option value="rbc">RBC</option>
       <option value="scotia">Scotia</option>
       <option value="td">TD</option>
     </optgroup>
-    <optgroup label="Others">
-       <option value="amex">American Express</option>
-      <option value="boa">Bank of America</option>
+    <optgroup label="Others" class="optgroup">
       <option value="cdt">CDT</option>
       <option value="cra">CRA</option>
       <option value="eq">EQ</option>
@@ -41,9 +45,41 @@
       <option value="tangerine">Tangerine</option>
       <option value="triangle">Triangle</option>
       <option value="wallmart">Wallmart</option>
+    </optgroup>
+    <optgroup label="U.S." class="optgroup">
+      <option value="amex">American Express</option>
+      <option value="boa">Bank of America</option>
       <option value="wellsfargo">Wells Fargo</option>
     </optgroup>
-  </select>
+  </div>
+</div>
+<!-- Keep the hidden original select for form functionality -->
+<select id="bankSelector" style="display: none;">
+  <optgroup label="Big 5">
+    <option value="bmo">BMO</option>
+    <option value="cibc">CIBC</option>
+    <option value="rbc">RBC</option>
+    <option value="scotia">Scotia</option>
+    <option value="td">TD</option>
+  </optgroup>
+  <optgroup label="Others">
+    <option value="cdt">CDT</option>
+    <option value="cra">CRA</option>
+    <option value="eq">EQ</option>
+    <option value="firstontario">First Ontario</option>
+    <option value="meridian">Meridian</option>
+    <option value="nbc">NBC</option>
+    <option value="simplii">Simplii</option>
+    <option value="tangerine">Tangerine</option>
+    <option value="triangle">Triangle</option>
+    <option value="wallmart">Wallmart</option>
+  </optgroup>
+  <optgroup label="U.S.">
+    <option value="amex">American Express</option>
+    <option value="boa">Bank of America</option>
+    <option value="wellsfargo">Wells Fargo</option>
+  </optgroup>
+</select>
 
   <label for="typeSelector">Select Type:</label>
   <select id="typeSelector"></select>
@@ -171,7 +207,7 @@
     <span class="divider">•</span>
     <span>All rights reserved</span>
     <span class="divider">•</span>
-    <span>Qzee</span>
+    <span>QZee Business & Services Inc.</span>
     <button id="darkModeToggle" class="toolbar-btn" title="Toggle Dark Mode"><i class="fas fa-moon"></i></button>
       <button id="returnToTop" title="Return to Top">
     <i class="fas fa-arrow-up"></i>
@@ -181,5 +217,22 @@
 
   
   <script src="main.js"></script>
+<!-- Refresh Confirmation Modal -->
+<div id="refreshModal" class="refresh-modal">
+  <div class="refresh-modal-content">
+    <div class="refresh-modal-header">
+      <h3>Confirm Refresh</h3>
+      <span class="refresh-modal-close">&times;</span>
+    </div>
+    <div class="refresh-modal-body">
+      <p>Are you sure you want to refresh? All data will be lost.</p>
+    </div>
+    <div class="refresh-modal-footer">
+      <button id="refreshConfirmYes" class="refresh-modal-btn refresh-modal-btn-yes">Yes</button>
+      <button id="refreshConfirmNo" class="refresh-modal-btn refresh-modal-btn-no">No</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

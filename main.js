@@ -44,6 +44,180 @@ document.addEventListener('DOMContentLoaded', async () => {
   const sampleImage = document.getElementById('sampleImage');
   const closeModal = document.querySelector('.close-modal');
 
+// Custom select with search functionality
+
+function setupCustomSelect() {
+  const customSelect = document.querySelector('.custom-select');
+  const selectSelected = document.querySelector('.select-selected');
+  const selectItems = document.querySelector('.select-items');
+  const bankSearch = document.getElementById('bankSearch');
+  const originalSelect = document.getElementById('bankSelector');
+  const bankSelectorDisplay = document.getElementById('bankSelectorDisplay');
+
+  // Set initial display text based on current URL parameters or default
+  const urlParams = new URLSearchParams(window.location.search);
+  const currentBank = urlParams.get('bank') || originalSelect.value;
+  
+  // Find the option that matches the current bank and update display
+  const currentOption = Array.from(originalSelect.options).find(opt => opt.value === currentBank);
+  if (currentOption) {
+    bankSelectorDisplay.textContent = currentOption.textContent;
+    originalSelect.value = currentBank; // Ensure hidden select matches
+  } else {
+    // Fallback to first option if no match found
+    const firstOption = originalSelect.options[0];
+    bankSelectorDisplay.textContent = firstOption.textContent;
+    originalSelect.value = firstOption.value;
+  }
+
+  // Toggle dropdown visibility
+  selectSelected.addEventListener('click', function(e) {
+    e.stopPropagation();
+    
+    // Check if the dropdown is currently open
+    const isCurrentlyOpen = !selectItems.classList.contains('select-hide');
+
+    // Close all other dropdowns
+    closeAllSelect(this);
+
+    // If the dropdown was not open, open it. If it was, close it.
+    if (!isCurrentlyOpen) {
+      this.classList.add('select-arrow-active');
+      selectItems.classList.remove('select-hide');
+      
+      // Focus on search input when dropdown opens
+      setTimeout(() => {
+        bankSearch.focus();
+      }, 10);
+    } else {
+      this.classList.remove('select-arrow-active');
+      selectItems.classList.add('select-hide');
+    }
+  });
+
+  // Filter options when typing in search
+  bankSearch.addEventListener('input', function() {
+    const filter = this.value.toLowerCase();
+    const options = selectItems.querySelectorAll('option');
+    const optgroups = selectItems.querySelectorAll('optgroup');
+
+    let hasVisibleOptions = false;
+
+    // Filter options
+    options.forEach(option => {
+      const text = option.textContent.toLowerCase();
+      if (text.includes(filter)) {
+        option.style.display = 'block';
+        hasVisibleOptions = true;
+      } else {
+        option.style.display = 'none';
+      }
+    });
+
+    // Show/hide optgroups based on visible options
+    optgroups.forEach(optgroup => {
+      const visibleOptions = Array.from(optgroup.querySelectorAll('option'))
+        .some(option => option.style.display !== 'none');
+
+      if (visibleOptions) {
+        optgroup.style.display = 'block';
+      } else {
+        optgroup.style.display = 'none';
+      }
+    });
+  });
+
+  // Handle option selection - FIXED VERSION
+  selectItems.addEventListener('click', function(e) {
+    if (e.target.tagName === 'OPTION') {
+      const value = e.target.value;
+      const text = e.target.textContent;
+
+      // Update display IMMEDIATELY
+      selectSelected.textContent = text;
+      bankSelectorDisplay.textContent = text;
+      selectSelected.classList.remove('select-arrow-active');
+      selectItems.classList.add('select-hide');
+
+      // Update original select
+      originalSelect.value = value;
+
+      // Clear search
+      bankSearch.value = '';
+
+      // Reset all options to visible
+      const options = selectItems.querySelectorAll('option');
+      const optgroups = selectItems.querySelectorAll('optgroup');
+
+      options.forEach(option => {
+        option.style.display = 'block';
+      });
+
+      optgroups.forEach(optgroup => {
+        optgroup.style.display = 'block';
+      });
+
+      // Add a small delay before triggering the change event and reload
+      // This ensures the visual update is rendered first
+      setTimeout(() => {
+        // Trigger change event on original select
+        const event = new Event('change');
+        originalSelect.dispatchEvent(event);
+      }, 50); // 50ms delay allows the visual update to render
+    }
+  });
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', function(e) {
+    if (!customSelect.contains(e.target)) {
+      selectSelected.classList.remove('select-arrow-active');
+      selectItems.classList.add('select-hide');
+    }
+  });
+
+  // Close dropdown on escape key
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && !selectItems.classList.contains('select-hide')) {
+      selectSelected.classList.remove('select-arrow-active');
+      selectItems.classList.add('select-hide');
+    }
+  });
+
+  // Helper function to close all select dropdowns
+  function closeAllSelect(elmnt) {
+    const selectItems = document.getElementsByClassName('select-items');
+    const selectSelected = document.getElementsByClassName('select-selected');
+
+    for (let i = 0; i < selectSelected.length; i++) {
+      if (elmnt !== selectSelected[i]) {
+        selectSelected[i].classList.remove('select-arrow-active');
+      }
+    }
+
+    for (let i = 0; i < selectItems.length; i++) {
+      if (elmnt !== selectItems[i]) {
+        selectItems[i].classList.add('select-hide');
+      }
+    }
+  }
+
+  // Sync with original select changes - UPDATED VERSION
+  originalSelect.addEventListener('change', function() {
+    const selectedOption = this.options[this.selectedIndex];
+    const newText = selectedOption.textContent;
+    
+    // Update both display elements
+    selectSelected.textContent = newText;
+    bankSelectorDisplay.textContent = newText;
+  });
+}
+
+
+
+// Call this function in your DOMContentLoaded event listener
+// Add this line where you initialize other components:
+setupCustomSelect();
+
 function shouldShowPDFUpload(bankKey) {
   // List of bank combinations where PDF upload should be hidden
   const restrictedBanks = [
@@ -334,13 +508,13 @@ function shouldShowPDFUpload(bankKey) {
   window.location.href = `${window.location.pathname}?bank=${newBank}&type=${newType}`;
 }
 
-  bankSelector.addEventListener('change', () => {
-    const newBank = bankSelector.value;
-    enforceTypeRestrictions(newBank);
-    typeSelector.value = typeSelector.options[0]?.value || '';
-    updateURLAndReload();
-  });
-
+// This will now work with the hidden select element
+document.getElementById('bankSelector').addEventListener('change', () => {
+  const newBank = document.getElementById('bankSelector').value;
+  enforceTypeRestrictions(newBank);
+  typeSelector.value = typeSelector.options[0]?.value || '';
+  updateURLAndReload();
+});
   typeSelector.addEventListener('change', updateURLAndReload);
 
  convertBtn.addEventListener('click', async () => {
@@ -2524,11 +2698,5 @@ function updateTransactionCounts() {
     drCountSpan.textContent = debitCount;
     crCountSpan.textContent = creditCount;
 }
-  // Refresh page functionality
-  const refreshBtn = document.getElementById('refreshBtn');
-  if (refreshBtn) {
-    refreshBtn.addEventListener('click', () => {
-      window.location.reload();
-    });
-  }
+  
 });

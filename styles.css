@@ -1462,6 +1462,7 @@ textarea:focus {
 #yearInput {
   min-width: 80px;    /* ← Smaller width */
   min-height: 25px;
+  margin-right: 50px;
 }
 
 /* Add below existing menu-item styles */
@@ -2450,7 +2451,7 @@ th.selected-cell.editing {
   flex-grow: 1;
   border: 2px dashed #475569;
   border-radius: 8px;
-  padding: 20px;
+  padding: 12px;
   text-align: center;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -2930,3 +2931,404 @@ th.selected-cell.editing {
   background-color: #ef4444; /* Retain red background on hover */
   color: white;
 }
+
+/* Custom select styles with search */
+.custom-select {
+  position: relative;
+  display: inline-block;
+  vertical-align: middle;
+  width: 200px;
+  margin-right: 10px;
+}
+
+.select-selected {
+  background-color: #ffffff;
+  color: #475569;
+  padding: 10px 30px 10px 12px;
+  font-size: 14px;
+  font-family: monospace;
+  border: 2px solid #475569;
+  border-radius: 0px;
+  box-shadow: -4px 4px 0 #15191f;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.select-selected:after {
+  position: absolute;
+  content: "";
+  top: 50%;
+  right: 12px;
+  width: 0;
+  height: 0;
+  border: 6px solid transparent;
+  border-color: #475569 transparent transparent transparent;
+  transform: translateY(-50%);
+}
+
+.select-selected.select-arrow-active:after {
+  border-color: transparent transparent #475569 transparent;
+  top: 40%;
+}
+
+.select-items {
+  position: absolute;
+  background-color: #ffffff;
+  color: #475569;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 99;
+  border: 2px solid #475569;
+  border-top: none;
+  box-shadow: -4px 4px 0 #15191f;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.select-hide {
+  display: none;
+}
+
+.select-items div {
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #e2e8f0;
+  font-family: monospace;
+  font-size: 14px;
+}
+
+.select-items div:hover {
+  background-color: #f1f5f9;
+}
+
+.select-items .search-container {
+  padding: 8px;
+  border-bottom: 2px solid #475569;
+  position: sticky;
+  top: 0;
+  background: white;
+  z-index: 100;
+}
+
+.search-input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: monospace;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.select-items optgroup {
+  display: block;
+  padding: 0;
+  margin: 0;
+}
+
+.select-items optgroup option {
+  display: block;
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #e2e8f0;
+  font-family: monospace;
+  font-size: 14px;
+  margin-left: 0;
+}
+
+.select-items optgroup option:hover {
+  background-color: #f1f5f9;
+}
+
+.select-items optgroup[label] {
+  font-weight: bold;
+  padding: 8px 12px;
+  background-color: #e2e8f0;
+  color: #475569;
+  position: sticky;
+  top: 50px; /* Account for search box height */
+  z-index: 99;
+}
+
+/* Same as before */
+.select-items .same-as-selected {
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+/* Dark mode styles */
+[data-theme="dark"] .select-selected {
+  background-color: #1a1a1a;
+  color: #ffffff;
+  border-color: #3a3a3a;
+  box-shadow: -4px 4px 0 #000000;
+}
+
+[data-theme="dark"] .select-selected:after {
+  border-color: #ffffff transparent transparent transparent;
+}
+
+[data-theme="dark"] .select-selected.select-arrow-active:after {
+  border-color: transparent transparent #ffffff transparent;
+}
+
+[data-theme="dark"] .select-items {
+  background-color: #2d2d2d;
+  color: #ffffff;
+  border-color: #3a3a3a;
+  box-shadow: -4px 4px 0 #000000;
+}
+
+[data-theme="dark"] .select-items div:hover {
+  background-color: #3a3a3a;
+}
+
+[data-theme="dark"] .select-items .search-container {
+  background: #2d2d2d;
+  border-bottom-color: #3a3a3a;
+}
+
+[data-theme="dark"] .search-input {
+  background-color: #3a3a3a;
+  color: #ffffff;
+  border-color: #444;
+}
+
+[data-theme="dark"] .search-input:focus {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.2);
+}
+
+[data-theme="dark"] .select-items optgroup option:hover {
+  background-color: #3a3a3a;
+}
+
+[data-theme="dark"] .select-items optgroup[label] {
+  background-color: #3a3a3a;
+  color: #ffffff;
+}
+
+/* Custom CSS for Bank Search Bar */
+
+.select-items .search-container {
+  padding: 8px 12px;
+  background-color: #f1f5f9;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.select-items .search-container input#bankSearch {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  box-sizing: border-box; /* This is key to making it fit perfectly */
+  margin: 0;
+}
+/* Style the type selector to match the bank selector */
+#typeSelector {
+  padding: 10px 30px 10px 12px;
+  font-size: 14px;
+  font-family: monospace;
+  border: 2px solid #475569;
+  border-radius: 0px;
+  background-color: #ffffff;
+  color: #475569;
+  box-shadow: -4px 4px 0 #15191f;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+  margin-right: 10px;
+  transition: all 0.2s ease;
+  vertical-align: middle;
+  width: 150px; /* Adjust width as needed */
+}
+
+#typeSelector:focus {
+  border-color: #475569;
+  box-shadow: -2px 2px 0 #000000;
+  outline: none;
+  transform: translateY(-1px);
+}
+
+#typeSelector:hover {
+  box-shadow: -2px 2px 0 #000000;
+  transform: translateY(-1px);
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] #typeSelector {
+  background-color: #1a1a1a;
+  color: #ffffff;
+  border-color: #3a3a3a;
+  box-shadow: -4px 4px 0 #000000;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+}
+
+[data-theme="dark"] #typeSelector:focus,
+[data-theme="dark"] #typeSelector:hover {
+  border-color: #3a3a3a;
+  box-shadow: -2px 2px 0 #000000;
+}
+
+/* Style for both select menus to ensure they have the same size and are fairly wide */
+#bankSelector,
+#typeSelector {
+  width: 190px;
+  height: 44px; /* Adjust height as needed */
+  box-sizing: border-box; /* This ensures padding and border are included in the total width and height */
+}
+
+/* Optional: Overrides existing `select` padding to prevent a horizontal scroll bar */
+#bankSelector,
+#typeSelector {
+  padding: 10px;
+  /* You may need to adjust the padding to your preference. */
+}
+/* Refresh Confirmation Modal Styles */
+.refresh-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.refresh-modal.show {
+  display: flex;
+  opacity: 1;
+}
+
+.refresh-modal-content {
+  background-color: var(--container-bg);
+  border: 2px solid var(--container-border);
+  border-radius: 0px;
+  box-shadow: -8px 8px 0 var(--shadow-color);
+  width: 400px;
+  max-width: 90%;
+  transform: translateY(-20px);
+  transition: transform 0.3s ease;
+}
+
+.refresh-modal.show .refresh-modal-content {
+  transform: translateY(0);
+}
+
+.refresh-modal-header {
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--container-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: var(--header-bg);
+}
+
+.refresh-modal-header h3 {
+  margin: 0;
+  color: var(--header-text);
+  font-family: monospace;
+  font-size: 18px;
+}
+
+.refresh-modal-close {
+  font-size: 24px;
+  font-weight: bold;
+  cursor: pointer;
+  color: var(--header-text);
+  transition: color 0.2s ease;
+}
+
+.refresh-modal-close:hover {
+  color: #ef4444;
+}
+
+.refresh-modal-body {
+  padding: 20px;
+}
+
+.refresh-modal-body p {
+  margin: 0;
+  color: var(--text-color);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.refresh-modal-footer {
+  padding: 15px 20px;
+  border-top: 1px solid var(--container-border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.refresh-modal-btn {
+  padding: 8px 20px;
+  font-family: monospace;
+  font-size: 14px;
+  border: 2px solid;
+  border-radius: 0px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: -2px 2px 0 #15191f;
+}
+
+.refresh-modal-btn-yes {
+  background-color: #ef4444;
+  color: white;
+  border-color: #dc2626;
+}
+
+.refresh-modal-btn-yes:hover {
+  background-color: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: -3px 3px 0 #15191f;
+}
+
+.refresh-modal-btn-no {
+  background-color: #e2e8f0;
+  color: #475569;
+  border-color: #cbd5e1;
+}
+
+.refresh-modal-btn-no:hover {
+  background-color: #cbd5e1;
+  transform: translateY(-1px);
+  box-shadow: -3px 3px 0 #15191f;
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] .refresh-modal-btn-yes {
+  background-color: #ef4444;
+  border-color: #b91c1c;
+}
+
+[data-theme="dark"] .refresh-modal-btn-yes:hover {
+  background-color: #b91c1c;
+}
+
+[data-theme="dark"] .refresh-modal-btn-no {
+  background-color: #3a3a3a;
+  color: #e0e0e0;
+  border-color: #555;
+}
+
+[data-theme="dark"] .refresh-modal-btn-no:hover {
+  background-color: #555;
+}
+

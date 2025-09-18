@@ -88,38 +88,37 @@ function processData() {
         // --- Debit/Credit Determination ---
         if (previousBalance !== null) {
             const delta = +(currentBalance - previousBalance).toFixed(2);
+            const formattedTransactionAmount = Math.abs(transactionAmount).toFixed(2);
 
-            // 1. Prioritize if the original transaction amount was explicitly negative.
-            if (transactionAmount < 0) {
-                debit = Math.abs(transactionAmount).toFixed(2);
+            // Check if the balance decreased
+            if (delta < 0 || (transactionAmount < 0) || line.endsWith('-') || line.endsWith('DR')) {
+                debit = formattedTransactionAmount;
+            } 
+            // Check if the balance increased
+            else if (delta > 0) {
+                credit = formattedTransactionAmount;
             }
-            // 2. Check if balance increased by the transaction amount (Credit)
-            else if (Math.abs(delta - transactionAmount) < 0.01) {
-                credit = transactionAmount.toFixed(2);
-            }
-            // 3. Check if balance decreased by the transaction amount (Debit)
-            else if (Math.abs(delta + transactionAmount) < 0.01) {
-                debit = transactionAmount.toFixed(2);
-            }
-            // 4. More intelligent fallback if exact match doesn't occur
+            // If delta is 0, we need to check other clues
             else {
-                if (currentBalance < previousBalance) { // Balance decreased -> likely debit
-                    debit = transactionAmount.toFixed(2);
-                } else if (currentBalance > previousBalance) { // Balance increased -> likely credit
-                    credit = transactionAmount.toFixed(2);
-                } else {
-                    // Balance unchanged: this is ambiguous for a transaction with an amount.
-                    // Default to debit as a conservative approach.
-                    debit = transactionAmount.toFixed(2);
+                // If there's no change, but a transaction amount is found,
+                // it's likely a misparsed transaction that should be a debit.
+                // The original code was correctly flagging this, so let's keep that logic.
+                if (transactionAmount !== 0) {
+                    debit = formattedTransactionAmount;
                 }
             }
+
         } else {
             // --- Logic for the very first transaction if previousBalance is still null ---
-            // This means no "OPENING BALANCE" line was found or processed.
-            // As requested: assume the first transaction is a debit.
-            debit = Math.abs(transactionAmount).toFixed(2); // Use Math.abs in case transactionAmount is negative
+            // As requested, assume the first transaction is a debit if the balance is negative
+            // or if the line has a debit indicator.
+            if (currentBalance < 0 || line.endsWith('-') || line.endsWith('DR')) {
+                debit = Math.abs(transactionAmount).toFixed(2);
+            } else {
+                credit = Math.abs(transactionAmount).toFixed(2);
+            }
         }
-
+        
         const row = [date, desc, debit, credit, currentBalance.toFixed(2)];
         rows.push(row);
         previousBalance = currentBalance;
@@ -159,7 +158,15 @@ function processData() {
 
 window.processData = processData;
 
-// PDF Processing Function for NBC (integrated from nbcparser.html)
+// Ensure window.bankUtils exists to house bank-specific utilities
+window.bankUtils = window.bankUtils || {};
+
+/**
+ * Main function to process a PDF file and extract transactions.
+ * It uses a FileReader to get the ArrayBuffer and then uses PDF.js to parse text.
+ * @param {File} file The PDF file to process.
+ * @returns {Promise<string>} A promise that resolves with the formatted transaction text.
+ */
 window.bankUtils.processPDFFile = async function(file) {
     const reader = new FileReader();
     return new Promise((resolve, reject) => {
@@ -168,54 +175,21 @@ window.bankUtils.processPDFFile = async function(file) {
             try {
                 // pdfjsLib is expected to be loaded globally by index.html
                 const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                let allPageLines = [];
-
+                let fullText = '';
+                
+                // Extract text from all pages and join them
                 for (let i = 1; i <= pdf.numPages; i++) {
                     const page = await pdf.getPage(i);
                     const textContent = await page.getTextContent();
-                    const items = textContent.items;
-
-                    // Group text items by their y-coordinate to reconstruct lines
-                    const linesMap = new Map(); // Map: y-coordinate (rounded) -> array of text items on that line
-                    const Y_TOLERANCE = 2; // Pixels
-
-                    items.forEach(item => {
-                        const y = Math.round(item.transform[5] / Y_TOLERANCE) * Y_TOLERANCE;
-                        let foundLine = false;
-
-                        for (const existingY of linesMap.keys()) {
-                            if (Math.abs(y - existingY) < Y_TOLERANCE) {
-                                linesMap.get(existingY).push(item);
-                                foundLine = true;
-                                break;
-                            }
-                        }
-                        if (!foundLine) {
-                            linesMap.set(y, [item]);
-                        }
-                    });
-
-                    // Sort lines by y-coordinate (descending, as y=0 is bottom of the page)
-                    const sortedYCoords = Array.from(linesMap.keys()).sort((a, b) => b - a);
-
-                    sortedYCoords.forEach(y => {
-                        const lineItems = linesMap.get(y);
-                        // Sort items within a line by x-coordinate to maintain reading order
-                        lineItems.sort((a, b) => a.transform[4] - b.transform[4]);
-
-                        let lineText = lineItems.map(item => item.str.replace(/"/g, '')).join(' ');
-                        lineText = lineText.replace(/\s+/g, ' ').trim();
-                        if (lineText) {
-                            allPageLines.push(lineText);
-                        }
-                    });
+                    const pageText = textContent.items.map(item => item.str).join(' ');
+                    fullText += pageText + ' ';
                 }
-                const extractedText = allPageLines.join('\n');
-                const parsedTransactions = parseNBCTransactions(extractedText);
-                resolve(parsedTransactions.join('\n')); // Return joined transactions for inputText
+                
+                // Process the extracted text to find transactions
+                const extractedTransactions = parsePdfTransactionsNBC(fullText, file.name);
+                resolve(extractedTransactions);
             } catch (error) {
                 console.error("Error parsing PDF:", error);
-                // Assuming displayStatusMessage is available globally or via bankUtils
                 if (typeof displayStatusMessage === 'function') {
                     displayStatusMessage("Failed to parse PDF file. " + error.message, 'error');
                 }
@@ -228,44 +202,73 @@ window.bankUtils.processPDFFile = async function(file) {
 };
 
 /**
- * Parses the extracted text to find National Bank account transactions.
+ * Parses the extracted text to find National Bank account transactions
+ * and returns them as a single string.
+ * This function's logic is derived from nbcparser.html
  * @param {string} text The full text extracted from the PDF.
- * @returns {string[]} An array of formatted transaction strings.
+ * @returns {string} The formatted transaction strings, joined by newlines.
  */
-function parseNBCTransactions(text) {
+function parsePdfTransactionsNBC(text) {
+    // Clean up the text by replacing multiple spaces with single spaces
+    text = text.replace(/\s+/g, ' ').trim();
+    
     const transactions = [];
-    const lines = text.split('\n');
 
-    // Regex for the "PREVIOUS BALANCE" line: MM DD PREVIOUS BALANCE BALANCE
-    const previousBalanceRegex = /^(\d{2})\s+(\d{2})\s+(PREVIOUS BALANCE)\s+([\d,\.]+)$/i;
+    // Regex for general transaction lines from the HTML
+    const transactionRegex = /(\d{2})\s+(\d{2})\s+([A-Z].*?)\s+([\d,]+\.\d{2}\s*-?)\s+([\d,]+\.\d{2}\s*-?)?\s*([\d,]+\.\d{2}\s*-?)?/gi;
+    
+    let match;
 
-    // Regex for general transaction lines: MM DD DESCRIPTION AMOUNT BALANCE
-    const transactionLineRegex = /^(\d{2})\s+(\d{2})\s+([A-Z0-9\s\/\-\.]+?)\s+([\d,\.]+)\s+([\d,\.]+)$/i;
-
-    for (const line of lines) {
-        // Try to match previous balance first
-        const pbMatch = line.match(previousBalanceRegex);
-        if (pbMatch) {
-            const [, month, day, description, balance] = pbMatch;
-            transactions.push(`${month} ${day} ${description.trim()} ${balance.replace(/,/g, '')}`);
-            continue; // Move to the next line
-        }
-
-        // Then try to match general transaction lines
-        const transactionMatch = line.match(transactionLineRegex);
-        if (transactionMatch) {
-            const [, month, day, description, transactionAmount, balance] = transactionMatch;
-
-            // Format the output as requested: MM DD DESCRIPTION AMOUNT BALANCE
-            let formattedTransaction = `${month} ${day} ${description.trim()} ${transactionAmount.replace(/,/g, '')} ${balance.replace(/,/g, '')}`;
-            transactions.push(formattedTransaction);
-        }
+    // First, try to find the previous balance
+    const prevBalanceMatch = text.match(/PREVIOUS BALANCE\s+([\d,]+\.\d{2}\s*-?)/i);
+    let prevBalance = prevBalanceMatch ? prevBalanceMatch[1].trim() : '0.00';
+    
+    // Add the previous balance as the first transaction
+    const dateMatch = text.match(/(\d{2})\s+(\d{2})\s+PREVIOUS BALANCE/);
+    if (dateMatch) {
+        transactions.push(`${dateMatch[1]} ${dateMatch[2]} PREVIOUS BALANCE ${prevBalance}`);
     }
-    return transactions;
+    
+    // Find all other transactions
+    while ((match = transactionRegex.exec(text)) !== null) {
+        const month = match[1];
+        const day = match[2];
+        const description = match[3].trim();
+        
+        // Determine which group contains the amount and balance
+        let amount = '';
+        let balance = '';
+        
+        if (match[6]) {
+            // Pattern: MM DD DESCRIPTION DEBIT CREDIT BALANCE
+            amount = match[4] || match[5] || '';
+            balance = match[6];
+        } else if (match[5]) {
+            // Pattern: MM DD DESCRIPTION AMOUNT BALANCE
+            amount = match[4];
+            balance = match[5];
+        } else {
+            // Pattern: MM DD DESCRIPTION AMOUNT
+            amount = match[4];
+            // Since there's no balance, we can't reliably determine it from the regex
+            // This is a limitation of this specific regex pattern
+            balance = ''; 
+        }
+        
+        // Clean up the values
+        amount = amount.replace(/,/g, '').trim();
+        balance = balance.replace(/,/g, '').trim();
+        
+        // Skip if this is the previous balance line (already handled)
+        if (description.toUpperCase().includes('PREVIOUS BALANCE')) {
+            continue;
+        }
+        
+        transactions.push(`${month} ${day} ${description} ${amount} ${balance}`);
+    }
+    
+    return transactions.join('\n');
 }
-
-// Ensure window.bankUtils exists to house bank-specific utilities
-window.bankUtils = window.bankUtils || {};
 
 // Re-adding this function as it was present in the original bmoAccount.js and used internally
 // This is needed for displayStatusMessage calls within processPDFFile
