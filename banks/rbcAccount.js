@@ -205,10 +205,10 @@ function processData() {
     // NEW: Rule #1 - Super Keywords (case-insensitive)
     const superDebitKeywords = 
     ["Online Transfer to Deposit Account", "Monthly Fee",  "PAY EMP-VENDOR",
-      "Telephone Banking transfer", "transfer sent", "special deposit"
+      "Telephone Banking transfer", "transfer sent", "special deposit", "Online banking transfer"
     ];
     const superCreditKeywords = ["e-transfer received", "payment received", "Misc Payment Uber Holdings C" , "Misc Payment Lyft", "Prov/Local Gvt Payment",
-      "carbon rebate", "seniors rebate", "CPP CANADA", "Old Age Security", "Online banking transfer", "SQUARE CANADA"
+      "carbon rebate", "seniors rebate", "CPP CANADA", "Old Age Security",  "SQUARE CANADA", "Square, Inc"
     ];
 
     const lowerCaseDescription = fullDescription.toLowerCase();
