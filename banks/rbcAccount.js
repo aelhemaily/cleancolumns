@@ -208,7 +208,7 @@ function processData() {
       "Telephone Banking transfer", "transfer sent", "special deposit"
     ];
     const superCreditKeywords = ["e-transfer received", "payment received", "Misc Payment Uber Holdings C" , "Misc Payment Lyft", "Prov/Local Gvt Payment",
-      "carbon rebate", "seniors rebate", "CPP CANADA", "Old Age Security", "Online banking transfer"
+      "carbon rebate", "seniors rebate", "CPP CANADA", "Old Age Security", "Online banking transfer", "SQUARE CANADA"
     ];
 
     const lowerCaseDescription = fullDescription.toLowerCase();

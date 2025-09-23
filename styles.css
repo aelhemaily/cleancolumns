@@ -3332,3 +3332,77 @@ th.selected-cell.editing {
   background-color: #555;
 }
 
+/* Enhanced Image Modal Styles */
+.image-modal-content {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Magnifying glass cursor on hover */
+.image-modal-content:hover {
+  cursor: zoom-in;
+}
+
+/* When zoomed in, change cursor to zoom-out */
+.image-modal-content.zoomed:hover {
+  cursor: zoom-out;
+}
+
+
+
+
+/* Ensure close button is always visible and on top */
+.close-modal {
+  position: fixed !important;
+  z-index: 9999 !important;
+  top: 20px !important;
+  right: 20px !important;
+  width: 40px !important;
+  height: 40px !important;
+  background-color: #fff !important;
+  color: #000 !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  font-size: 24px !important;
+  font-weight: bold !important;
+  cursor: pointer !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3) !important;
+  transition: all 0.3s ease !important;
+}
+
+/* Dark mode adjustment for close button */
+[data-theme="dark"] .close-modal {
+  background-color: #000 !important;
+  color: #fff !important;
+  border: 2px solid #fff !important;
+}
+
+/* Hover effect for close button */
+.close-modal:hover {
+  transform: scale(1.1) !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Enhanced Close Modal Button */
+.close-modal {
+  box-shadow: -2px 2px 0 #15191f !important;
+  border: 2px solid #475569 !important;
+  transition: all 0.2s ease !important;
+}
+
+.close-modal:hover {
+  box-shadow: -1px 1px 0 #000000 !important;
+  transform: translate(-1px, 1px) !important;
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] .close-modal {
+  box-shadow: -2px 2px 0 #000000 !important;
+  border-color: #3a3a3a !important;
+}
+
+[data-theme="dark"] .close-modal:hover {
+  box-shadow: -1px 1px 0 #000000 !important;
+}

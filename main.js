@@ -210,6 +210,20 @@ function setupCustomSelect() {
     selectSelected.textContent = newText;
     bankSelectorDisplay.textContent = newText;
   });
+
+  // Fix the reversed scrolling issue
+  selectItems.addEventListener('wheel', function(e) {
+    // Allow normal scrolling behavior
+    this.scrollTop += e.deltaY;
+    
+    // Prevent the event from bubbling up and causing page scroll
+    e.stopPropagation();
+    
+    // Only prevent default if we're actually scrolling the dropdown
+    if (this.scrollHeight > this.clientHeight) {
+      e.preventDefault();
+    }
+  });
 }
 
 
@@ -221,66 +235,171 @@ setupCustomSelect();
 function shouldShowPDFUpload(bankKey) {
   // List of bank combinations where PDF upload should be hidden
   const restrictedBanks = [
-    'rbcAccount', 'tdCard' // Add more bank keys here as needed
+     'tdCard' // Add more bank keys here as needed
   ];
   return !restrictedBanks.includes(bankKey);
 }
 
   
-  function showSampleStatement() {
+function showSampleStatement() {
     const bankKey = getCombinedKey();
     sampleImage.src = `images/${bankKey}.png`;
     imageModal.classList.add('show');
+    
+    // Reset zoom state and styles when modal opens
+    sampleImage.classList.remove('zoomed-in');
+    imageModal.querySelector('.image-modal-content').classList.remove('zoomed');
+    sampleImage.style.transformOrigin = '';
+    sampleImage.style.transform = ''; // <-- This is the new, crucial line to reset the transform
+    
+    let isZoomed = false;
+    let currentZoom = 2; // Initial zoom level on first click
+    const minZoom = 1;
+    const maxZoom = 5;
+    
+    const imageContent = imageModal.querySelector('.image-modal-content');
 
-    // Create magnifier element
-    const magnifier = document.createElement('div');
-    magnifier.className = 'magnifier';
-    imageModal.querySelector('.image-modal-content').appendChild(magnifier);
-
-    let zoomLevel = 2; // Adjust this for more/less zoom
-
-    sampleImage.addEventListener('mousemove', (e) => {
-      if (!imageModal.classList.contains('zoomed')) return;
-
-      const rect = sampleImage.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      const imgWidth = sampleImage.offsetWidth;
-      const imgHeight = sampleImage.offsetHeight;
-
-      // Position magnifier
-      magnifier.style.left = e.clientX + 'px';
-      magnifier.style.top = e.clientY + 'px';
-
-      // Calculate zoomed image position
-      const bgX = -(x * zoomLevel - magnifier.offsetWidth / 2);
-      const bgY = -(y * zoomLevel - magnifier.offsetHeight / 2);
-
-      // Set magnifier background
-      magnifier.style.backgroundImage = `url('${sampleImage.src}')`;
-      magnifier.style.backgroundSize = `${imgWidth * zoomLevel}px ${imgHeight * zoomLevel}px`;
-      magnifier.style.backgroundPosition = `${bgX}px ${bgY}px`;
-    });
-
-    imageModal.addEventListener('click', () => {
-      imageModal.classList.toggle('zoomed');
-      if (!imageModal.classList.contains('zoomed')) {
-        magnifier.style.display = 'none';
+    const zoomHandler = (e) => {
+      if (!isZoomed) return;
+      
+      const { left, top, width, height } = sampleImage.getBoundingClientRect();
+      const x = (e.clientX - left) / width * 100;
+      const y = (e.clientY - top) / height * 100;
+      sampleImage.style.transformOrigin = `${x}% ${y}%`;
+    };
+    
+    const clickHandler = () => {
+      isZoomed = !isZoomed;
+      if (isZoomed) {
+        sampleImage.classList.add('zoomed-in');
+        imageContent.classList.add('zoomed');
+        sampleImage.style.transform = `scale(${currentZoom})`;
       } else {
-        magnifier.style.display = 'block';
+        sampleImage.classList.remove('zoomed-in');
+        imageContent.classList.remove('zoomed');
+        sampleImage.style.transform = `scale(1)`;
       }
-    });
+    };
 
-    // Close modal when clicking outside image
-    imageModal.addEventListener('click', (e) => {
+    const scrollHandler = (e) => {
+      e.preventDefault(); // Prevents page from scrolling
+      if (!isZoomed) return;
+
+      const delta = e.deltaY * -0.01; // Adjust sensitivity
+      currentZoom = Math.min(Math.max(minZoom, currentZoom + delta), maxZoom);
+      sampleImage.style.transform = `scale(${currentZoom})`;
+
+      // Recalculate origin for smooth zoom
+      zoomHandler(e);
+    };
+    
+    // Add event listeners for the new functionality
+    imageContent.addEventListener('mousemove', zoomHandler);
+    imageContent.addEventListener('click', clickHandler);
+    imageContent.addEventListener('wheel', scrollHandler);
+    
+    // Function to remove event listeners and clean up
+    const cleanupModal = () => {
+      imageContent.removeEventListener('mousemove', zoomHandler);
+      imageContent.removeEventListener('click', clickHandler);
+      imageContent.removeEventListener('wheel', scrollHandler);
+      imageModal.removeEventListener('click', outsideClickHandler);
+      document.removeEventListener('keydown', escKeyHandler);
+      closeModal.removeEventListener('click', closeModalHandler);
+    };
+
+    // New event handler functions to allow cleanup
+    const outsideClickHandler = (e) => {
       if (e.target === imageModal) {
         closeSampleStatement();
       }
-    });
+    };
+    const escKeyHandler = (e) => {
+      if (e.key === 'Escape' && imageModal.classList.contains('show')) {
+        closeSampleStatement();
+      }
+    };
+    const closeModalHandler = () => {
+      closeSampleStatement();
+    };
 
-    // Focus the modal for keyboard accessibility
-    closeModal.focus();
+    // Add new event listeners
+    imageModal.addEventListener('click', outsideClickHandler);
+    document.addEventListener('keydown', escKeyHandler);
+    closeModal.addEventListener('click', closeModalHandler);
+    
+    // Override the original close function to include cleanup
+    window.closeSampleStatement = () => {
+      imageModal.classList.remove('show');
+      cleanupModal();
+    };
   }
+
+  function closeSampleStatement() {
+    imageModal.classList.remove('show');
+  }
+
+  // Event listeners
+  sampleBtn.addEventListener('click', showSampleStatement);
+  closeModal.addEventListener('click', closeSampleStatement);
+
+  // Close modal on ESC key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && imageModal.classList.contains('show')) {
+      closeSampleStatement();
+    }
+  });
+
+  // Close modal when clicking outside image
+  imageModal.addEventListener('click', (e) => {
+    if (e.target === imageModal) {
+      closeSampleStatement();
+    }
+  });
+
+  function closeSampleStatement() {
+    imageModal.classList.remove('show');
+  }
+
+  // Event listeners
+  sampleBtn.addEventListener('click', showSampleStatement);
+  closeModal.addEventListener('click', closeSampleStatement);
+
+  // Close modal on ESC key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && imageModal.classList.contains('show')) {
+      closeSampleStatement();
+    }
+  });
+
+  // Close modal when clicking outside image
+  imageModal.addEventListener('click', (e) => {
+    if (e.target === imageModal) {
+      closeSampleStatement();
+    }
+  });
+
+  function closeSampleStatement() {
+    imageModal.classList.remove('show');
+  }
+
+  // Event listeners
+  sampleBtn.addEventListener('click', showSampleStatement);
+  closeModal.addEventListener('click', closeSampleStatement);
+
+  // Close modal on ESC key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && imageModal.classList.contains('show')) {
+      closeSampleStatement();
+    }
+  });
+
+  // Close modal when clicking outside image
+  imageModal.addEventListener('click', (e) => {
+    if (e.target === imageModal) {
+      closeSampleStatement();
+    }
+  });
 
   function closeSampleStatement() {
     imageModal.classList.remove('show');
