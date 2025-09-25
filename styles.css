@@ -4085,3 +4085,27 @@ th.selected-cell.editing {
   color: #ffffff;
 }
 
+/*
+ * Concise Fix: Ensures the dropdown list scrolls internally 
+ * and doesn't get cut off by the main page.
+ */
+
+/* 1. Ensure the parent is a positioning reference */
+.custom-select {
+  position: relative; 
+  z-index: 1000; /* High z-index to stay on top */
+}
+
+/* 2. Force the list to scroll and set a reasonable max size */
+.custom-select .select-items {
+  /* The core fix: limit height and force internal scroll */
+  max-height: 70vh !important; /* Limit to 70% of the screen height */
+  overflow-y: auto !important; /* Force the internal scrollbar */
+  
+  /* Positioning */
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1001;
+}
