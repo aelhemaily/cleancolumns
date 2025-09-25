@@ -56,11 +56,19 @@ function processData() {
   while (i < lines.length) {
     const line = lines[i];
 
+    // NEW: Check for standalone balance lines that are just an amount
+    const standaloneBalanceMatch = line.match(/^(-?\d{1,3}(?:,\d{3})*\.\d{2})$/);
+    if (standaloneBalanceMatch) {
+      currentBalance = parseFloat(standaloneBalanceMatch[1].replace(/,/g, ''));
+      i++;
+      continue;
+    }
+
+    // Handle balance lines: skip them, but extract and use their date and balance if present
     const isBalanceLine = line.toLowerCase().includes('opening balance') ||
       line.toLowerCase().includes('balance forward') ||
       line.toLowerCase().includes('closing balance');
 
-    // Handle balance lines: skip them, but extract and use their date and balance if present
     if (isBalanceLine) {
       const amountMatch = line.match(/(-?\d{1,3}(?:,\d{3})*\.\d{2})/);
       if (amountMatch) {
@@ -76,8 +84,9 @@ function processData() {
       continue;
     }
 
-    // Check for date line (e.g. "12/18") - Wells Fargo format
-    const dateMatch = line.match(/^(\d{1,2}\/\d{1,2})\s(.+)/);
+    // Check for date line (e.g. "12/18" or "12/18 some description")
+    // Adjusted regex to handle a date with or without a description on the same line
+    const dateMatch = line.match(/^(\d{1,2}\/\d{1,2})\s*(.*)/);
     if (dateMatch) {
       currentDate = dateMatch[1];
       const restOfLine = dateMatch[2];
@@ -98,7 +107,7 @@ function processData() {
         const descriptionParts = [restOfLine];
         let amountLineIndex = i + 1;
         let amount = null;
-        let balance = null;
+        let transactionBalance = null;
 
         // Look ahead for amount line
         while (amountLineIndex < lines.length) {
@@ -108,7 +117,7 @@ function processData() {
 
           if (nextLineAmountAndBalanceMatch) {
             amount = parseFloat(nextLineAmountAndBalanceMatch[1].replace(/,/g, ''));
-            balance = nextLineAmountAndBalanceMatch[2] ? parseFloat(nextLineAmountAndBalanceMatch[2].replace(/,/g, '')) : null;
+            transactionBalance = nextLineAmountAndBalanceMatch[2] ? parseFloat(nextLineAmountAndBalanceMatch[2].replace(/,/g, '')) : null;
             // Check if there's more description before the amount
             const descPart = nextLine.replace(nextLineAmountAndBalanceMatch[0], '').trim();
             if (descPart) descriptionParts.push(descPart);
@@ -121,7 +130,7 @@ function processData() {
         }
 
         if (amount !== null) {
-          processWellsFargoTransaction(currentDate, descriptionParts, amount, balance);
+          processWellsFargoTransaction(currentDate, descriptionParts, amount, transactionBalance);
           i = amountLineIndex + 1;
         } else {
           i++;
@@ -147,8 +156,8 @@ function processData() {
 
     // Hardcoded keyword rules for Wells Fargo
     const hardcodedDebitKeywords = [
-      "purchase", "fee", "charge", "withdrawal", "zelle to",
-      "wire trans", "check", "payment", "recurring payment"
+      "purchase", "fee", "charge", "withdrawal", "zelle to", "pymnt",
+      "wire trans", "check", "payment", "recurring payment", "pymt"
     ];
     const hardcodedCreditKeywords = [
       "deposit", "zelle from", "direct dep", "refund", "credit", "org=", "/org="
