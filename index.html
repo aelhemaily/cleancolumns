@@ -80,6 +80,8 @@
     <option value="wellsfargo">Wells Fargo</option>
   </optgroup>
 </select>
+<!-- Method indicator  -->
+<div id="methodIndicator" class="method-indicator">Method: <span id="methodText">-</span></div>
 
   <label for="typeSelector">Select Type:</label>
   <select id="typeSelector"></select>
@@ -101,7 +103,40 @@
   </div>
 </div>
 
-
+<!-- Add this right after the PDF upload section -->
+<!-- Replace the existing amount sorter section with this -->
+<div id="amountSorterSection" class="amount-sorter-container" style="display: none;">
+  <div class="amount-sorter-header">
+    <h3>Amount Sorter</h3>
+    <button class="minimize-btn" title="Minimize">
+      <i class="fas fa-window-minimize"></i>
+    </button>
+  </div>
+  <div class="amount-sorter-controls">
+    <div class="form-group">
+      <label for="keywordInput">Keyword:</label>
+      <input type="text" id="keywordInput" placeholder="Enter keyword...">
+    </div>
+    <div class="form-group">
+      <span class="amount-type-label">Amount Type:</span>
+      <div class="radio-group">
+        <label class="radio-label">
+          <input type="radio" name="amountType" value="DR" checked>
+          <span class="radio-custom"></span>
+          DR
+        </label>
+        <label class="radio-label">
+          <input type="radio" name="amountType" value="CR">
+          <span class="radio-custom"></span>
+          CR
+        </label>
+      </div>
+    </div>
+    <button id="sortAmountsBtn" class="amount-sorter-btn">
+      <i class="fas fa-sort-amount-down"></i> Sort
+    </button>
+  </div>
+</div>
 
   <div class="sample-btn-container">
     <button id="sampleBtn" class="sample-btn" title="Show sample statement">

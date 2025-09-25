@@ -24,6 +24,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const refreshFileListBtn = document.getElementById('refreshFileList');
   let uploadedFilesData = []; // Store file objects and their processed text
   
+let lastAmountSorterPosition = { top: 'auto', left: 'auto', right: 'auto', bottom: 'auto' };
   const inputText = document.getElementById('inputText'); // Ensure inputText is declared here
 
   // New variables for multi-select mode
@@ -58,6 +59,312 @@ function setupCustomSelect() {
   const urlParams = new URLSearchParams(window.location.search);
   const currentBank = urlParams.get('bank') || originalSelect.value;
   
+// Add these variables at the top with other global variables
+let amountSorterSection = null;
+let keywordInput = null;
+let sortAmountsBtn = null;
+
+// Add this function to initialize the amount sorter
+// Enhanced Amount Sorter with Drag and Minimize functionality
+function initializeAmountSorter() {
+  amountSorterSection = document.getElementById('amountSorterSection');
+  keywordInput = document.getElementById('keywordInput');
+  sortAmountsBtn = document.getElementById('sortAmountsBtn');
+  const minimizeBtn = amountSorterSection?.querySelector('.minimize-btn');
+  
+  if (!amountSorterSection || !keywordInput || !sortAmountsBtn || !minimizeBtn) return;
+  
+  // Add event listeners
+  sortAmountsBtn.addEventListener('click', sortAmountsByKeyword);
+  minimizeBtn.addEventListener('click', toggleMinimize);
+  
+  // Initialize drag functionality
+  initializeDragFunctionality();
+}
+
+function initializeDragFunctionality() {
+  const header = amountSorterSection.querySelector('.amount-sorter-header');
+  let isDragging = false;
+  let startX, startY, startLeft, startTop;
+
+  header.addEventListener('mousedown', startDrag);
+  
+  function startDrag(e) {
+    if (e.target.closest('.minimize-btn')) return; // Don't drag when clicking minimize button
+    
+    isDragging = true;
+    amountSorterSection.classList.add('dragging');
+    
+    // Get initial positions
+    startX = e.clientX;
+    startY = e.clientY;
+    startLeft = parseInt(getComputedStyle(amountSorterSection).left) || 0;
+    startTop = parseInt(getComputedStyle(amountSorterSection).top) || 0;
+    
+    // Prevent text selection during drag
+    e.preventDefault();
+    
+    document.addEventListener('mousemove', drag);
+    document.addEventListener('mouseup', stopDrag);
+  }
+  
+  function drag(e) {
+    if (!isDragging) return;
+    
+    const deltaX = e.clientX - startX;
+    const deltaY = e.clientY - startY;
+    
+    // Calculate new position with boundary constraints
+    const newLeft = Math.max(10, Math.min(window.innerWidth - amountSorterSection.offsetWidth - 10, startLeft + deltaX));
+    const newTop = Math.max(10, Math.min(window.innerHeight - amountSorterSection.offsetHeight - 10, startTop + deltaY));
+    
+    amountSorterSection.style.left = `${newLeft}px`;
+    amountSorterSection.style.top = `${newTop}px`;
+    amountSorterSection.style.right = 'auto';
+    amountSorterSection.style.bottom = 'auto';
+  }
+  
+  function stopDrag() {
+    isDragging = false;
+    amountSorterSection.classList.remove('dragging');
+    
+    document.removeEventListener('mousemove', drag);
+    document.removeEventListener('mouseup', stopDrag);
+    
+    // Save position to localStorage
+    saveAmountSorterPosition();
+  }
+}
+
+
+
+function toggleMinimize() {
+  const isMinimized = amountSorterSection.classList.contains('minimized');
+  const minimizeBtn = amountSorterSection.querySelector('.minimize-btn');
+
+  if (isMinimized) {
+    // Expand
+    amountSorterSection.classList.remove('minimized');
+    minimizeBtn.innerHTML = '<i class="fas fa-window-minimize"></i>';
+    minimizeBtn.title = 'Minimize';
+    
+    // Restore the last known position
+    amountSorterSection.style.left = lastAmountSorterPosition.left;
+    amountSorterSection.style.top = lastAmountSorterPosition.top;
+    amountSorterSection.style.right = lastAmountSorterPosition.right;
+    amountSorterSection.style.bottom = lastAmountSorterPosition.bottom;
+
+  } else {
+    // Minimize
+    
+    // First, save the current position before minimizing
+    lastAmountSorterPosition.left = amountSorterSection.style.left;
+    lastAmountSorterPosition.top = amountSorterSection.style.top;
+    lastAmountSorterPosition.right = amountSorterSection.style.right;
+    lastAmountSorterPosition.bottom = amountSorterSection.style.bottom;
+    
+    // Now apply the minimized styles
+    amountSorterSection.classList.add('minimized');
+    minimizeBtn.innerHTML = '<i class="fas fa-expand"></i>';
+    minimizeBtn.title = 'Expand';
+    
+    // Move to a fixed location when minimized
+    amountSorterSection.style.right = '20px';
+    amountSorterSection.style.bottom = '30px';
+    amountSorterSection.style.left = 'auto';
+    amountSorterSection.style.top = 'auto';
+  }
+}
+
+function saveAmountSorterPosition() {
+  if (amountSorterSection.classList.contains('minimized')) return;
+  
+  const position = {
+    left: amountSorterSection.style.left,
+    top: amountSorterSection.style.top,
+    right: amountSorterSection.style.right,
+    bottom: amountSorterSection.style.bottom
+  };
+  
+  localStorage.setItem('amountSorterPosition', JSON.stringify(position));
+}
+
+function restoreAmountSorterPosition() {
+  const savedPosition = localStorage.getItem('amountSorterPosition');
+  
+  if (savedPosition) {
+    const position = JSON.parse(savedPosition);
+    amountSorterSection.style.left = position.left;
+    amountSorterSection.style.top = position.top;
+    amountSorterSection.style.right = position.right;
+    amountSorterSection.style.bottom = position.bottom;
+  } else {
+    // Default position (bottom right)
+    amountSorterSection.style.right = '20px';
+    amountSorterSection.style.bottom = '30px';
+    amountSorterSection.style.left = 'auto';
+    amountSorterSection.style.top = 'auto';
+  }
+}
+
+// Update the toggleAmountSorter function to restore position
+function toggleAmountSorter(show) {
+  if (amountSorterSection) {
+    if (show) {
+      amountSorterSection.style.display = 'block';
+      // Restore position when showing
+      setTimeout(() => {
+        restoreAmountSorterPosition();
+      }, 10);
+    } else {
+      amountSorterSection.style.display = 'none';
+    }
+  }
+}
+
+// Add this function to show/hide the amount sorter
+function toggleAmountSorter(show) {
+  if (amountSorterSection) {
+    amountSorterSection.style.display = show ? 'block' : 'none';
+  }
+}
+
+// Add this function to sort amounts by keyword
+function sortAmountsByKeyword() {
+  const table = document.querySelector('#output table');
+  if (!table) {
+    showToast('No table found!', 'error');
+    return;
+  }
+  
+  const keyword = keywordInput.value.trim().toLowerCase();
+  if (!keyword) {
+    showToast('Please enter a keyword!', 'error');
+    keywordInput.focus();
+    return;
+  }
+  
+  const amountType = document.querySelector('input[name="amountType"]:checked').value;
+  
+  // Find the column indices
+  const headerRow = table.rows[0];
+  const headers = Array.from(headerRow.cells).map(cell => cell.textContent.trim());
+  const descriptionIndex = headers.findIndex(header => header.toLowerCase() === 'description');
+  const drIndex = headers.findIndex(header => header === 'DR');
+  const crIndex = headers.findIndex(header => header === 'CR');
+  
+  if (descriptionIndex === -1) {
+    showToast('Description column not found!', 'error');
+    return;
+  }
+  
+  if (drIndex === -1 && crIndex === -1) {
+    showToast('DR/CR columns not found!', 'error');
+    return;
+  }
+  
+  saveState(); // Save state before sorting
+  
+  let movedCount = 0;
+  
+  // Process each data row
+  for (let i = 1; i < table.rows.length; i++) {
+    const row = table.rows[i];
+    const descriptionCell = row.cells[descriptionIndex];
+    const description = descriptionCell.textContent.toLowerCase();
+    
+    // Check if description contains the keyword
+    if (description.includes(keyword)) {
+      const drCell = drIndex !== -1 ? row.cells[drIndex] : null;
+      const crCell = crIndex !== -1 ? row.cells[crIndex] : null;
+      
+      // Get the amount value (check both DR and CR columns)
+      let amount = '';
+      let currentColumn = '';
+      
+      if (drCell && drCell.textContent.trim() !== '') {
+        amount = drCell.textContent.trim();
+        currentColumn = 'DR';
+      } else if (crCell && crCell.textContent.trim() !== '') {
+        amount = crCell.textContent.trim();
+        currentColumn = 'CR';
+      }
+      
+      // If amount exists and needs to be moved to different column
+      if (amount && currentColumn !== amountType) {
+        // Clear current column
+        if (currentColumn === 'DR' && drCell) {
+          drCell.textContent = '';
+        } else if (currentColumn === 'CR' && crCell) {
+          crCell.textContent = '';
+        }
+        
+        // Move to target column
+        if (amountType === 'DR' && drCell) {
+          drCell.textContent = amount;
+        } else if (amountType === 'CR' && crCell) {
+          crCell.textContent = amount;
+        }
+        
+        movedCount++;
+      }
+    }
+  }
+  
+  if (movedCount > 0) {
+    showToast(`Moved ${movedCount} transaction(s) to ${amountType}`, 'success');
+    updateTransactionCounts(); // Update the transaction counts
+  } else {
+    showToast(`No transactions found with keyword "${keyword}" or amounts already in correct column`, 'info');
+  }
+}
+
+// Add this function call to your DOMContentLoaded event listener, right after setupFileUpload():
+initializeAmountSorter();
+
+// Modify the convertBtn event listener to show the amount sorter after conversion
+// Find this section in your existing code and add the toggleAmountSorter(true) call:
+convertBtn.addEventListener('click', async () => {
+  const input = inputText.value.trim();
+  if (!input && uploadedFilesData.length === 0) {
+    showToast("Please insert bank statement data or upload PDF files!", "error");
+    return;
+  }
+
+  if (typeof processData === 'function') {
+    try {
+      // Show loading state
+      convertBtn.disabled = true;
+      convertBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+      
+      await processData();
+      
+      document.getElementById('toolbar').classList.add('show');
+      createCopyColumnButtons();
+      checkAndRemoveEmptyBalanceColumn();
+      saveState();
+      updateTableCursor();
+      updateTransactionCounts();
+      
+      // Show the amount sorter after successful conversion
+      toggleAmountSorter(true);
+      
+      // Hide file list container if no files are uploaded
+      if (uploadedFilesData.length === 0) {
+        fileListContainer.style.display = 'none';
+      }
+    } catch (error) {
+      console.error('Error during processing:', error);
+      showToast("Error processing data", "error");
+    } finally {
+      convertBtn.disabled = false;
+      convertBtn.textContent = 'Convert';
+    }
+  } else {
+    console.warn('Parsing script not yet loaded.');
+  }
+});
+
   // Find the option that matches the current bank and update display
   const currentOption = Array.from(originalSelect.options).find(opt => opt.value === currentBank);
   if (currentOption) {
@@ -2524,6 +2831,53 @@ function addColumnBeforeACC() {
       }
     });
   }
+
+// ======== METHOD INDICATOR ======== //
+window.bankUtils.allocationMethods = {
+  // Big 5
+  'bmoAccount':'Balance',
+  'bmoCard':'CR Marker',
+  'bmoLoc':'CR Marker',
+  'cibcAccount':'Balance',
+  'cibcCard':'-ve Marker',
+  'rbcAccount':'Keywords/Balance',
+  'rbcCard':'-ve Marker',
+  'rbcLoc':'-ve Marker',
+  'scotiaAccount':'Balance',
+  'scotiaCard':'-ve Marker',
+  'tdAccount':'Balance/Keywords',
+  'tdCard':'-ve Marker',
+  'tdinPerson':'Balance',
+  'tdHistory':'DR/CR Marker',
+  // Others
+  'cdtCard':'-ve Marker',
+  'craHistory':'CR Marker',
+  'craPayroll':'DR/CR Marker',
+  'eqCard':'-ve Marker',
+  'firstontarioAccount':'Balance',
+  'meridianAccount':'-ve Marker (reversed)',
+  'nbcAccount':'Balance',
+  'nbcCard':'-ve Marker',
+  'simpliiAccount':'Balance',
+  'tangerineAccount':'Brackets Marker',
+  'triangleCard':'-ve Marker',
+  'wallmartCard':'-ve Marker',
+  // U.S.
+  'amexCard':'-ve Marker',
+  'boaCard':'-ve Marker',
+  'wellsfargoAccount':'Keywords'
+};
+
+function updateMethodIndicator() {
+  const method = window.bankUtils.allocationMethods[getCombinedKey()] || 'Unknown';
+  document.getElementById('methodText').textContent = method;
+}
+
+// Call this whenever bank/type changes - add these 3 lines at the very end of DOMContentLoaded
+document.getElementById('bankSelector').addEventListener('change', updateMethodIndicator);
+typeSelector.addEventListener('change', updateMethodIndicator);
+updateMethodIndicator(); // Initial call
+// ======== END METHOD INDICATOR ======== //
 
   // Dark mode toggle functionality
   const darkModeToggle = document.getElementById('darkModeToggle');
