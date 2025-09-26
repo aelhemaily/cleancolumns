@@ -3171,5 +3171,84 @@ function updateTransactionCounts() {
     drCountSpan.textContent = debitCount;
     crCountSpan.textContent = creditCount;
 }
-  
+
+// Add this function to handle the refresh action
+function setupRefreshButton() {
+  const refreshBtn = document.getElementById('refreshBtn');
+  const refreshModal = document.getElementById('refreshModal');
+  const refreshModalClose = document.querySelector('.refresh-modal-close');
+  const refreshConfirmYes = document.getElementById('refreshConfirmYes');
+  const refreshConfirmNo = document.getElementById('refreshConfirmNo');
+
+  if (!refreshBtn) return;
+
+  // Show confirmation modal when refresh button is clicked
+  refreshBtn.addEventListener('click', () => {
+    refreshModal.style.display = 'flex';
+    setTimeout(() => {
+      refreshModal.classList.add('show');
+    }, 10);
+  });
+
+  // Close modal when X is clicked
+  refreshModalClose.addEventListener('click', () => {
+    refreshModal.classList.remove('show');
+    setTimeout(() => {
+      refreshModal.style.display = 'none';
+    }, 300);
+  });
+
+  // Close modal when No is clicked
+  refreshConfirmNo.addEventListener('click', () => {
+    refreshModal.classList.remove('show');
+    setTimeout(() => {
+      refreshModal.style.display = 'none';
+    }, 300);
+  });
+
+  // Refresh page when Yes is clicked
+  refreshConfirmYes.addEventListener('click', () => {
+    // Clear any unsaved data if needed
+    localStorage.removeItem('amountSorterPosition');
+    
+    // Perform the actual refresh
+    window.location.reload();
+  });
+
+  // Close modal when clicking outside
+  refreshModal.addEventListener('click', (e) => {
+    if (e.target === refreshModal) {
+      refreshModal.classList.remove('show');
+      setTimeout(() => {
+        refreshModal.style.display = 'none';
+      }, 300);
+    }
+  });
+
+  // Close modal with Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && refreshModal.classList.contains('show')) {
+      refreshModal.classList.remove('show');
+      setTimeout(() => {
+        refreshModal.style.display = 'none';
+      }, 300);
+    }
+  });
+
+  // Handle Enter key press to confirm (select 'Yes')
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && refreshModal.classList.contains('show')) {
+      // Prevent the default action (like submitting a form if one is focused)
+      e.preventDefault(); 
+      // Programmatically click the 'Yes' button
+      refreshConfirmYes.click();
+    }
+  });
+}
+
+// Call this function in your DOMContentLoaded event listener
+// Add this line where you initialize other components:
+setupRefreshButton();
+
+
 });
