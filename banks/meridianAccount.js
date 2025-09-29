@@ -1,3 +1,272 @@
+// meridianAccount.js - Complete with PDF parsing support
+
+// PDF Processing Function for Meridian
+window.bankUtils.processPDFFile = async function(file) {
+  if (typeof pdfjsLib === 'undefined') {
+    throw new Error('PDF.js library not loaded');
+  }
+
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+  
+  let allTransactions = [];
+  
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const textContent = await page.getTextContent();
+    const text = textContent.items.map(item => item.str).join(' ');
+    parseTransactions(text, allTransactions);
+  }
+  
+  return allTransactions.join('\n');
+};
+
+function parseTransactions(text, allTransactions) {
+  // Clean and split the text into words
+  const words = text.replace(/\s+/g, ' ').trim().split(' ');
+  
+  const datePattern = /^\d{2}-\w{3}-\d{4}$/;
+  const amountPattern = /^-?\d{1,3}(,\d{3})*\.\d{2}$/;
+  const numberPattern = /^\d+$/;
+  
+  let i = 0;
+  while (i < words.length) {
+    if (datePattern.test(words[i])) {
+      const date = words[i];
+      i++;
+      
+      // Handle Balance Forward
+      if (i < words.length - 1 && words[i] === 'Balance' && words[i + 1] === 'Forward') {
+        i += 2;
+        if (i < words.length && amountPattern.test(words[i])) {
+          allTransactions.push(`${date} Balance Forward ${words[i]}`);
+          i++;
+        }
+        continue;
+      }
+      
+      // Parse different transaction types
+      let transactionParts = [date];
+      let companyName = '';
+      let foundTransactionType = false;
+      
+      // Look for transaction type
+      while (i < words.length && !datePattern.test(words[i])) {
+        const word = words[i];
+        
+        // Pre-Authorized transactions
+        if (word === 'Pre-Authorized' && i + 1 < words.length && words[i + 1] === '#') {
+          transactionParts.push('Pre-Authorized #');
+          i += 2;
+          
+          if (i < words.length && numberPattern.test(words[i])) {
+            transactionParts.push(words[i]);
+            i++;
+          }
+          
+          if (i < words.length && amountPattern.test(words[i])) {
+            transactionParts.push(words[i]);
+            i++;
+            if (i < words.length && amountPattern.test(words[i])) {
+              transactionParts.push(words[i]);
+              i++;
+            }
+          }
+          
+          const companyWords = [];
+          while (i < words.length && !datePattern.test(words[i]) && 
+                 !words[i].match(/^(Pre-Authorized|Cheque|Bill|e-Transfer|Transfer|Combined|Cash|Account|Interest|Service|Overdraft)$/)) {
+            if (!amountPattern.test(words[i]) && !numberPattern.test(words[i]) && words[i] !== '#') {
+              companyWords.push(words[i]);
+            }
+            i++;
+          }
+          companyName = companyWords.join(' ');
+          foundTransactionType = true;
+          break;
+        }
+        
+        // Cheque transactions
+        else if (word === 'Cheque' && i + 1 < words.length && words[i + 1] === '#') {
+          transactionParts.push('Cheque #');
+          i += 2;
+          
+          if (i < words.length && numberPattern.test(words[i])) {
+            transactionParts.push(words[i]);
+            i++;
+          }
+          
+          if (i < words.length && amountPattern.test(words[i])) {
+            transactionParts.push(words[i]);
+            i++;
+            if (i < words.length && amountPattern.test(words[i])) {
+              transactionParts.push(words[i]);
+              i++;
+            }
+          }
+          foundTransactionType = true;
+          break;
+        }
+        
+        // Bill Payment transactions
+        else if (word === 'Bill' && i + 1 < words.length && words[i + 1] === 'Payment') {
+          transactionParts.push('Bill Payment #');
+          i += 3;
+          
+          if (i < words.length && numberPattern.test(words[i])) {
+            transactionParts.push(words[i]);
+            i++;
+          }
+          
+          if (i < words.length && amountPattern.test(words[i])) {
+            transactionParts.push(words[i]);
+            i++;
+            if (i < words.length && amountPattern.test(words[i])) {
+              transactionParts.push(words[i]);
+              i++;
+            }
+          }
+          
+          const companyWords = [];
+          while (i < words.length && !datePattern.test(words[i]) && 
+                 !words[i].match(/^(Pre-Authorized|Cheque|Bill|e-Transfer|Transfer|Combined|Cash|Account|Interest|Service|Overdraft)$/)) {
+            if (!amountPattern.test(words[i]) && !numberPattern.test(words[i]) && words[i] !== '#') {
+              companyWords.push(words[i]);
+            }
+            i++;
+          }
+          companyName = companyWords.join(' ');
+          foundTransactionType = true;
+          break;
+        }
+        
+        // e-Transfer transactions
+        else if (word === 'e-Transfer') {
+          let direction = '';
+          if (i + 1 < words.length && (words[i + 1] === 'Out' || words[i + 1] === 'In')) {
+            direction = ' ' + words[i + 1];
+            i++;
+          }
+          transactionParts.push('e-Transfer' + direction + ' #');
+          i++;
+          
+          if (i < words.length && words[i] === '#') i++;
+          
+          if (i < words.length && numberPattern.test(words[i])) {
+            transactionParts.push(words[i]);
+            i++;
+          }
+          
+          if (i < words.length && amountPattern.test(words[i])) {
+            transactionParts.push(words[i]);
+            i++;
+            if (i < words.length && amountPattern.test(words[i])) {
+              transactionParts.push(words[i]);
+              i++;
+            }
+          }
+          
+          if (i < words.length && words[i] === 'Service' && i + 1 < words.length && words[i + 1] === 'Charge') {
+            i += 2;
+            if (i < words.length && amountPattern.test(words[i])) {
+              allTransactions.push(transactionParts.join(' '));
+              allTransactions.push(`${date} Service Charge ${words[i]}`);
+              i++;
+              foundTransactionType = true;
+              break;
+            }
+          }
+          foundTransactionType = true;
+          break;
+        }
+        
+        // Cash & Coin Fee
+        else if (word === 'Cash' && i + 2 < words.length && words[i + 1] === '&' && words[i + 2] === 'Coin' && words[i + 3] === 'Fee') {
+          i += 4;
+          if (i < words.length && amountPattern.test(words[i])) {
+            transactionParts.push('Cash & Coin Fee');
+            transactionParts.push(words[i]);
+            i++;
+          }
+          foundTransactionType = true;
+          break;
+        }
+        
+        // Account Fee
+        else if (word === 'Account' && i + 1 < words.length && words[i + 1] === 'Fee') {
+          transactionParts.push('Account Fee');
+          i += 2;
+          if (i < words.length && amountPattern.test(words[i])) {
+            transactionParts.push(words[i]);
+            i++;
+            if (i < words.length && amountPattern.test(words[i])) {
+              transactionParts.push(words[i]);
+              i++;
+            }
+          }
+          foundTransactionType = true;
+          break;
+        }
+        
+        // Interest Debit
+        else if (word === 'Interest' && i + 1 < words.length && words[i + 1] === 'Debit') {
+          transactionParts.push('Interest Debit');
+          i += 2;
+          if (i < words.length && amountPattern.test(words[i])) {
+            transactionParts.push(words[i]);
+            i++;
+            if (i < words.length && amountPattern.test(words[i])) {
+              transactionParts.push(words[i]);
+              i++;
+            }
+          }
+          foundTransactionType = true;
+          break;
+        }
+        
+        // Overdraft Fee
+        else if (word === 'Overdraft' && i + 1 < words.length && words[i + 1] === 'Fee') {
+          transactionParts.push('Overdraft Fee');
+          i += 2;
+          if (i < words.length && amountPattern.test(words[i])) {
+            transactionParts.push(words[i]);
+            i++;
+            if (i < words.length && amountPattern.test(words[i])) {
+              transactionParts.push(words[i]);
+              i++;
+            }
+          }
+          const descWords = [];
+          while (i < words.length && !datePattern.test(words[i])) {
+            if (!amountPattern.test(words[i])) {
+              descWords.push(words[i]);
+            }
+            i++;
+          }
+          if (descWords.length > 0) {
+            companyName = descWords.join(' ');
+          }
+          foundTransactionType = true;
+          break;
+        }
+        
+        i++;
+      }
+      
+      if (foundTransactionType && transactionParts.length > 1) {
+        allTransactions.push(transactionParts.join(' '));
+        if (companyName.trim()) {
+          allTransactions.push(companyName.trim());
+        }
+      }
+      
+      continue;
+    }
+    i++;
+  }
+}
+
+// Main processing function
 function processData() {
   const input = document.getElementById('inputText').value.trim();
   const yearInput = document.getElementById('yearInput').value.trim();

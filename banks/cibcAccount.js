@@ -1,235 +1,324 @@
-// cibcAccount.js - Merged content with PDF processing from cibcacc.html and original features retained
+// cibcAccount.js - Updated with improved PDF processing logic
 
 // Ensure window.bankUtils exists to house bank-specific utilities
 window.bankUtils = window.bankUtils || {};
 
-// Set up PDF.js worker (from cibcacc.html)
+// Set up PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-// PDF Parsing Function (adapted from cibcacc.html)
+// NEW PDF Parsing Function (from the HTML parser)
 async function parsePDF(file) {
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-
-    let fullText = '';
-
-    for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        // Join text items with a space, ensuring consistent spacing between words
-        // and handling potential double spaces from PDF.js
-        const pageText = textContent.items.map(item => item.str).join(' ').replace(/\s{2,}/g, ' ');
-        fullText += pageText + ' '; // Add space between pages to ensure continuity
-    }
-    return extractTransactions(fullText);
+    return new Promise((resolve, reject) => {
+        const fileReader = new FileReader();
+        
+        fileReader.onload = async function() {
+            try {
+                const typedarray = new Uint8Array(this.result);
+                const pdf = await pdfjsLib.getDocument(typedarray).promise;
+                const transactions = [];
+                
+                // Process each page
+                for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                    const page = await pdf.getPage(pageNum);
+                    const textContent = await page.getTextContent();
+                    const textItems = textContent.items;
+                    
+                    // Extract transactions from this page
+                    const pageTransactions = extractTransactions(textItems);
+                    transactions.push(...pageTransactions);
+                }
+                
+                // Format transactions for output
+                const outputText = formatTransactionsForOutput(transactions);
+                resolve(outputText);
+            } catch (error) {
+                reject(error);
+            }
+        };
+        
+        fileReader.onerror = function(error) {
+            reject(error);
+        };
+        
+        fileReader.readAsArrayBuffer(file);
+    });
 }
 
-// Transaction extraction logic (from cibcacc.html)
-function extractTransactions(text) {
-    const resultTransactions = [];
-    let lastKnownDate = null;
-
-    // Normalize whitespace: replace multiple spaces with single space, trim, then split into tokens
-    const tokens = text.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim().split(' ');
-
-    let i = 0;
-
-    // Regex for date patterns (Month Day)
-    const datePattern = /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)$/i;
-    const dayPattern = /^\d{1,2}$/;
-
-    // Define regex for transaction keywords (start of a transaction description)
-    const transactionKeywords = /^(RETAIL|INTERNET|E-TRANSFER|VISA|SERVICE|OVERDRAFT|Opening|Balance)$/i;
-
-    // Define regex for currency amounts
-    const amountPattern = /^-?\$?\d+\.\d{2}$/;
-
-    // --- Phase 1: Locate the start of the transaction details section ---
-    let foundTransactionDetailsHeader = false;
-    while (i < tokens.length) {
-        const currentToken = tokens[i];
-        if (currentToken === "Transaction" && i + 1 < tokens.length && tokens[i+1] === "details") {
-            i += 2; // Move past "Transaction details"
-            // Now, skip the actual table header line (e.g., "Date Description Withdrawals ($) Deposits ($) Balance ($)")
-            // We'll advance 'i' until we find a date or a transaction keyword, which should mark the start of actual transaction data.
-            while (i < tokens.length) {
-                const lookAheadToken = tokens[i];
-                if (lookAheadToken.match(datePattern) || lookAheadToken.match(transactionKeywords) || (lookAheadToken.toLowerCase() === 'opening' && i + 1 < tokens.length && tokens[i+1].toLowerCase() === 'balance')) {
-                    foundTransactionDetailsHeader = true;
-                    break;
-                }
-                // Stop if we hit explicit end markers that might appear before first transaction
-                if (lookAheadToken.match(/^(Free|Important|Contact|Account|TM|Registered|Interac|10774E|Page)$/i)) {
-                    break;
-                }
-                i++;
+function extractTransactions(textItems) {
+    const transactions = [];
+    let currentDate = '';
+    let currentTransactionLines = [];
+    let inTransactionSection = false;
+    
+    // Group text items by line (based on y-position)
+    const lines = [];
+    let currentLine = {text: '', y: 0};
+    
+    textItems.forEach(item => {
+        // If this item is on a new line (based on y-position)
+        if (lines.length === 0 || Math.abs(item.transform[5] - currentLine.y) > 5) {
+            if (currentLine.text.trim()) {
+                lines.push({...currentLine});
             }
-            break;
-        }
-        i++;
-    }
-
-    if (!foundTransactionDetailsHeader) {
-        return ''; // No transaction details section found, return empty
-    }
-
-    // --- Phase 2: Parse transactions token by token ---
-    while (i < tokens.length) {
-        let transaction = {
-            date: lastKnownDate,
-            description: '',
-            withdrawal: '',
-            deposit: '',
-            balance: ''
-        };
-        let currentToken = tokens[i];
-        let isSpecialBalanceType = false; // Flag for Opening/Balance forward
-
-        // Check for end of transaction section markers
-        if (currentToken && currentToken.match(/^(Free|Important|Contact|Account|TM|Registered|Interac|10774E|Page)$/i)) {
-            break;
-        }
-
-        // 1. Try to consume a date
-        if (currentToken && currentToken.match(datePattern) && i + 1 < tokens.length && tokens[i + 1].match(dayPattern)) {
-            transaction.date = `${currentToken} ${tokens[i + 1]}`;
-            lastKnownDate = transaction.date;
-            i += 2;
-            currentToken = tokens[i]; // Update currentToken after date consumption
+            currentLine = {text: item.str, y: item.transform[5]};
         } else {
-            // If no date token found, use last known date. If still no date and not a transaction keyword, skip.
-            if (!lastKnownDate && !(currentToken && currentToken.match(transactionKeywords))) {
-                i++;
-                continue;
-            }
+            // Add space between words on the same line
+            currentLine.text += ' ' + item.str;
         }
-
-        if (!currentToken && i < tokens.length) { // Ensure currentToken is valid
-            currentToken = tokens[i];
-        }
-        if (!currentToken) {
-            i++;
+    });
+    
+    // Add the last line
+    if (currentLine.text.trim()) {
+        lines.push({...currentLine});
+    }
+    
+    // Process lines to find transactions
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].text.trim();
+        
+        // Skip completely empty lines
+        if (!line) continue;
+        
+        // Check if we're entering the transaction section
+        if (line.includes('Transaction details') || line.match(/Date\s+Description/)) {
+            inTransactionSection = true;
             continue;
         }
-
-        // 2. Try to consume transaction description
-        const initialTokenIndexForDescription = i;
-        let tempScanIndex = i;
-        let descriptionParts = [];
-
-        // Check for specific multi-word phrases first (Opening Balance, Balance Forward, Closing Balance)
-        if (tokens[tempScanIndex] && tokens[tempScanIndex].toLowerCase() === 'opening' &&
-            tokens[tempScanIndex + 1] && tokens[tempScanIndex + 1].toLowerCase() === 'balance') {
-            descriptionParts.push('Opening', 'balance');
-            tempScanIndex += 2;
-            isSpecialBalanceType = true;
-        } else if (tokens[tempScanIndex] && tokens[tempScanIndex].toLowerCase() === 'balance' &&
-                   tokens[tempScanIndex + 1] && tokens[tempScanIndex + 1].toLowerCase() === 'forward') {
-            descriptionParts.push('Balance', 'forward');
-            tempScanIndex += 2;
-            isSpecialBalanceType = true;
-        } else if (tokens[tempScanIndex] && tokens[tempScanIndex].toLowerCase() === 'closing' &&
-                   tokens[tempScanIndex + 1] && tokens[tempScanIndex + 1].toLowerCase() === 'balance') {
-            // This is the closing balance, consume its parts and completely skip it
-            tempScanIndex += 2; // Move past "Closing balance" words
-            // Consume any amounts associated with this closing balance line
-            while (tempScanIndex < tokens.length && tokens[tempScanIndex].match(amountPattern)) {
-                tempScanIndex++;
-            }
-            i = tempScanIndex; // Advance main loop index and continue to next iteration
-            continue; // Skip the rest of the processing for this particular "Closing balance" transaction
+        
+        // Check if we're leaving the transaction section (footer content)
+        if (line.includes('Important:') || line.includes('Foreign Currency') || 
+            line.includes('Trademark') || line.includes('Registered trademark')) {
+            inTransactionSection = false;
+            break; // Stop processing this page when we hit footer
         }
-        else {
-            // Original logic for collecting other description words
-            while (tempScanIndex < tokens.length) {
-                const scanToken = tokens[tempScanIndex];
-
-                // Heuristic: Stop if we hit a currency amount or a new date/transaction type
-                const isAmount = scanToken.match(amountPattern);
-                const isNewDate = scanToken.match(datePattern) && tempScanIndex + 1 < tokens.length && tokens[tempScanIndex + 1].match(dayPattern);
-                const isNewTransactionKeyword = scanToken.match(transactionKeywords) && tempScanIndex > initialTokenIndexForDescription;
-
-                if (isAmount || isNewDate || isNewTransactionKeyword) {
-                    break;
+        
+        if (!inTransactionSection) continue;
+        
+        // Check if this is a date line (e.g., "Jan 1")
+        const dateMatch = line.match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\b/);
+        if (dateMatch) {
+            // Process previous transaction if we have one
+            if (currentDate && currentTransactionLines.length > 0) {
+                const transaction = processTransactionLines(currentDate, currentTransactionLines);
+                if (transaction) {
+                    transactions.push(transaction);
                 }
-                descriptionParts.push(scanToken);
-                tempScanIndex++;
+            }
+            
+            // Start new transaction
+            currentDate = dateMatch[0];
+            currentTransactionLines = [];
+            
+            // Add the rest of the line after the date
+            const remainingText = line.substring(dateMatch[0].length).trim();
+            if (remainingText && !isNoiseText(remainingText)) {
+                currentTransactionLines.push(remainingText);
+            }
+        } 
+        // Check if this is a transaction line with amounts (like CORRECTION)
+        else if (isTransactionLine(line) && currentDate) {
+            // Check if this line has amounts
+            if (hasAmounts(line)) {
+                // This line completes a transaction
+                currentTransactionLines.push(line);
+                const transaction = processTransactionLines(currentDate, currentTransactionLines);
+                if (transaction) {
+                    transactions.push(transaction);
+                }
+                currentTransactionLines = [];
+            } else {
+                // This is a continuation line
+                currentTransactionLines.push(line);
             }
         }
-
-        if (descriptionParts.length === 0) {
-            i++;
-            continue;
-        }
-
-        transaction.description = descriptionParts.join(' ').trim();
-
-        // 3. Try to consume amounts (withdrawal/deposit and balance)
-        const collectedAmounts = [];
-        while (tempScanIndex < tokens.length && collectedAmounts.length < 2) { // Max 2 amounts: primary amount and balance
-            const potentialAmount = tokens[tempScanIndex];
-            if (potentialAmount.match(amountPattern)) {
-                collectedAmounts.push(potentialAmount);
-            } else if (potentialAmount.match(datePattern) || potentialAmount.match(transactionKeywords)) {
-                break; // Hit a new date or transaction, stop collecting amounts for current one
+        // Check if this is an amount line (just numbers)
+        else if (isAmountLine(line) && currentDate) {
+            // This might be an amount line for the current transaction
+            currentTransactionLines.push(line);
+            
+            // Check if next line is also an amount line (balance)
+            if (i + 1 < lines.length) {
+                const nextLine = lines[i + 1].text.trim();
+                if (isAmountLine(nextLine)) {
+                    currentTransactionLines.push(nextLine);
+                    i++; // Skip the next line since we've processed it
+                }
             }
-            tempScanIndex++;
+            
+            // Complete the transaction
+            const transaction = processTransactionLines(currentDate, currentTransactionLines);
+            if (transaction) {
+                transactions.push(transaction);
+            }
+            currentTransactionLines = [];
         }
+        // Regular transaction description line
+        else if (currentDate && line && isTransactionLine(line)) {
+            currentTransactionLines.push(line);
+        }
+    }
+    
+    // Process the last transaction if any
+    if (currentDate && currentTransactionLines.length > 0) {
+        const transaction = processTransactionLines(currentDate, currentTransactionLines);
+        if (transaction) {
+            transactions.push(transaction);
+        }
+    }
+    
+    return transactions;
+}
 
-        // Assign amounts based on whether it's a special balance type or a regular transaction
-        if (isSpecialBalanceType) {
-            if (collectedAmounts.length > 0) {
-                transaction.balance = collectedAmounts[0]; // For these, the first amount is the balance
-                transaction.withdrawal = ''; // Ensure no unintended withdrawal/deposit
-                transaction.deposit = '';
+function isTransactionLine(line) {
+    // Lines that are definitely NOT transactions
+    const notTransactionPatterns = [
+        /CIBC Account Statement/i,
+        /Account number/i,
+        /Branch transit number/i,
+        /Transaction details/i,
+        /Opening balance/i,
+        /Closing balance/i,
+        /Account summary/i,
+        /Contact information/i,
+        /Important:/i,
+        /Foreign Currency Conversion Fee/i,
+        /Trademark/i,
+        /Registered trademark/i,
+        /Page \d+ of \d+/i,
+        /Balance forward/i,
+        /continued on next page/i,
+        /^\d{5,}/, // Long numbers (like page numbers)
+        /^[\d\s]*$/, // Only numbers and spaces
+    ];
+    
+    return !notTransactionPatterns.some(pattern => pattern.test(line));
+}
+
+function hasAmounts(line) {
+    return line.match(/[\d,]+\.\d{2}/) && 
+           (line.match(/[\d,]+\.\d{2}\s+[\d,]+\.\d{2}$/) || 
+            isTransactionType(line));
+}
+
+function isTransactionType(line) {
+    const transactionTypes = [
+        /CORRECTION/i,
+        /DEPOSIT/i,
+        /WITHDRAWAL/i,
+        /CREDIT MEMO/i,
+        /PRE-AUTH DEBIT/i,
+        /E-TRANSFER/i,
+        /PURCHASE/i,
+        /ACC FEE/i
+    ];
+    
+    return transactionTypes.some(pattern => pattern.test(line));
+}
+
+function isAmountLine(line) {
+    return line.match(/^[\d,]+\.\d{2}$/);
+}
+
+function isNoiseText(line) {
+    const noisePatterns = [
+        /continued on next page/i,
+        /^\d{5,}/,
+        /^[\d\s]*$/,
+    ];
+    
+    return noisePatterns.some(pattern => pattern.test(line));
+}
+
+function processTransactionLines(date, lines) {
+    if (lines.length === 0) return null;
+    
+    // Filter out any noise lines that might have slipped through
+    const cleanLines = lines.filter(line => !isNoiseText(line));
+    if (cleanLines.length === 0) return null;
+    
+    let description = '';
+    let amount = '';
+    let balance = '';
+    
+    // The last line typically contains amounts
+    const lastLine = cleanLines[cleanLines.length - 1];
+    
+    // Check if last line has both amount and balance
+    const amountBalanceMatch = lastLine.match(/^([\d,]+\.\d{2})\s+([\d,]+\.\d{2})$/);
+    if (amountBalanceMatch) {
+        amount = amountBalanceMatch[1];
+        balance = amountBalanceMatch[2];
+        description = cleanLines.slice(0, -1).join('\n');
+    } 
+    // Check if last line is just a balance
+    else if (lastLine.match(/^[\d,]+\.\d{2}$/)) {
+        balance = lastLine;
+        // Check if previous line is an amount
+        if (cleanLines.length >= 2) {
+            const prevLine = cleanLines[cleanLines.length - 2];
+            if (prevLine.match(/^[\d,]+\.\d{2}$/)) {
+                amount = prevLine;
+                description = cleanLines.slice(0, -2).join('\n');
+            } else {
+                description = cleanLines.slice(0, -1).join('\n');
             }
         } else {
-            // For regular transactions
-            if (collectedAmounts.length === 2) {
-                const amount1 = collectedAmounts[0];
-                const amount2 = collectedAmounts[1];
-
-                if (transaction.description.toLowerCase().includes('deposit') || transaction.description.toLowerCase().includes('e-transfer')) {
-                    transaction.deposit = amount1;
-                    transaction.balance = amount2;
-                } else {
-                    transaction.withdrawal = amount1;
-                    transaction.balance = amount2;
-                }
-            } else if (collectedAmounts.length === 1) {
-                // If only one amount, it's typically the balance, or a standalone withdrawal/deposit
-                const amount = collectedAmounts[0];
-                if (transaction.description.toLowerCase().includes('deposit') || transaction.description.toLowerCase().includes('e-transfer')) {
-                     transaction.deposit = amount;
-                } else if (!transaction.description.toLowerCase().includes('service charge') && !transaction.description.toLowerCase().includes('overdraft')) {
-                    // If it's not a service charge/overdraft, and no explicit deposit, assume withdrawal
-                    transaction.withdrawal = amount;
-                }
-                transaction.balance = amount; // Also set as balance, will be deduplicated in output
-            }
+            description = cleanLines.slice(0, -1).join('\n');
         }
-
-        // Determine if a complete transaction has been parsed and add to results
-        if (transaction.description && transaction.date && (transaction.withdrawal || transaction.deposit || transaction.balance)) {
-            let outputLine = `${transaction.date} ${transaction.description}`;
-            if (transaction.withdrawal) {
-                outputLine += ` ${transaction.withdrawal}`;
-            } else if (transaction.deposit) {
-                outputLine += ` ${transaction.deposit}`;
-            }
-            // For Opening balance/Balance forward, only show the single balance amount.
-            // For other transactions, show balance if it's present and distinct from the withdrawal/deposit amount.
-            if (transaction.balance && (isSpecialBalanceType || (transaction.balance !== transaction.withdrawal && transaction.balance !== transaction.deposit))) {
-                outputLine += ` ${transaction.balance}`;
-            }
-            resultTransactions.push(outputLine.trim());
-        }
-
-        // Advance main index to where this transaction's parsing stopped
-        i = tempScanIndex;
     }
+    // Check for transaction types like CORRECTION that have amounts inline
+    else if (hasAmounts(lastLine)) {
+        // Extract amounts from the line
+        const amounts = lastLine.match(/[\d,]+\.\d{2}/g);
+        if (amounts && amounts.length >= 2) {
+            amount = amounts[0];
+            balance = amounts[1];
+            description = cleanLines.slice(0, -1).join('\n') + '\n' + lastLine.replace(/[\d,]+\.\d{2}/g, '').trim();
+        } else if (amounts && amounts.length === 1) {
+            amount = amounts[0];
+            description = cleanLines.slice(0, -1).join('\n') + '\n' + lastLine.replace(/[\d,]+\.\d{2}/, '').trim();
+        } else {
+            description = cleanLines.join('\n');
+        }
+    } else {
+        description = cleanLines.join('\n');
+    }
+    
+    // Clean up the description - remove any trailing noise
+    description = description.trim();
+    
+    // Remove empty lines from description
+    description = description.split('\n').filter(line => line.trim()).join('\n');
+    
+    return {
+        date: date,
+        description: description,
+        amount: amount,
+        balance: balance
+    };
+}
 
-    return resultTransactions.join('\n');
+function formatTransactionsForOutput(transactions) {
+    let outputText = '';
+    
+    transactions.forEach(transaction => {
+        outputText += `${transaction.date} ${transaction.description}\n`;
+        
+        // Only add amount and balance if they exist and are not empty
+        if (transaction.amount || transaction.balance) {
+            if (transaction.amount && transaction.balance) {
+                outputText += `${transaction.amount} ${transaction.balance}\n`;
+            } else if (transaction.amount) {
+                outputText += `${transaction.amount}\n`;
+            } else if (transaction.balance) {
+                outputText += `${transaction.balance}\n`;
+            }
+        }
+        
+        outputText += '\n'; // Separate transactions with a line break
+    });
+    
+    return outputText || 'No transactions found.';
 }
 
 // Main data processing function for text input (from original cibcAccount.js)
@@ -394,7 +483,7 @@ function processData() {
 // Export processData globally
 window.processData = processData;
 
-// PDF Processing Function (adapted from cibcacc.html and integrated for cibcAccount)
+// PDF Processing Function (using the new parsing logic)
 window.bankUtils.processPDFFile = async function(file) {
   try {
     const processedText = await parsePDF(file);
@@ -406,7 +495,7 @@ window.bankUtils.processPDFFile = async function(file) {
   }
 };
 
-// Function to handle file uploads and display them (adapted from bmoAccount.js)
+// Function to handle file uploads and display them
 window.bankUtils.handleFiles = async function(files) {
   const fileList = document.getElementById('fileList');
   const inputText = document.getElementById('inputText');
@@ -457,7 +546,7 @@ window.bankUtils.handleFiles = async function(files) {
   }
 };
 
-// File Upload and Drag/Drop Handling initialization (adapted from bmoAccount.js)
+// File Upload and Drag/Drop Handling initialization
 function setupFileUpload() {
   const dropArea = document.getElementById('dropArea');
   const fileInput = document.getElementById('pdfUpload');
@@ -513,7 +602,7 @@ function setupFileUpload() {
     dropArea.classList.remove('highlight');
   }
 
-  // Make file list sortable (retained from original bmoAccount.js)
+  // Make file list sortable
   new Sortable(fileList, {
     animation: 150,
     handle: '.file-item-name',

@@ -542,7 +542,7 @@ setupCustomSelect();
 function shouldShowPDFUpload(bankKey) {
   // List of bank combinations where PDF upload should be hidden
   const restrictedBanks = [
-     'tdCard' // Add more bank keys here as needed
+      // Add more bank keys here as needed
   ];
   return !restrictedBanks.includes(bankKey);
 }
@@ -2108,7 +2108,7 @@ function createCopyColumnButtons() {
         }
     });
 
-    // --- NEW: Process date column to keep only the first date ---
+    // --- FIXED: Process date column to keep only the first date ---
     // Find the Date column index
     const dateColIndex = Array.from(headerRow.cells).findIndex(cell => 
         cell.textContent.trim().toLowerCase() === 'date'
@@ -2120,25 +2120,40 @@ function createCopyColumnButtons() {
             const dateCell = table.rows[i].cells[dateColIndex];
             if (dateCell) {
                 const dateText = dateCell.textContent.trim();
-                const dateParts = dateText.split(/\s+/);
                 
-                // Heuristic to check if a year exists. A year is typically a 4-digit number.
-                const hasYear = dateParts.length >= 3 && /^\d{4}$/.test(dateParts[2]);
-
+                // NEW LOGIC: Handle different date formats
                 let newDate = '';
-                if (hasYear) {
-                    // Keep Month Day Year
-                    newDate = `${dateParts[0]} ${dateParts[1]} ${dateParts[2]}`;
-                } else if (dateParts.length >= 2) {
-                    // Keep only Month Day
-                    newDate = `${dateParts[0]} ${dateParts[1]}`;
+                
+                // Check for DD-MMM-YYYY format (like "31-Dec-2022")
+                const ddMmmYyyyMatch = dateText.match(/^(\d{1,2}-[A-Za-z]{3}-\d{4})/);
+                if (ddMmmYyyyMatch) {
+                    newDate = ddMmmYyyyMatch[1]; // Keep "31-Dec-2022"
+                } 
+                // Check for MMM DD YYYY format (like "Jan 03 2023")
+                else if (dateText.match(/^[A-Za-z]{3} \d{1,2} \d{4}/)) {
+                    const parts = dateText.split(/\s+/);
+                    newDate = `${parts[0]} ${parts[1]} ${parts[2]}`; // Keep "Jan 03 2023"
                 }
-
+                // Check for MM/DD/YYYY format
+                else if (dateText.match(/^\d{1,2}\/\d{1,2}\/\d{4}/)) {
+                    const parts = dateText.split(/\s+/);
+                    newDate = parts[0]; // Keep "01/03/2023"
+                }
+                // Check for MMM DD format (like "Jan 03" without year)
+                else if (dateText.match(/^[A-Za-z]{3} \d{1,2}/)) {
+                    const parts = dateText.split(/\s+/);
+                    newDate = `${parts[0]} ${parts[1]}`; // Keep "Jan 03"
+                }
+                // If no recognized format, keep the original text
+                else {
+                    newDate = dateText;
+                }
+                
                 dateCell.textContent = newDate;
             }
         }
     }
-    // --- END NEW DATE PROCESSING ---
+    // --- END FIXED DATE PROCESSING ---
 
     // Apply word wrapping to description column to prevent horizontal scrolling
     const headers = Array.from(headerRow.cells);

@@ -1,4 +1,108 @@
-// eqCard.js - New parser for EQ Bank statements
+// eqCard.js - New parser for EQ Bank statements with PDF processing
+
+// Set up PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// PDF processing function for EQ Bank
+window.bankUtils.processPDFFile = async function(file) {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+    
+    let allText = '';
+    
+    // Extract text from all pages
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map(item => item.str).join(' ');
+      allText += pageText + '\n';
+    }
+    
+    // Parse transactions from the text
+    const transactions = extractTransactionsFromPDF(allText);
+    
+    // Format transactions for input text
+    const formattedText = formatTransactionsForInput(transactions);
+    
+    return formattedText;
+    
+  } catch (error) {
+    console.error('Error parsing PDF:', error);
+    throw new Error('Error parsing PDF: ' + error.message);
+  }
+};
+
+function extractTransactionsFromPDF(text) {
+  const transactions = [];
+  
+  // Split text into lines (using multiple approaches to catch all transactions)
+  const lines = text.split('\n').filter(line => line.trim());
+  
+  // Enhanced regex to capture EQ Bank transaction formats
+  // This handles various formats found in EQ Bank PDF statements
+  const transactionRegex = /(\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2})\s+(.*?)\s+(-?\s*\$?\s*[\d,]+\.\d{2})/g;
+  
+  let match;
+  while ((match = transactionRegex.exec(text)) !== null) {
+    const date = match[1]; // e.g., "Sep 28"
+    const description = match[2].trim(); // Everything between date and amount
+    const amount = match[3]; // e.g., "-$5.60" or "$10.00"
+    
+    transactions.push({
+      date: date,
+      description: description,
+      amount: amount
+    });
+  }
+  
+  // Alternative approach: line-by-line parsing for better coverage
+  if (transactions.length === 0) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      
+      // Look for date patterns followed by description and amount
+      const dateMatch = line.match(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})\b/);
+      
+      if (dateMatch) {
+        const date = dateMatch[0];
+        const restOfLine = line.substring(dateMatch.index + date.length).trim();
+        
+        // Try to find amounts (withdrawals or deposits)
+        const amountMatch = restOfLine.match(/(?:-\$[\d,]+\.\d{2}|\$[\d,]+\.\d{2})/);
+        
+        if (amountMatch) {
+          const amount = amountMatch[0];
+          const description = restOfLine.substring(0, amountMatch.index).trim();
+          
+          // Clean up the description (remove extra spaces and special characters)
+          const cleanDescription = description.replace(/\s+/g, ' ').replace(/[^\w\s*\/.,-]/g, '');
+          
+          transactions.push({
+            date: date,
+            description: cleanDescription,
+            amount: amount
+          });
+        }
+      }
+    }
+  }
+  
+  return transactions;
+}
+
+function formatTransactionsForInput(transactions) {
+  if (transactions.length === 0) {
+    return '';
+  }
+  
+  // Format each transaction as it would appear in the input text
+  const formattedLines = transactions.map(transaction => {
+    return `${transaction.date} ${transaction.description} ${transaction.amount}`;
+  });
+  
+  return formattedLines.join('\n');
+}
 
 function processData() {
   const input = document.getElementById('inputText').value.trim();

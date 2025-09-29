@@ -1,3 +1,89 @@
+// Set up PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.12.313/pdf.worker.min.js';
+
+// PDF processing function for Simplii
+window.bankUtils.processPDFFile = async function(file) {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+    
+    let allText = '';
+    
+    // Extract text from all pages
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map(item => item.str).join(' ');
+      allText += pageText + ' ';
+    }
+    
+    // Parse transactions from the text
+    const transactions = parsePDFTransactions(allText);
+    
+    // Format transactions for input text
+    return formatTransactionsForInput(transactions);
+    
+  } catch (error) {
+    console.error('Error processing PDF:', error);
+    throw new Error(`Error processing ${file.name}: ${error.message}`);
+  }
+};
+
+function parsePDFTransactions(text) {
+  const transactions = [];
+  
+  // Split by potential transaction lines
+  const lines = text.split(/(?=\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\b)/);
+  
+  for (const line of lines) {
+    // Match transaction pattern: date, description, optional amount out, optional amount in, balance
+    const match = line.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})\s+(.+?)\s+([\d,]+\.\d{2})?\s+([\d,]+\.\d{2})?\s+([\d,]+\.\d{2})/);
+    
+    if (match) {
+      const month = match[1];
+      const day = match[2];
+      const description = match[3].trim();
+      const amountOut = match[4] || '';
+      const amountIn = match[5] || '';
+      const balance = match[6];
+      
+      transactions.push({
+        date: `${month} ${day}`,
+        description,
+        amountOut,
+        amountIn,
+        balance
+      });
+    }
+  }
+  
+  return transactions;
+}
+
+function formatTransactionsForInput(transactions) {
+  let outputText = '';
+  
+  for (const transaction of transactions) {
+    // Format: Date Description AmountOut AmountIn Balance
+    // If there's an amount out, include it; if there's an amount in, include it
+    let line = `${transaction.date} ${transaction.description}`;
+    
+    if (transaction.amountOut) {
+      line += ` ${transaction.amountOut}`;
+    }
+    
+    if (transaction.amountIn) {
+      line += ` ${transaction.amountIn}`;
+    }
+    
+    line += ` ${transaction.balance}`;
+    
+    outputText += line + '\n';
+  }
+  
+  return outputText;
+}
+
 function processData() {
   const input = document.getElementById('inputText').value.trim();
   const yearInput = document.getElementById('yearInput').value.trim();
