@@ -63,7 +63,126 @@ function setupCustomSelect() {
 let amountSorterSection = null;
 let keywordInput = null;
 let sortAmountsBtn = null;
-
+// Tools Menu Functionality
+// Enhanced Tools Menu Functionality
+// Enhanced Tools Menu Functionality
+// Enhanced Tools Menu Functionality
+// Enhanced Tools Menu Functionality
+function setupToolsMenu() {
+  const toolArea = document.getElementById('toolArea');
+  const toolsMenu = document.getElementById('toolsMenu');
+  const toolsMinimizeBtn = toolsMenu?.querySelector('.tools-minimize-btn');
+  const toolsCloseBtn = toolsMenu?.querySelector('.tools-close-btn');
+  
+  if (!toolArea || !toolsMenu || !toolsMinimizeBtn || !toolsCloseBtn) return;
+  
+  // Add expanded class for the large modal style
+  toolsMenu.classList.add('expanded');
+  
+  // Update button icons for initial state
+  updateToolsMenuButtons();
+  
+  // Toggle tools menu when clicking the tool area
+  toolArea.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleToolsMenu();
+  });
+  
+  // Close tools menu when clicking the close button
+  toolsCloseBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeToolsMenu();
+  });
+  
+  // Toggle minimize/expand when clicking the minimize button
+  toolsMinimizeBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleMinimizeState();
+  });
+  
+  // Close tools menu when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!toolsMenu.contains(e.target) && !toolArea.contains(e.target)) {
+      closeToolsMenu();
+    }
+  });
+  
+  // Close tools menu with Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && toolsMenu.classList.contains('show')) {
+      closeToolsMenu();
+    }
+  });
+  
+  // Prevent clicks inside the menu from closing it
+  toolsMenu.addEventListener('click', (e) => {
+    e.stopPropagation();
+  });
+  
+  // Helper function to toggle the menu open/close
+  function toggleToolsMenu() {
+    if (toolsMenu.classList.contains('show')) {
+      closeToolsMenu();
+    } else {
+      openToolsMenu();
+    }
+  }
+  
+  // Helper function to open the tools menu
+  function openToolsMenu() {
+    toolsMenu.classList.add('show');
+    updateToolsMenuButtons();
+  }
+  
+  // Helper function to close the tools menu
+  function closeToolsMenu() {
+    toolsMenu.classList.remove('show');
+    updateToolsMenuButtons();
+  }
+  
+  // Helper function to toggle between expanded and collapsed states
+  function toggleMinimizeState() {
+    if (toolsMenu.classList.contains('expanded')) {
+      // Switch to collapsed state
+      toolsMenu.classList.remove('expanded');
+      toolsMenu.classList.add('collapsed');
+    } else if (toolsMenu.classList.contains('collapsed')) {
+      // Switch to expanded state
+      toolsMenu.classList.remove('collapsed');
+      toolsMenu.classList.add('expanded');
+    }
+    updateToolsMenuButtons();
+  }
+  
+  // Helper function to update button icons based on menu state
+  function updateToolsMenuButtons() {
+    const isExpanded = toolsMenu.classList.contains('expanded');
+    const isCollapsed = toolsMenu.classList.contains('collapsed');
+    const isVisible = toolsMenu.classList.contains('show');
+    
+    // Update minimize button based on state
+    if (isExpanded) {
+      toolsMinimizeBtn.innerHTML = '<i class="fas fa-window-minimize"></i>';
+      toolsMinimizeBtn.title = 'Minimize';
+    } else if (isCollapsed) {
+      toolsMinimizeBtn.innerHTML = '<i class="fas fa-window-maximize"></i>';
+      toolsMinimizeBtn.title = 'Maximize';
+    }
+    
+    // Close button always stays the same
+    toolsCloseBtn.innerHTML = '<i class="fas fa-times"></i>';
+    toolsCloseBtn.title = 'Close (Esc)';
+    
+    // Update tool area indicator
+    if (isVisible) {
+      toolArea.classList.add('active');
+    } else {
+      toolArea.classList.remove('active');
+    }
+  }
+}
+// Call this function in your DOMContentLoaded event listener
+setupToolsMenu();
 // Add this function to initialize the amount sorter
 // Enhanced Amount Sorter with Drag and Minimize functionality
 function initializeAmountSorter() {
@@ -543,6 +662,7 @@ function shouldShowPDFUpload(bankKey) {
   // List of bank combinations where PDF upload should be hidden
   const restrictedBanks = [
       // Add more bank keys here as needed
+      'tdHistory', 'tdinPerson'
   ];
   return !restrictedBanks.includes(bankKey);
 }
@@ -990,8 +1110,9 @@ if (pdfUploadSection) {
 
 
 function setupFileUpload() {
-    const bankKey = getCombinedKey();
+  const bankKey = getCombinedKey();
   if (!shouldShowPDFUpload(bankKey)) return;
+  
   // Prevent default drag behaviors
   ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
     if (dropArea) dropArea.addEventListener(eventName, preventDefaults, false);
@@ -1001,17 +1122,21 @@ function setupFileUpload() {
   // Highlight drop area when item is dragged over it
   ['dragenter', 'dragover'].forEach(eventName => {
     if (dropArea) dropArea.addEventListener(eventName, highlight, false);
-    if (inputText) inputText.addEventListener(eventName, highlightInput, false);
   });
 
   ['dragleave', 'drop'].forEach(eventName => {
     if (dropArea) dropArea.addEventListener(eventName, unhighlight, false);
-    if (inputText) inputText.addEventListener(eventName, unhighlightInput, false);
   });
+
+  // Make drop area clickable to trigger file input
+  if (dropArea) {
+    dropArea.addEventListener('click', () => {
+      pdfUpload.click();
+    });
+  }
 
   // Handle dropped files
   if (dropArea) dropArea.addEventListener('drop', handleDrop, false);
-  if (inputText) inputText.addEventListener('drop', handleDrop, false);
   if (pdfUpload) pdfUpload.addEventListener('change', handleFiles);
   if (clearAllFiles) clearAllFiles.addEventListener('click', clearAllUploadedFiles);
   if (refreshFileListBtn) refreshFileListBtn.addEventListener('click', refreshInputTextFromFiles);
@@ -1029,14 +1154,6 @@ function setupFileUpload() {
     dropArea.classList.remove('highlight');
   }
 
-  function highlightInput() {
-    inputText.classList.add('drag-over');
-  }
-
-  function unhighlightInput() {
-    inputText.classList.remove('drag-over');
-  }
-
   async function handleDrop(e) {
     const dt = e.dataTransfer;
     const files = dt.files;
@@ -1044,46 +1161,44 @@ function setupFileUpload() {
   }
 
   async function handleFiles(e) {
-  const files = e.target.files;
-  if (!files.length) return;
+    const files = e.target.files;
+    if (!files.length) return;
 
-  fileListContainer.style.display = 'block'; // Remove the !important override
-  let pdfFilesProcessed = false; // Flag to track if any PDF files were successfully processed
+    fileListContainer.style.display = 'block';
+    let pdfFilesProcessed = false;
 
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    if (file.type !== 'application/pdf') {
-      showToast("Please upload a PDF file!", "error");
-      fileListContainer.style.display = 'none'; // Hide the file list container
-      continue; // Skip this file
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (file.type !== 'application/pdf') {
+        showToast("Please upload a PDF file!", "error");
+        fileListContainer.style.display = 'none';
+        continue;
+      }
+
+      const existingFile = uploadedFilesData.find(f => f.file.name === file.name && f.file.size === file.size);
+      if (existingFile) {
+        showToast(`File "${file.name}" is already uploaded.`, "info");
+        continue;
+      }
+
+      const fileItem = createFileItem(file);
+      fileList.appendChild(fileItem);
+
+      try {
+        const processedText = await window.bankUtils.processPDFFile(file);
+        uploadedFilesData.push({ file: file, text: processedText, element: fileItem });
+        pdfFilesProcessed = true;
+      } catch (error) {
+        console.error('Error processing PDF:', error);
+        showToast(`Error processing ${file.name}`, "error");
+        fileItem.remove();
+      }
     }
 
-    // Check if file already exists in uploadedFilesData
-    const existingFile = uploadedFilesData.find(f => f.file.name === file.name && f.file.size === file.size);
-    if (existingFile) {
-      showToast(`File "${file.name}" is already uploaded.`, "info");
-      continue; // Skip this file
-    }
-
-    const fileItem = createFileItem(file);
-    fileList.appendChild(fileItem);
-
-    try {
-      const processedText = await window.bankUtils.processPDFFile(file);
-      uploadedFilesData.push({ file: file, text: processedText, element: fileItem });
-      pdfFilesProcessed = true; // Set flag to true as a PDF was successfully processed
-    } catch (error) {
-      console.error('Error processing PDF:', error);
-      showToast(`Error processing ${file.name}`, "error");
-      fileItem.remove(); // Remove item if processing fails
+    if (pdfFilesProcessed) {
+      refreshInputTextFromFiles();
     }
   }
-
-  // Only refresh inputText and show toast if at least one PDF was processed
-  if (pdfFilesProcessed) {
-    refreshInputTextFromFiles();
-  }
-}
 
   function createFileItem(file) {
     const fileItem = document.createElement('div');
@@ -1134,15 +1249,15 @@ function setupFileUpload() {
     return fileItem;
   }
 
-  // In the removeFileItem function
-function removeFileItem(fileItemToRemove) {
-  uploadedFilesData = uploadedFilesData.filter(item => item.element !== fileItemToRemove);
-  fileItemToRemove.remove();
-  if (uploadedFilesData.length === 0) {  // Changed from fileList.children.length to uploadedFilesData.length
-    fileListContainer.style.display = 'none';
+  function removeFileItem(fileItemToRemove) {
+    uploadedFilesData = uploadedFilesData.filter(item => item.element !== fileItemToRemove);
+    fileItemToRemove.remove();
+    if (uploadedFilesData.length === 0) {
+      fileListContainer.style.display = 'none';
+    }
+    refreshInputTextFromFiles();
   }
-  refreshInputTextFromFiles();
-}
+
   function moveFileItem(fileItem, direction) {
     const currentIndex = Array.from(fileList.children).indexOf(fileItem);
     const newIndex = currentIndex + direction;
@@ -1152,10 +1267,8 @@ function removeFileItem(fileItemToRemove) {
       const currentItem = items[currentIndex];
       const targetItem = items[newIndex];
 
-      // Swap elements in the DOM
       fileList.insertBefore(currentItem, direction === -1 ? targetItem : targetItem.nextSibling);
 
-      // Update uploadedFilesData array to reflect new order
       const [removed] = uploadedFilesData.splice(currentIndex, 1);
       uploadedFilesData.splice(newIndex, 0, removed);
 
@@ -1163,23 +1276,21 @@ function removeFileItem(fileItemToRemove) {
     }
   }
 
-// In the clearAllUploadedFiles function
-function clearAllUploadedFiles() {
-  fileList.innerHTML = '';
-  inputText.value = '';
-  uploadedFilesData = [];
-  fileListContainer.style.display = 'none';  // This will hide the container
-  showToast('All uploaded files cleared!', 'success');
-}
+  function clearAllUploadedFiles() {
+    fileList.innerHTML = '';
+    inputText.value = '';
+    uploadedFilesData = [];
+    fileListContainer.style.display = 'none';
+    showToast('All uploaded files cleared!', 'success');
+  }
 
-  // New function to refresh inputText based on the current order of uploadedFilesData
   function refreshInputTextFromFiles() {
     let combinedText = '';
     uploadedFilesData.forEach((item, index) => {
       if (item.text) {
         combinedText += item.text;
         if (index < uploadedFilesData.length - 1) {
-          combinedText += '\n\n'; // Add two newlines between file contents
+          combinedText += '\n\n';
         }
       }
     });
@@ -1190,10 +1301,9 @@ function clearAllUploadedFiles() {
   // Initialize Sortable for file list reordering
   new Sortable(fileList, {
     animation: 150,
-    handle: '.file-item-name', // Only allow dragging from the file name area
+    handle: '.file-item-name',
     ghostClass: 'dragging',
     onEnd: (evt) => {
-      // Update uploadedFilesData array to reflect the new order after drag-and-drop
       const oldIndex = evt.oldIndex;
       const newIndex = evt.newIndex;
 

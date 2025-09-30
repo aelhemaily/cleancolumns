@@ -89,19 +89,115 @@
   <input type="text" id="yearInput" placeholder="Enter Year (optional)">
 
   
-
 <div id="pdfUploadSection" class="file-upload-container">
-  <div class="file-upload-controls">
-    <label for="pdfUpload" class="pdf-upload-btn">
-      <i class="fas fa-file-pdf"></i> Upload PDF
-    </label>
-    <input type="file" id="pdfUpload" accept=".pdf" multiple style="display: none;">
-    <div id="dropArea" class="drop-area">
-      <i class="fas fa-cloud-upload-alt"></i>
-      <p>Drag & Drop PDF files here</p>
+  <input type="file" id="pdfUpload" accept=".pdf" multiple style="display: none;">
+  <div id="dropArea" class="drop-area clickable-drop-area">
+    <i class="fas fa-file-pdf"></i>
+    <p>Click or Drop PDF here</p>
+  </div>
+</div>
+
+ <!-- Replace the existing tool-area with this expanded version -->
+<div class="tool-area" id="toolArea">
+  <i class="fas fa-cog"></i>
+  <p>Tools</p>
+</div>
+<!-- Tools Menu (initially hidden) -->
+<div id="toolsMenu" class="tools-menu">
+  <!-- Replace the existing tools menu header with this: -->
+<div class="tools-menu-header">
+  <h3>Tools Menu</h3>
+  <div class="tools-header-buttons">
+    <button class="tools-minimize-btn" title="Restore Down">
+      <i class="fas fa-window-restore"></i>
+    </button>
+    <button class="tools-close-btn" title="Close (Esc)">
+      <i class="fas fa-times"></i>
+    </button>
+  </div>
+</div>
+  
+<div class="tools-category">
+    <h4>QZEE Tools</h4>
+    <div class="tools-grid">
+      <a href="https://aelhemaily.github.io/cleancolumns/" target="_blank" class="tool-item" title="Clean Columns">
+        <div class="tool-icon qzee-icon">
+          <i class="fas fa-columns"></i>
+        </div>
+        <span class="tool-name">Clean Columns</span>
+      </a>
+      <a href="https://aelhemaily.github.io/numbersorter/" target="_blank" class="tool-item" title="Number Sorter">
+        <div class="tool-icon qzee-icon">
+          <i class="fas fa-sort-amount-down"></i>
+        </div>
+        <span class="tool-name">Number Sorter</span>
+      </a>
+      <a href="https://aelhemaily.github.io/rowcleaner/" target="_blank" class="tool-item" title="Row Cleaner">
+        <div class="tool-icon qzee-icon">
+          <i class="fas fa-broom"></i>
+        </div>
+        <span class="tool-name">Row Cleaner</span>
+      </a>
+      <a href="https://aelhemaily.github.io/datefilter" target="_blank" class="tool-item" title="Date Filter">
+        <div class="tool-icon qzee-icon">
+          <i class="fas fa-filter"></i>
+        </div>
+        <span class="tool-name">Date Filter</span>
+      </a>
+      <a href="https://aelhemaily.github.io/Regopad" target="_blank" class="tool-item" title="Regopad">
+        <div class="tool-icon qzee-icon">
+          <i class="fas fa-edit"></i>
+        </div>
+        <span class="tool-name">Regopad</span>
+      </a>
+      <a href="https://aelhemaily.github.io/Ttrimmer" target="_blank" class="tool-item" title="Transaction Trimmer">
+        <div class="tool-icon qzee-icon">
+          <i class="fa-solid fa-scissors"></i>
+        </div>
+        <span class="tool-name">Transaction Trimmer</span>
+      </a>
+    </div>
+  </div>
+
+<div class="tools-category">
+    <h4>AI Tools</h4>
+    <div class="tools-grid">
+      <a href="https://chat.deepseek.com/" target="_blank" class="tool-item" title="DeepSeek AI">
+        <div class="tool-icon deepseek-icon">
+          <i class="fas fa-brain"></i>
+        </div>
+        <span class="tool-name">DeepSeek</span>
+      </a>
+      <a href="https://gemini.google.com/" target="_blank" class="tool-item" title="Gemini AI">
+        <div class="tool-icon gemini-icon">
+          <i class="fas fa-robot"></i>
+        </div>
+        <span class="tool-name">Gemini</span>
+      </a>
+      <!-- You can add more AI tools here -->
+    </div>
+  </div>
+  
+<div class="tools-category">
+    <h4>PDF Tools</h4>
+    <div class="tools-grid">
+      <a href="https://smallpdf.com/pdf-ocr" target="_blank" class="tool-item" title="SmallPDF OCR">
+        <div class="tool-icon smallpdf-icon">
+          <i class="fas fa-file-pdf"></i>
+        </div>
+        <span class="tool-name">SmallPDF</span>
+      </a>
+      <a href="https://www.ilovepdf.com/ocr-pdf" target="_blank" class="tool-item" title="ILovePDF OCR">
+        <div class="tool-icon ilovepdf-icon">
+          <i class="fas fa-file-alt"></i>
+        </div>
+        <span class="tool-name">ILovePDF</span>
+      </a>
+      <!-- You can add more PDF tools here -->
     </div>
   </div>
 </div>
+
 
 <!-- Add this right after the PDF upload section -->
 <!-- Replace the existing amount sorter section with this -->
@@ -166,20 +262,20 @@
 </button>
     <div id="toolbar" class="toolbar">
       <button id="exportExcelBtn" class="toolbar-btn" title="Export to Excel"><i class="fas fa-file-excel"></i></button>
-      <button id="exportPDFBtn" class="toolbar-btn" title="Export to PDF"><i class="fas fa-file-pdf"></i></button>
-      <button id="exportWordBtn" class="toolbar-btn" title="Export to Word"><i class="fas fa-file-word"></i></button>
-      <span class="toolbar-separator"></span>
+     <!--  <button id="exportPDFBtn" class="toolbar-btn" title="Export to PDF"><i class="fas fa-file-pdf"></i></button>
+      <button id="exportWordBtn" class="toolbar-btn" title="Export to Word"><i class="fas fa-file-word"></i></button> -->
+    <span class="toolbar-separator"></span>
       <button id="copyTableBtn" class="toolbar-btn" title="Copy Whole Table"><i class="fa-solid fa-clipboard"></i></button>
       <span class="toolbar-separator"></span>
       <button id="undoBtn" class="toolbar-btn" title="Undo (Ctrl+Z)"><i class="fas fa-undo"></i></button>
       <button id="redoBtn" class="toolbar-btn" title="Redo (Ctrl+Y)"><i class="fas fa-redo"></i></button>
       <span class="toolbar-separator"></span>
       <button id="addColumnBtn" class="toolbar-btn" title="Add Column Before ACC"><i class="fas fa-plus-square"></i></button>
-      <span class="toolbar-separator"></span>
+      
 <button id="selectModeToggle" class="toolbar-btn" title="Toggle Select Mode">
 
 </button>
-<span class="toolbar-separator"></span>
+
     </div>
   </div>
 
