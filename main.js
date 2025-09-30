@@ -1205,6 +1205,72 @@ function clearAllUploadedFiles() {
   });
 }
 
+function setupBankSpecificMessages() {
+  const bankKey = getCombinedKey();
+  
+  // Remove any existing messages
+  const existingMessage = document.querySelector('.bank-specific-message');
+  if (existingMessage) {
+    existingMessage.remove();
+  }
+
+  // PDF Upload Only banks
+  const pdfOnlyBanks = ['boaCard', 'amexCard', 'craHistory', 'craPayroll'];
+  
+  // Image Script banks  
+  const imageScriptBanks = ['tdHistory', 'tdinPerson'];
+
+  if (pdfOnlyBanks.includes(bankKey)) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'bank-specific-message pdf-upload-only';
+    messageDiv.innerHTML = '<i class="fas fa-exclamation-triangle"></i> PDF Upload Only!';
+    
+    // Insert after the method indicator
+    const methodIndicator = document.getElementById('methodIndicator');
+    if (methodIndicator && methodIndicator.parentNode) {
+      methodIndicator.parentNode.insertBefore(messageDiv, methodIndicator.nextSibling);
+    }
+  } else if (imageScriptBanks.includes(bankKey)) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'bank-specific-message image-script';
+    messageDiv.innerHTML = '<i class="fas fa-camera"></i> Image Script';
+    
+    // Insert after the method indicator
+    const methodIndicator = document.getElementById('methodIndicator');
+    if (methodIndicator && methodIndicator.parentNode) {
+      methodIndicator.parentNode.insertBefore(messageDiv, methodIndicator.nextSibling);
+    }
+  }
+}
+
+// Call the function in appropriate places
+setupBankSpecificMessages(); // Initial call
+
+// Also call when bank/type changes
+document.getElementById('bankSelector').addEventListener('change', setupBankSpecificMessages);
+typeSelector.addEventListener('change', setupBankSpecificMessages);
+
+// Call the function in appropriate places
+setupBankSpecificMessages(); // Initial call
+
+// Also call when bank/type changes
+document.getElementById('bankSelector').addEventListener('change', setupBankSpecificMessages);
+typeSelector.addEventListener('change', setupBankSpecificMessages);
+
+// Call the function in appropriate places
+setupBankSpecificMessages(); // Initial call
+
+// Also call when bank/type changes
+document.getElementById('bankSelector').addEventListener('change', setupBankSpecificMessages);
+typeSelector.addEventListener('change', setupBankSpecificMessages);
+
+// Call the function in appropriate places
+setupBankSpecificMessages(); // Initial call
+
+// Also call when bank/type changes
+document.getElementById('bankSelector').addEventListener('change', setupBankSpecificMessages);
+typeSelector.addEventListener('change', setupBankSpecificMessages);
+
   // ADD THIS NEW FUNCTION
   function checkAndRemoveEmptyBalanceColumn() {
     const table = document.querySelector('#output table');
@@ -1257,31 +1323,34 @@ window.bankUtils.processPDFFile = async function(file) {
 };
 
   window.bankUtils.copyTable = function () {
-    const table = document.querySelector('#output table');
-    if (!table) return;
+  const table = document.querySelector('#output table');
+  if (!table) return;
 
-    const rows = Array.from(table.querySelectorAll('tr')); // Get all rows, including header
+  const rows = Array.from(table.querySelectorAll('tr')); // Get all rows, including header
 
-    // Find the index of the "Balance" column in the header row
-    const headerCells = Array.from(rows[0].cells);
-    const balanceColIndex = headerCells.findIndex(cell => cell.textContent.trim().toLowerCase() === 'balance');
+  // Find the indices of columns to exclude
+  const headerCells = Array.from(rows[0].cells);
+  const balanceColIndex = headerCells.findIndex(cell => cell.textContent.trim().toLowerCase() === 'balance');
+  const categoryColIndex = headerCells.findIndex(cell => cell.textContent.trim().toLowerCase() === 'category');
 
-    const content = rows.slice(1).map(row => // Start from the second row (skip header)
-      Array.from(row.cells)
-      .filter((cell, index) => {
-        // Ignore the first column (#) and the balance column
-        return index !== 0 && (balanceColIndex === -1 || index !== balanceColIndex);
-      })
-      .map(cell => cell.textContent.trim())
-      .join('\t')
-    ).join('\n');
+  const content = rows.slice(1).map(row => // Start from the second row (skip header)
+    Array.from(row.cells)
+    .filter((cell, index) => {
+      // Ignore the first column (#), balance column, AND category column
+      return index !== 0 && 
+             (balanceColIndex === -1 || index !== balanceColIndex) &&
+             (categoryColIndex === -1 || index !== categoryColIndex);
+    })
+    .map(cell => cell.textContent.trim())
+    .join('\t')
+  ).join('\n');
 
-    navigator.clipboard.writeText(content).then(() => {
-      showToast('Table copied!', 'success');
-    }).catch(err => {
-      console.error('Copy table failed:', err);
-    });
-  };
+  navigator.clipboard.writeText(content).then(() => {
+    showToast('Table copied!', 'success');
+  }).catch(err => {
+    console.error('Copy table failed:', err);
+  });
+};
 
   function showToast(message, type = 'success') {
 

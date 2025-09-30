@@ -1,3 +1,251 @@
+// rbcAccount.js - Complete file with PDF processing capability
+
+// PDF Processing Function
+window.bankUtils = window.bankUtils || {};
+
+window.bankUtils.processPDFFile = async function(file) {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+    let allPageLines = [];
+
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const textContent = await page.getTextContent();
+      
+      const sortedItems = textContent.items.sort((a, b) => {
+        const yDiff = Math.abs(a.transform[5] - b.transform[5]);
+        if (yDiff > 5) {
+          return b.transform[5] - a.transform[5];
+        }
+        return a.transform[4] - b.transform[4];
+      });
+
+      let currentLine = [];
+      let lastY = null;
+
+      for (let item of sortedItems) {
+        const y = item.transform[5];
+        
+        if (lastY !== null && Math.abs(y - lastY) > 5) {
+          if (currentLine.length > 0) {
+            allPageLines.push(currentLine.map(i => i.str).join(' ').trim());
+            currentLine = [];
+          }
+        }
+        
+        if (item.str.trim()) {
+          currentLine.push(item);
+        }
+        lastY = y;
+      }
+      
+      if (currentLine.length > 0) {
+        allPageLines.push(currentLine.map(i => i.str).join(' ').trim());
+      }
+    }
+
+    return parseTransactions(allPageLines);
+  } catch (error) {
+    console.error('Error processing PDF:', error);
+    throw error;
+  }
+};
+
+function parseTransactions(lines) {
+  let result = '';
+  
+  // Find opening balance
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].toLowerCase();
+    if (line.includes('opening balance')) {
+      const match = lines[i].match(/[-$]?\d{1,3}(,\d{3})*\.\d{2}/);
+      if (match) {
+        result += `Opening balance ${match[0].replace(/[$,]/g, '')}\n`;
+        break;
+      }
+    }
+  }
+
+  // Find transaction section
+  let startIdx = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].toLowerCase();
+    if ((line.includes('date') && line.includes('description')) ||
+        (line === 'date' && i + 1 < lines.length && lines[i + 1].toLowerCase().includes('description'))) {
+      startIdx = i + 1;
+      while (startIdx < lines.length && 
+             (lines[startIdx].toLowerCase().includes('balance') ||
+              lines[startIdx].toLowerCase().includes('withdrawals') ||
+              lines[startIdx].toLowerCase().includes('deposits') ||
+              lines[startIdx].toLowerCase().includes('cheques') ||
+              lines[startIdx].toLowerCase().includes('debits') ||
+              lines[startIdx].toLowerCase().includes('credits') ||
+              lines[startIdx].match(/^[\(\$\)]+$/))) {
+        startIdx++;
+      }
+      break;
+    }
+  }
+
+  if (startIdx === -1) return result;
+
+  let endIdx = lines.length;
+  for (let i = startIdx; i < lines.length; i++) {
+    const line = lines[i].toLowerCase();
+    if ((line.includes('closing') && line.includes('balance') && !line.includes('opening')) ||
+        line.includes('account fees:') ||
+        line.includes('serial #:') ||
+        line.startsWith('please check this') ||
+        line.startsWith('if you opted')) {
+      endIdx = i;
+      break;
+    }
+  }
+
+  // Process all lines into raw transaction data
+  let currentDate = '';
+  const rawTransactions = [];
+
+  for (let i = startIdx; i < endIdx; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    // Skip header/footer lines
+    const lower = line.toLowerCase();
+    if (lower.includes('business account statement') ||
+        lower.includes('account number:') ||
+        lower.includes('account activity details') ||
+        lower.includes('date description') ||
+        lower.match(/^\d+ of \d+$/) ||
+        lower.match(/^(january|february|march|april|may|june|july|august|september|october|november|december) \d+, \d{4} to/i) ||
+        lower.includes('cheques & debits') ||
+        lower.includes('deposits & credits') ||
+        lower.includes('balance ($)') ||
+        lower.includes('withdrawals ($)') ||
+        lower.includes('your rbc personal banking') ||
+        lower.includes('account statement') ||
+        lower.match(/rbpda\d+_\d+_\d+/) ||
+        lower.match(/from \w+ \d+, \d{4} to/) ||
+        lower.includes('details of your account activity')) {
+      continue;
+    }
+
+    const dateMatch = line.match(/^(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec))\s+(.*)$/i);
+    
+    if (dateMatch) {
+      currentDate = dateMatch[1];
+      let remainder = dateMatch[2].trim();
+      
+      // Clean up any embedded header text
+      remainder = remainder.replace(/RBPDA\d+_\d+_\d+[^\d]+-[^\d]+\d+[^\d]+-[^\d]+\d+[^\d]+-[^\d]+\d+[^\d]+-[^\d]+\d+[^\d]+-[^\d]+-[^\d]+-?/gi, '');
+      remainder = remainder.replace(/Your RBC personal banking account statement/gi, '');
+      remainder = remainder.replace(/From \w+ \d+, \d{4} to \w+ \d+, \d{4}/gi, '');
+      remainder = remainder.replace(/Details of your account activity - continued/gi, '');
+      remainder = remainder.trim();
+      
+      if (remainder) {
+        rawTransactions.push({ date: currentDate, text: remainder });
+      }
+    } else if (currentDate) {
+      rawTransactions.push({ date: currentDate, text: line });
+    }
+  }
+
+  // Now parse each raw transaction into actual transactions
+  const transactions = [];
+  let pendingDesc = '';
+  let pendingDate = '';
+
+  for (let raw of rawTransactions) {
+    const text = raw.text;
+    const date = raw.date;
+
+    // Find all amounts
+    const amountRegex = /\d{1,3}(,\d{3})*\.\d{2}/g;
+    const amounts = [];
+    let match;
+    
+    while ((match = amountRegex.exec(text)) !== null) {
+      amounts.push({
+        value: match[0],
+        index: match.index
+      });
+    }
+
+    if (amounts.length === 0) {
+      // No amounts - description continuation
+      pendingDesc += (pendingDesc ? ' ' : '') + text;
+      pendingDate = date;
+      continue;
+    }
+
+    // Process amounts and their descriptions
+    let lastEnd = 0;
+
+    for (let j = 0; j < amounts.length; j++) {
+      const amt = amounts[j];
+      let desc = text.substring(lastEnd, amt.index).trim();
+
+      // Check if we have a pending description
+      if (pendingDesc) {
+        desc = pendingDesc + (desc ? ' ' + desc : '');
+        pendingDesc = '';
+      }
+
+      // Determine if this is a new transaction
+      if (desc.length > 0) {
+        // New transaction
+        const txn = {
+          date: date,
+          description: desc,
+          amounts: [amt.value]
+        };
+
+        // Check if next amount is a balance (within 5 chars)
+        if (j + 1 < amounts.length) {
+          const nextAmt = amounts[j + 1];
+          const gap = text.substring(amt.index + amt.value.length, nextAmt.index).trim();
+          if (gap.length < 5) {
+            txn.amounts.push(nextAmt.value);
+            j++;
+            lastEnd = nextAmt.index + nextAmt.value.length;
+          } else {
+            lastEnd = amt.index + amt.value.length;
+          }
+        } else {
+          lastEnd = amt.index + amt.value.length;
+        }
+
+        transactions.push(txn);
+      } else if (transactions.length > 0) {
+        // No description - add to last transaction as balance
+        transactions[transactions.length - 1].amounts.push(amt.value);
+        lastEnd = amt.index + amt.value.length;
+      }
+    }
+
+    // Check if there's trailing text (continuation)
+    const trailing = text.substring(lastEnd).trim();
+    if (trailing && trailing.length > 2 && !trailing.match(/^\d/)) {
+      pendingDesc = trailing;
+      pendingDate = date;
+    }
+  }
+
+  // Output all transactions
+  for (let txn of transactions) {
+    let line = txn.date + ' ' + txn.description;
+    for (let amt of txn.amounts) {
+      line += ' ' + amt;
+    }
+    result += line + '\n';
+  }
+
+  return result;
+}
+
+// Main processing function
 function processData() {
   const input = document.getElementById('inputText').value.trim();
   const yearInput = document.getElementById('yearInput').value.trim();
@@ -13,15 +261,15 @@ function processData() {
   const table = document.createElement('table');
 
   // Define words to highlight
-  const highlightWords = ["payment"]; // Array for words to be highlighted
+  const highlightWords = ["payment"];
 
   // Add CSS for highlighting directly in JS
   if (!document.getElementById('highlight-style')) {
     const style = document.createElement('style');
     style.id = 'highlight-style';
     style.textContent = `
-      table td.highlight-word { /* Made selector more specific */
-        background-color: #ffe0e0 !important; /* Added !important to ensure precedence */
+      table td.highlight-word {
+        background-color: #ffe0e0 !important;
       }
     `;
     document.head.appendChild(style);
@@ -60,135 +308,157 @@ function processData() {
                           line.toLowerCase().includes('balance forward') ||
                           line.toLowerCase().includes('closing balance');
 
-    // Handle balance lines: skip them, but extract and use their date and balance if present
     if (isBalanceLine) {
       const amountMatch = line.match(/(-?\d{1,3}(?:,\d{3})*\.\d{2})/);
       if (amountMatch) {
         currentBalance = parseFloat(amountMatch[0].replace(/,/g, ''));
       }
 
-      // Check for date in balance line (e.g., "Jan 29 Balance forward")
       const dateMatchInBalance = line.match(/(\d{1,2}\s[A-Za-z]{3})/);
       if (dateMatchInBalance) {
-          currentDate = dateMatchInBalance[1]; // Set currentDate for subsequent dateless transactions
+          currentDate = dateMatchInBalance[1];
       }
-      i++; // Move to the next line
-      continue; // Skip adding this balance line to the output rows
-    }
-
-    // Check for date line (e.g. "02 Jan") - This now only handles *non-balance* dated lines
-    const dateMatch = line.match(/^(\d{1,2}\s[A-Za-z]{3})\s(.+)/);
-    if (dateMatch) {
-      currentDate = dateMatch[1];
-      const restOfLine = dateMatch[2]; // This is the description part without the date
-      processRbcTransaction(currentDate, [restOfLine]); // Pass only the description part
       i++;
       continue;
     }
 
-    // Handle continuation lines (no date) - This now only handles *non-balance* dateless lines
+    const dateMatch = line.match(/^(\d{1,2}\s[A-Za-z]{3})\s(.+)/);
+    if (dateMatch) {
+      currentDate = dateMatch[1];
+      const restOfLine = dateMatch[2];
+      processRbcTransaction(currentDate, [restOfLine]);
+      i++;
+      continue;
+    }
+
     if (currentDate) {
       processRbcTransaction(currentDate, [line]);
       i++;
       continue;
     }
 
-    i++; // Skip lines we can't process
+    i++;
   }
 
   function processRbcTransaction(date, initialDescriptionParts) {
     let transactionLines = []; 
     let amountFound = false;
     let newBalance = null;
-    let transactionAmount = null; // This will hold the debit/credit amount
+    let transactionAmount = null;
 
-    // Start with the initial description parts if they exist
     if (initialDescriptionParts.length > 0 && initialDescriptionParts[0].trim() !== '') {
         transactionLines.push(initialDescriptionParts[0].trim());
     }
 
-    // Look ahead to find the amount line and collect description parts
-    // j iterates from the current global 'i' (which is the start of the current transaction block)
-    // up to the end of the lines.
-    let amountLineFoundIndex = -1; // To store the index of the line where amounts are found
+    let amountLineFoundIndex = -1;
 
     for (let j = i; j < lines.length; j++) {
         const currentLine = lines[j];
         
-        // If the current line is a balance line, stop collecting description parts for the current transaction
         const isCurrentLineBalance = currentLine.toLowerCase().includes('opening balance') ||
                                      currentLine.toLowerCase().includes('balance forward') ||
                                      currentLine.toLowerCase().includes('closing balance');
         if (isCurrentLineBalance) {
-            break; // Stop processing this transaction if a balance line is hit
+            break;
         }
 
-        // Regex to find 1 or 2 currency amounts at the very end of the line.
-        // Captures the part *before* the amounts (which is the description segment for this line).
-        // Group 1: description part (optional)
-        // Group 2: first amount string
-        // Group 3: second amount string (balance, optional)
+        // Check if line contains @ symbol - this affects how we parse amounts
+        const hasAtSymbol = currentLine.includes('@');
+        
+        if (hasAtSymbol) {
+            // Special handling for @ symbol lines
+            // Format: "description @ amount1 amount2 amount3"
+            // We need to find ALL amounts, not just the last 2
+            const amountRegex = /\d{1,3}(?:,\d{3})*\.\d{2}/g;
+            const allAmounts = [];
+            let amountMatch;
+            while ((amountMatch = amountRegex.exec(currentLine)) !== null) {
+                allAmounts.push({
+                    value: amountMatch[0],
+                    index: amountMatch.index
+                });
+            }
+            
+            if (allAmounts.length >= 2) {
+                // Find the @ position
+                const atIndex = currentLine.indexOf('@');
+                
+                // Find which amount comes right after @
+                let amountAfterAt = -1;
+                for (let k = 0; k < allAmounts.length; k++) {
+                    if (allAmounts[k].index > atIndex) {
+                        amountAfterAt = k;
+                        break;
+                    }
+                }
+                
+                if (amountAfterAt !== -1 && amountAfterAt < allAmounts.length - 1) {
+                    // We have at least one amount after the @ amount
+                    // Get description up to and including the first amount after @
+                    const descEndIndex = allAmounts[amountAfterAt].index + allAmounts[amountAfterAt].value.length;
+                    const descPart = currentLine.substring(0, descEndIndex).trim();
+                    
+                    // The next amount is the transaction amount
+                    transactionAmount = parseFloat(allAmounts[amountAfterAt + 1].value.replace(/,/g, ''));
+                    
+                    // If there's another amount after that, it's the balance
+                    newBalance = (amountAfterAt + 2 < allAmounts.length) 
+                        ? parseFloat(allAmounts[amountAfterAt + 2].value.replace(/,/g, '')) 
+                        : null;
+                    
+                    if (j === i && initialDescriptionParts.length > 0 && initialDescriptionParts[0].trim() !== '') {
+                        transactionLines[0] = descPart;
+                    } else {
+                        transactionLines.push(descPart);
+                    }
+                    
+                    amountFound = true;
+                    amountLineFoundIndex = j;
+                    break;
+                }
+            }
+            // If we can't parse it properly with @, continue to next line
+            continue;
+        }
+        
+        // Normal case: no @ symbol
         const regexToEndOfLineAmounts = /(.*?)\s*(-?\d{1,3}(?:,\d{3})*\.\d{2})\s*(?:(-?\d{1,3}(?:,\d{3})*\.\d{2}))?$/;
         const match = currentLine.match(regexToEndOfLineAmounts);
 
         if (match) {
-            // Found the amounts line.
-            // Match[1] is the description part from this line (before the amounts).
-            // Match[2] is the first amount.
-            // Match[3] is the second amount (balance), if present.
-
-            const descPart = match[1] ? match[1].trim() : ''; // Description from this line before the amounts
+            const descPart = match[1] ? match[1].trim() : '';
             transactionAmount = parseFloat(match[2].replace(/,/g, ''));
             newBalance = match[3] ? parseFloat(match[3].replace(/,/g, '')) : null;
             
-            // Add the description part from this line if it's not empty and it's a new line,
-            // or if it's the first line and initialDescriptionParts was empty.
-            // This condition ensures we don't duplicate the first line's description if it was already pushed.
             if (descPart !== '' && (j > i || initialDescriptionParts.length === 0 || initialDescriptionParts[0].trim() === '')) {
                 transactionLines.push(descPart);
             } else if (j === i && initialDescriptionParts.length > 0 && initialDescriptionParts[0].trim() !== '') {
-                // If it's the very first line of the transaction and it had a description part,
-                // ensure we override it with the more accurate one from this regex match.
-                // This prevents cases where a prior date match was used to push a partial description.
                 if (transactionLines.length > 0 && transactionLines[0] !== descPart) {
                     transactionLines[0] = descPart;
                 }
             }
+            
             amountFound = true;
-            amountLineFoundIndex = j; // Store the index of the line where amounts are found
-            break; // Exit the loop, we found the amounts for this transaction
+            amountLineFoundIndex = j;
+            break;
         } else {
-            // This line does not contain the final amounts, so it's purely a description part.
-            // Add it to transactionLines.
-            // Only add if it's a new line (j > i) and it's not empty.
-            // The initialDescriptionParts[0] is handled by the first push to transactionLines outside this loop,
-            // or by the 'if (match)' block above if amounts are on the first line.
             if (j > i && currentLine.trim() !== '') {
                 transactionLines.push(currentLine.trim());
             }
         }
     }
 
-    if (!amountFound || transactionAmount === null) return; // No amounts found for this transaction, skip
+    if (!amountFound || transactionAmount === null) return;
 
-    // The full description is now the joined transactionLines.
-    // Filter out potential empty strings from `transactionLines` before joining.
     let fullDescription = transactionLines
         .filter(part => part.trim() !== '')
         .join(' ')
-        .replace(/\s\s+/g, ' ') // Replace multiple spaces with a single space
+        .replace(/\s\s+/g, ' ')
         .trim();
 
-    // NEW: Remove common date patterns from the fullDescription
-    // This regex looks for patterns like "DD Mon" or "DD Mon YYYY" at the beginning of the string
-    // and removes them. It's applied after the initial parsing to ensure dates are stripped
-    // specifically from the description, not from potential amount lines.
     const datePatternInDescription = /^(?:(?:\d{1,2}\s(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)(?:\s+\d{2,4})?)\s*)+/i;
     fullDescription = fullDescription.replace(datePatternInDescription, '').trim();
 
-
-    // Ensure the global 'i' (outer loop index) is updated correctly.
-    // It should move to the line *after* the amounts were found.
     if (amountLineFoundIndex !== -1) {
         i = amountLineFoundIndex; 
     }
@@ -196,64 +466,55 @@ function processData() {
     let debit = '', credit = '';
     let allocatedByKeywords = false;
 
-    // --- Start of Modified Logic for Hard Rules with intuitive overrides ---
-
-    // Define hardcoded keyword arrays
     const hardcodedDebitKeywords = ["e-transfer sent", "e-Transfer sent"];
     const hardcodedCreditKeywords = ["nsf", "refund", "CPP CANADA"];
 
-    // NEW: Rule #1 - Super Keywords (case-insensitive)
     const superDebitKeywords = 
-    ["Online Transfer to Deposit Account", "Monthly Fee",  "PAY EMP-VENDOR",
+    ["Online Transfer to Deposit Account", "Monthly Fee", "PAY EMP-VENDOR",
       "Telephone Banking transfer", "transfer sent", "special deposit", "Online banking transfer"
     ];
-    const superCreditKeywords = ["e-transfer received", "payment received", "Misc Payment Uber Holdings C" , "Misc Payment Lyft", "Prov/Local Gvt Payment",
-      "carbon rebate", "seniors rebate", "CPP CANADA", "Old Age Security",  "SQUARE CANADA", "Square, Inc"
+    const superCreditKeywords = ["e-transfer received", "payment received", "Misc Payment Uber Holdings C", "Misc Payment Lyft", "Prov/Local Gvt Payment",
+      "carbon rebate", "seniors rebate", "CPP CANADA", "Old Age Security", "SQUARE CANADA", "Square, Inc"
     ];
 
     const lowerCaseDescription = fullDescription.toLowerCase();
 
-    // Priority 1: Check for SUPER debit keywords (highest priority)
     const isSuperDebit = superDebitKeywords.some(keyword => lowerCaseDescription.includes(keyword.toLowerCase()));
     if (isSuperDebit) {
-        debit = transactionAmount.toFixed(2); // Use transactionAmount
+        debit = transactionAmount.toFixed(2);
         currentBalance = currentBalance !== null ? currentBalance - transactionAmount : null;
         allocatedByKeywords = true;
     } else {
-        // Priority 2: If no SUPER debit, check for SUPER credit keywords
         const isSuperCredit = superCreditKeywords.some(keyword => lowerCaseDescription.includes(keyword.toLowerCase()));
         if (isSuperCredit) {
-            credit = transactionAmount.toFixed(2); // Use transactionAmount
+            credit = transactionAmount.toFixed(2);
             currentBalance = currentBalance !== null ? currentBalance + transactionAmount : null;
             allocatedByKeywords = true;
         } else {
-            // Original Priority 1: Check for override debit keywords (now effectively Priority 3)
-            const overrideDebitKeywords = ["fee"]; // Existing override keywords
+            const overrideDebitKeywords = ["fee"];
             const isOverrideDebit = overrideDebitKeywords.some(keyword => lowerCaseDescription.includes(keyword));
 
             if (isOverrideDebit) {
-              debit = transactionAmount.toFixed(2); // Use transactionAmount
+              debit = transactionAmount.toFixed(2);
               currentBalance = currentBalance !== null ? currentBalance - transactionAmount : null;
               allocatedByKeywords = true;
             } else {
-              // Original Priority 2: If no override debit, check for override credit keywords (now effectively Priority 4)
-              const overrideCreditKeywords = ["Misc Payment Uber Holdings C", "CPP CANADA"]; // Existing override keywords
+              const overrideCreditKeywords = ["Misc Payment Uber Holdings C", "CPP CANADA"];
               const isOverrideCredit = overrideCreditKeywords.some(keyword => lowerCaseDescription.includes(keyword));
               if (isOverrideCredit) {
-                credit = transactionAmount.toFixed(2); // Use transactionAmount
+                credit = transactionAmount.toFixed(2);
                 currentBalance = currentBalance !== null ? currentBalance + transactionAmount : null;
                 allocatedByKeywords = true;
               } else {
-                // Original Priority 3: If no overrides, check other hardcoded debit and credit keywords (now effectively Priority 5)
                 let isHardcodedDebit = hardcodedDebitKeywords.some(keyword => lowerCaseDescription.includes(keyword));
                 let isHardcodedCredit = hardcodedCreditKeywords.some(keyword => lowerCaseDescription.includes(keyword));
 
                 if (isHardcodedDebit) {
-                  debit = transactionAmount.toFixed(2); // Use transactionAmount
+                  debit = transactionAmount.toFixed(2);
                   currentBalance = currentBalance !== null ? currentBalance - transactionAmount : null;
                   allocatedByKeywords = true;
                 } else if (isHardcodedCredit) {
-                  credit = transactionAmount.toFixed(2); // Use transactionAmount
+                  credit = transactionAmount.toFixed(2);
                   currentBalance = currentBalance !== null ? currentBalance + transactionAmount : null;
                   allocatedByKeywords = true;
                 }
@@ -261,14 +522,11 @@ function processData() {
             }
         }
     }
-    // --- End of Modified Logic for Hard Rules with intuitive overrides ---
 
-    // 2. General Keyword Matching (if not already allocated by hard rules)
     if (!allocatedByKeywords && window.bankUtils?.keywords) {
       let bestDebitMatch = '';
       let bestCreditMatch = '';
 
-      // Find the most specific debit keyword match
       if (window.bankUtils.keywords.debit) {
         window.bankUtils.keywords.debit.forEach(kw => {
           if (lowerCaseDescription.includes(kw.toLowerCase()) && kw.length > bestDebitMatch.length) {
@@ -277,7 +535,6 @@ function processData() {
         });
       }
 
-      // Find the most specific credit keyword match
       if (window.bankUtils.keywords.credit) {
         window.bankUtils.keywords.credit.forEach(kw => {
           if (lowerCaseDescription.includes(kw.toLowerCase()) && kw.length > bestCreditMatch.length) {
@@ -286,40 +543,35 @@ function processData() {
         });
       }
 
-      // Determine allocation based on best match
       if (bestDebitMatch.length > 0 && bestDebitMatch.length >= bestCreditMatch.length) {
-        // If there's a debit match and it's as good or better than credit match
-        debit = transactionAmount.toFixed(2); // Use transactionAmount
+        debit = transactionAmount.toFixed(2);
         currentBalance = currentBalance !== null ? currentBalance - transactionAmount : null;
         allocatedByKeywords = true;
       } else if (bestCreditMatch.length > 0) {
-        // If there's a credit match (and it's better than debit, or no debit match)
-        credit = transactionAmount.toFixed(2); // Use transactionAmount
+        credit = transactionAmount.toFixed(2);
         currentBalance = currentBalance !== null ? currentBalance + transactionAmount : null;
         allocatedByKeywords = true;
       }
     }
 
-    // 3. Secondary Method: Balance Tracking if not allocated by keywords
     if (!allocatedByKeywords && currentBalance !== null && newBalance !== null) {
       const balanceChange = newBalance - currentBalance;
 
-      if (Math.abs(balanceChange - transactionAmount) < 0.01) { // Use transactionAmount
-        credit = transactionAmount.toFixed(2); // Use transactionAmount
+      if (Math.abs(balanceChange - transactionAmount) < 0.01) {
+        credit = transactionAmount.toFixed(2);
         currentBalance = newBalance;
-      } else if (Math.abs(balanceChange + transactionAmount) < 0.01) { // Use transactionAmount
-        debit = transactionAmount.toFixed(2); // Use transactionAmount
+      } else if (Math.abs(balanceChange + transactionAmount) < 0.01) {
+        debit = transactionAmount.toFixed(2);
         currentBalance = newBalance;
       } else {
-        debit = transactionAmount.toFixed(2); // Default to debit if balance tracking ambiguous
+        debit = transactionAmount.toFixed(2);
         currentBalance = newBalance;
       }
-      allocatedByKeywords = true; // Mark as allocated to prevent default fallback
+      allocatedByKeywords = true;
     }
 
-    // 4. Third Option: Default to Debit if all fails
     if (!allocatedByKeywords) {
-      debit = transactionAmount.toFixed(2); // Use transactionAmount
+      debit = transactionAmount.toFixed(2);
       currentBalance = currentBalance !== null ? currentBalance - transactionAmount : null;
     }
 
@@ -331,7 +583,6 @@ function processData() {
       newBalance !== null ? formatBalance(newBalance) : (currentBalance !== null ? formatBalance(currentBalance) : '')
     ]);
 
-    // Update the global 'i' to the line where amounts were found, so the outer loop continues from there.
     if (amountLineFoundIndex !== -1) {
       i = amountLineFoundIndex; 
     }
@@ -344,8 +595,7 @@ function processData() {
       const td = document.createElement('td');
       td.textContent = cell;
 
-      // Apply highlight if the cell content contains any of the highlight words
-      const lowerCaseCellContent = String(cell).toLowerCase(); // Ensure cell is treated as string
+      const lowerCaseCellContent = String(cell).toLowerCase();
       const shouldHighlight = highlightWords.some(word => lowerCaseCellContent.includes(word.toLowerCase()));
       if (shouldHighlight) {
         td.classList.add('highlight-word');

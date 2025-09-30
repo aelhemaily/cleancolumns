@@ -1,3 +1,117 @@
+// firstontarioAccount.js - Complete with PDF upload functionality
+
+// Set up PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+
+// PDF processing function for First Ontario
+window.bankUtils.processPDFFile = async function(file) {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+    
+    let fullText = '';
+    
+    // Extract text from all pages
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map(item => item.str).join(' ');
+      fullText += pageText + ' ';
+    }
+    
+    // Parse transactions from text using First Ontario specific logic
+    const transactions = parseFirstOntarioTransactions(fullText);
+    
+    // Convert transactions to text format compatible with the existing parser
+    const formattedText = formatTransactionsAsText(transactions);
+    
+    return formattedText;
+  } catch (error) {
+    console.error('Error parsing First Ontario PDF:', error);
+    throw new Error(`Error processing ${file.name}: ${error.message}`);
+  }
+};
+
+// Parse First Ontario specific transactions from PDF text
+function parseFirstOntarioTransactions(text) {
+  const transactions = [];
+  
+  // Find the account table - First Ontario specific pattern
+  const accountRegex = /BUSINESS SPECIALIZED ACCOUNT\s+Account#:\s*\d+\s*(?:No\. of Cheques:\s*\d+)?\s*Owner:.*?(?=If there are any discrepancies|$)/s;
+  const accountMatch = text.match(accountRegex);
+  
+  if (!accountMatch) {
+    return transactions;
+  }
+  
+  const accountText = accountMatch[0];
+  
+  // Extract balance forward
+  const balanceForwardRegex = /Balance Forward:\s*([\d,]+\.\d{2})/;
+  const balanceForwardMatch = accountText.match(balanceForwardRegex);
+  
+  if (balanceForwardMatch) {
+    transactions.push({
+      date: '',
+      description: 'Balance Forward:',
+      debit: '',
+      credit: '',
+      balance: balanceForwardMatch[1]
+    });
+  }
+  
+  // Extract transactions - First Ontario specific pattern
+  const transactionRegex = /(\w{3} \d{1,2})\s+(.*?)\s+([\d,]+\.\d{2})?\s+([\d,]+\.\d{2})?\s+([\d,]+\.\d{2})/g;
+  let match;
+  
+  while ((match = transactionRegex.exec(accountText)) !== null) {
+    const date = match[1];
+    const description = match[2].trim();
+    const debit = match[3] || '';
+    const credit = match[4] || '';
+    const balance = match[5];
+    
+    transactions.push({
+      date,
+      description,
+      debit,
+      credit,
+      balance
+    });
+  }
+  
+  return transactions;
+}
+
+// Format transactions as text for the existing parser
+function formatTransactionsAsText(transactions) {
+  let formattedText = '';
+  
+  transactions.forEach(transaction => {
+    if (transaction.description === 'Balance Forward:') {
+      formattedText += `Balance Forward: ${transaction.balance}\n`;
+    } else {
+      let line = `${transaction.date} ${transaction.description}`;
+      
+      // Add amounts in the expected format
+      if (transaction.debit) {
+        line += ` ${transaction.debit}`;
+      }
+      if (transaction.credit) {
+        line += ` ${transaction.credit}`;
+      }
+      if (transaction.balance) {
+        line += ` ${transaction.balance}`;
+      }
+      
+      formattedText += line + '\n';
+    }
+  });
+  
+  return formattedText;
+}
+
+// Main processing function
 function processData() {
   const input = document.getElementById('inputText').value.trim();
   const yearInput = document.getElementById('yearInput').value.trim();
@@ -5,7 +119,6 @@ function processData() {
   outputDiv.innerHTML = '';
 
   if (!input) {
-    // Assuming showToast is globally available from main.js
     if (typeof showToast === 'function') {
       showToast("Please insert bank statement data!", "error");
     } else {
@@ -23,9 +136,6 @@ function processData() {
   headers.forEach(header => {
     const th = document.createElement('th');
     th.textContent = header;
-    
-    // The copy button setup will be handled by createCopyColumnButtons() later
-    // No need to add buttons here directly, as it will be duplicated.
     headerRow.appendChild(th);
   });
   table.appendChild(headerRow);
@@ -43,7 +153,7 @@ function processData() {
 
   // Helper to escape string for use in RegExp
   function escapeRegExp(string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the matched substring
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
   const flushBuffer = () => {
@@ -116,14 +226,12 @@ function processData() {
 
     description = description.replace(/\s+/g, ' ').trim(); // Collapse multiple spaces
 
-
     let debit = '', credit = '';
     
     // Handle first transaction if no balance forward
     if (firstTransaction && lastBalance === null && balanceValue !== null) {
       // For the very first transaction, if no initial balance was set,
       // and a balance is provided on the line, assume it's a debit.
-      // This logic might need refinement based on actual First Ontario statement examples.
       debit = amountValue.toFixed(2);
       lastBalance = balanceValue;
       firstTransaction = false;
@@ -141,16 +249,13 @@ function processData() {
     else if (lastBalance !== null) {
       // This part assumes that if a balance is not explicitly provided on the line,
       // the transaction is a debit and we subtract it from the last known balance.
-      // This might need adjustment based on specific First Ontario rules.
       debit = amountValue.toFixed(2);
       lastBalance -= amountValue;
     } else {
         // If no lastBalance and no balanceValue, we can't determine debit/credit based on balance change.
         // Fallback to a default (e.g., debit) or keyword analysis if needed.
-        // For now, we'll assume it's a debit if no other info.
         debit = amountValue.toFixed(2);
     }
-
 
     const rowNumber = rows.length + 1;
     const row = [
@@ -194,18 +299,33 @@ function processData() {
 
   // Show toolbar and save state
   document.getElementById('toolbar').classList.add('show');
+  
   // Call the function to set up interactivity
-  // These functions are expected to be globally available from main.js
   if (typeof createCopyColumnButtons === 'function') {
       createCopyColumnButtons();
   } else {
       console.error("createCopyColumnButtons function not found. Table interactivity may not be set up.");
   }
+  
   if (typeof saveState === 'function') {
     saveState(); // Save the initial state after table generation and interactivity setup
   } else {
     console.error("saveState function not found. Undo/Redo may not work.");
   }
+  
+  // Update transaction counts
+  if (typeof updateTransactionCounts === 'function') {
+    updateTransactionCounts();
+  }
 }
 
 window.processData = processData;
+
+// Show status message (helper function)
+function showStatus(message, type) {
+  if (typeof showToast === 'function') {
+    showToast(message, type);
+  } else {
+    console.log(`${type}: ${message}`);
+  }
+}

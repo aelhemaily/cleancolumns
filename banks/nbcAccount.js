@@ -5,6 +5,17 @@ function processData() {
     const outputDiv = document.getElementById('output');
     outputDiv.innerHTML = '';
 
+    // Year validation
+    let currentYear = new Date().getFullYear(); // Default to current year
+
+    if (yearInput) {
+        currentYear = parseInt(yearInput);
+        if (isNaN(currentYear)) {
+            displayStatusMessage('Invalid Year Input. Please enter a valid year (e.g., 2023).', 'error');
+            return;
+        }
+    }
+    
     const headers = ['Date', 'Description', 'Debit', 'Credit', 'Balance'];
     const rows = [];
     const table = document.createElement('table');
@@ -42,6 +53,10 @@ function processData() {
             const monthNum = dateMatch[1];
             const dayNum = dateMatch[2];
             date = `${monthMap[monthNum]} ${dayNum}`;
+            // Append year if provided
+            if (yearInput) {
+                date += ` ${currentYear}`;
+            }
             contentAfterDate = line.substring(dateMatch[0].length).trim();
         } else {
             return; // If no date found, skip this line
@@ -124,35 +139,41 @@ function processData() {
         previousBalance = currentBalance;
     });
 
-    rows.forEach(row => {
-        const tr = document.createElement('tr');
-        row.forEach(cell => {
-            const td = document.createElement('td');
-            td.textContent = cell;
-            tr.appendChild(td);
+    if (rows.length > 0) {
+        rows.forEach(row => {
+            const tr = document.createElement('tr');
+            row.forEach(cell => {
+                const td = document.createElement('td');
+                td.textContent = cell;
+                tr.appendChild(td);
+            });
+            table.appendChild(tr);
         });
-        table.appendChild(tr);
-    });
 
-    outputDiv.appendChild(table);
-    table.dataset.rows = JSON.stringify(rows);
-    document.getElementById('toolbar').classList.add('show');
+        outputDiv.appendChild(table);
+        table.dataset.rows = JSON.stringify(rows);
+        document.getElementById('toolbar').classList.add('show');
 
-    // Call utility functions
-    if (typeof window.bankUtils.setupCellSelection === 'function') {
-        window.bankUtils.setupCellSelection(table);
-    }
-    if (typeof window.bankUtils.setupTableContextMenu === 'function') {
-        window.bankUtils.setupTableContextMenu(table);
-    }
-    if (typeof window.bankUtils.setupCellDragAndDrop === 'function') {
-        window.bankUtils.setupCellDragAndDrop(table);
-    }
-    if (typeof window.bankUtils.setupColumnResizing === 'function') {
-        window.bankUtils.setupColumnResizing(table);
-    }
-    if (typeof saveState === 'function') {
-        saveState();
+        // Call utility functions
+        if (typeof window.bankUtils.setupCellSelection === 'function') {
+            window.bankUtils.setupCellSelection(table);
+        }
+        if (typeof window.bankUtils.setupTableContextMenu === 'function') {
+            window.bankUtils.setupTableContextMenu(table);
+        }
+        if (typeof window.bankUtils.setupCellDragAndDrop === 'function') {
+            window.bankUtils.setupCellDragAndDrop(table);
+        }
+        if (typeof window.bankUtils.setupColumnResizing === 'function') {
+            window.bankUtils.setupColumnResizing(table);
+        }
+        if (typeof saveState === 'function') {
+            saveState();
+        }
+        
+        displayStatusMessage('Data processed successfully!', 'success');
+    } else {
+        displayStatusMessage('No data parsed. Please check the input format or ensure the correct bank is selected.', 'error');
     }
 }
 

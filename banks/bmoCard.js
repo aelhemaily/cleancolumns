@@ -346,56 +346,76 @@ function processFormat2Transaction(transactionData, transactionsArray) {
  * @param {string[]} allLines - All extracted lines from the PDF.
  * @returns {string[]} - Array of formatted transaction strings.
  */
+/**
+ * Parses transactions from Format 2 PDF.
+ * @param {string[]} allLines - All extracted lines from the PDF.
+ * @returns {string[]} - Array of formatted transaction strings.
+ */
 function parseFormat2(allLines) {
   const transactions = [];
+  // Note: dateRegex is defined to match month abbreviations with an optional trailing period, 
+  // e.g., "Jan. 25" or "Jan 25". The replace below handles the removal of the period.
   const dateRegex = /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.\s\d{1,2}$/; // "Jan. 25"
   const amountRegex = /^\d{1,3}(,\d{3})*\.\d{2}$/; // "4.52"
-
   let inTransactionSection = false;
-  let currentTransactionData = {
-    transDate: '',
-    postingDate: '',
-    description: [],
-    referenceNo: '',
-    amount: '',
-    isCredit: ''
-  };
+  let currentTransactionData = { transDate: '', postingDate: '', description: [], referenceNo: '', amount: '', isCredit: '' };
 
-  // Find the start of the transaction section
+  // 1. Find the start of the standard transaction section header (TRANS DATE...)
   let startIndex = allLines.findIndex(line => line.includes("TRANS") && line.includes("DATE") && line.includes("DESCRIPTION") && line.includes("REFERENCE NO.") && line.includes("AMOUNT (S)"));
-  if (startIndex !== -1) {
+
+  // *** MODIFICATION START: Skip known pre-transaction summary block for specific Format 2 PDFs ***
+  const FIXED_HEADER_SKIP_LINES = 17;
+  
+  // If the explicit transaction header is NOT found (startIndex === -1), 
+  // and there are enough lines, we assume the problematic format and force the start index to skip the 17-line header.
+  if (startIndex === -1 && allLines.length > FIXED_HEADER_SKIP_LINES) {
+      // The transactions start at line 18 (array index 17) for this specific format.
+      startIndex = FIXED_HEADER_SKIP_LINES;
+      inTransactionSection = true; 
+  }
+  // *** MODIFICATION END ***
+
+  // 2. Handle the standard case where the header was found OR the modification set a specific start index.
+  if (startIndex !== -1 && startIndex !== FIXED_HEADER_SKIP_LINES) {
     inTransactionSection = true;
-    // Skip the header line and the line below it if it contains card number
+    // Original logic: Skip the explicit header line and the line below it if it contains card number
     startIndex = startIndex + 1;
     if (allLines[startIndex] && allLines[startIndex].includes("Card Number:")) {
-        startIndex++;
+      startIndex++;
     }
-  } else {
-      // Fallback: find the first line that looks like a transaction start
-      startIndex = allLines.findIndex(line => {
-          const parts = line.split(/\s+/);
-          return parts.length >= 2 && dateRegex.test(parts[0]) && dateRegex.test(parts[1]);
-      });
-      if (startIndex !== -1) {
-          inTransactionSection = true;
-      }
+  } else if (startIndex === -1) {
+    // If the modification didn't run or failed to find a fixed starting point, 
+    // fall back to the original date pattern search.
+    startIndex = allLines.findIndex(line => {
+      const parts = line.split(/\s+/);
+      return parts.length >= 2 && dateRegex.test(parts[0]) && dateRegex.test(parts[1]);
+    });
+    if (startIndex !== -1) {
+      inTransactionSection = true;
+    }
   }
-
+  
+  // 3. Process the lines starting from the determined index.
   for (let i = startIndex; i < allLines.length; i++) {
     let line = allLines[i].trim();
 
     // Skip known non-transaction lines
     const skipPatterns = [
-      /^Page \d+ of \d+$/i, /Concerning Agreement/i, /Important Payment Information:/i,
+      /^Page \d+ of \d+$/i,
+      /Concerning Agreement/i,
+      /Important Payment Information:/i,
       /Important information about your BMO Mastercard account/i,
       /How to make payments to your credit card account/i,
-      /Thank you for choosing BMO/i, /If you only make the minimum monthly payment/i,
-      /Please see the back of your statement/i, /BMO CashBack Mastercard/i,
-      /BMO Bank of Montreal/i, 
+      /Thank you for choosing BMO/i,
+      /If you only make the minimum monthly payment/i,
+      /Please see the back of your statement/i,
+      /BMO CashBack Mastercard/i,
+      /BMO Bank of Montreal/i,
       /DATE DESCRIPTION AMOUNT \(\$\)/i,
       /TRANS DATE POSTING DATE DESCRIPTION REFERENCE NO\. AMOUNT \(S\)/i,
       /^TRANS\s+DATE\s+POSTING\s+DATE\s+DESCRIPTION\s+REFERENCE NO\.\s+AMOUNT \(S\)$/i // More robust header matching
     ];
+    
     if (skipPatterns.some(pattern => pattern.test(line))) {
       if (currentTransactionData.transDate) { // If a transaction was being built, process it
         processFormat2Transaction(currentTransactionData, transactions);
@@ -406,74 +426,73 @@ function parseFormat2(allLines) {
 
     // Check for CR on a new line (specific to format 2s.pdf)
     if (line === "CR" && currentTransactionData.transDate) {
-        currentTransactionData.isCredit = ' CR';
-        continue; // CR is processed, move to next
+      currentTransactionData.isCredit = ' CR';
+      continue; // CR is processed, move to next
     }
 
     // Attempt to parse a new transaction line
     const parts = line.split(/\s+/);
     let potentialTransDate = parts[0];
     let potentialPostingDate = parts[1];
-
+    
+    // Check if the first two parts of the line match the date pattern
     if (dateRegex.test(potentialTransDate) && dateRegex.test(potentialPostingDate)) {
       // This is a new transaction line
-      if (currentTransactionData.transDate) { // If a previous transaction was being built
+      if (currentTransactionData.transDate) { 
+        // If a previous transaction was being built, process it
         processFormat2Transaction(currentTransactionData, transactions);
       }
+
+      // Start a new transaction
       currentTransactionData = {
-        transDate: potentialTransDate.replace('.', ''),
-        postingDate: potentialPostingDate.replace('.', ''),
+        transDate: potentialTransDate.replace('.', ''), // Remove period
+        postingDate: potentialPostingDate.replace('.', ''), // Remove period
         description: [],
         referenceNo: '',
         amount: '',
         isCredit: ''
       };
 
-      // Try to extract amount and reference number if they are on the same line
-      let remainingParts = parts.slice(2);
-      // Amount is usually the last part, reference number before that
-      if (remainingParts.length > 0 && amountRegex.test(remainingParts[remainingParts.length - 1])) {
-        currentTransactionData.amount = remainingParts.pop();
-        // The part before amount could be reference number if it's numeric/alphanumeric
-        if (remainingParts.length > 0 && /^[A-Z0-9]+$/i.test(remainingParts[remainingParts.length - 1])) {
-            currentTransactionData.referenceNo = remainingParts.pop();
+      // The rest of the line is description, reference no, and amount
+      let remainingParts = parts.slice(2); 
+      let foundAmount = false;
+
+      // Find amount and reference number, working backward from the end
+      for (let j = remainingParts.length - 1; j >= 0; j--) {
+        const part = remainingParts[j].replace(/,/g, ''); // Remove commas for number check
+        if (amountRegex.test(part)) {
+          currentTransactionData.amount = remainingParts[j];
+          remainingParts.splice(j, 1); // Remove amount
+          foundAmount = true;
+          break; // Found the amount, stop looking
         }
       }
-      currentTransactionData.description = remainingParts; // The rest is description
+      
+      // If an amount was found, the next-to-last item is likely the reference number (if available)
+      if (foundAmount && remainingParts.length > 0) {
+          // Check if the last remaining part is a long number (typical reference number)
+          const potentialRefNo = remainingParts[remainingParts.length - 1];
+          // Use a simple heuristic: string of at least 8 digits
+          if (/^\d{8,}$/.test(potentialRefNo.replace(/[^0-9]/g, ''))) {
+              currentTransactionData.referenceNo = potentialRefNo;
+              remainingParts.splice(remainingParts.length - 1, 1); // Remove reference no
+          }
+      }
+
+      // The rest is the description
+      currentTransactionData.description = remainingParts;
 
     } else if (currentTransactionData.transDate) {
-      // This line belongs to the current transaction (description, reference, amount)
-      // Try to find amount and reference number first
-      let foundAmount = false;
-      let foundReference = false;
-
-      const lastPart = parts[parts.length - 1];
-      if (amountRegex.test(lastPart)) {
-        currentTransactionData.amount = lastPart;
-        parts.pop(); // Remove amount
-        foundAmount = true;
-      }
-
-      const secondLastPart = parts[parts.length - 1];
-      if (secondLastPart && /^[A-Z0-9]+$/i.test(secondLastPart) && !foundAmount) { // If amount wasn't found, this might be reference
-        currentTransactionData.referenceNo = secondLastPart;
-        parts.pop(); // Remove reference
-        foundReference = true;
-      } else if (secondLastPart && /^[A-Z0-9]+$/i.test(secondLastPart) && foundAmount) { // If amount was found, this is definitely reference
-        currentTransactionData.referenceNo = secondLastPart;
-        parts.pop(); // Remove reference
-        foundReference = true;
-      }
-
-      // Add remaining parts to description
-      currentTransactionData.description.push(...parts);
+      // Continuation of the previous transaction's description
+      currentTransactionData.description.push(line);
     }
   }
 
-  // Process the last transaction if any
+  // Process the last transaction if one was pending
   if (currentTransactionData.transDate) {
     processFormat2Transaction(currentTransactionData, transactions);
   }
+  
   return transactions;
 }
 
@@ -671,6 +690,7 @@ window.bankUtils.processPDFFile = async function(file) {
           /Page \d+ of \d+/i,
           /Transactions since your last statement \(continued\)/i,
           // More robust patterns to capture header variations
+          
           /TRANS DATE POSTING DATE DESCRIPTION(?: REFERENCE NO\.)? AMOUNT \(S\)/i,
           /DATE DESCRIPTION AMOUNT \(\$\)/i,
           /\s*REFERENCE NO\.\s*AMOUNT \(S\)\s*$/i, 
@@ -695,6 +715,39 @@ window.bankUtils.processPDFFile = async function(file) {
           /1-866-859-2089/i, /1-800-263-2263/i, /1-800-361-3361/i, /TTY \(For the Deaf & Hard of Hearing\)/i,
           /Estimated Time to Repay/i, /Foreign currency transactions/i, /Foreign currency conversion/i,
           /Interest-free grace period/i, /Your minimum payment if you reside/i,
+          /^\d+\.\d{5}\s+\d+\.\d{5}$/i, // "19.99000 0.05476"
+    /^[\+\-]\s*\d{1,3}(,\d{3})*\.\d{2}$/i, // "+ 1,140.38", "- 1,118.36"
+    /^Total\s+\d+\.\d{2}$/i, // "Total 0.00"
+    /5191 2302 0014 4849/i, // Card number
+    /Customer Name/i,
+    /SAEID GORJIAN/i,
+    /\, 2019 - \, 2019/i, // Date range noise
+    /Rewards earned/i, /Bonus rewards earned/i, /Rewards adjusted/i,
+    /Rewards Redeemed/i, /Total rewards earned/i, /Rewards balance year to/i,
+    /^\d+\.\d{5}\s+\d+\.\d{5}$/i, // "19.99000 0.05476"
+    /^[\+\-]\s*\d{1,3}(,\d{3})*\.\d{2}$/i, // "+ 1,140.38", "- 1,118.36"
+    /^Total\s+\d+\.\d{2}$/i, // "Total 0.00"
+    /5191 2302 0014 4849/i, // Card number
+    /Customer Name/i,
+    /SAEID GORJIAN/i,
+    /\, 2019 - \, 2019/i, // Date range noise
+    /\, 2019/i, // Standalone date noise
+    /Rewards earned/i, /Bonus rewards earned/i, /Rewards adjusted/i,
+    /Page \d+ of \d+/i,
+    // ... (other existing patterns)
+    
+    // 👇 ADD THIS LINE TO FIX YOUR ISSUE
+    /-\s*\, 2019/i, // Removes "- , 2019" from the description
+    
+    // ... (other existing patterns including the standalone date noise one)
+    /\, 2019 - \, 2019/i, // Date range noise
+    /\, 2019/i, // Standalone date noise
+    /-\s*PAYMENT RECEIVED/i, // Removes leading "- " before "PAYMENT RECEIVED"
+    
+    // 👇 And keep this line for the date noise fix from before
+    /-\s*\, 2019/i, // Removes "- , 2019" from the description
+      /\s+-\s*/, 
+      
           /If your credit card account was opened/i, /How we apply payments to your account/i,
           /If you are moving to or out of Quebec/i, /Includes: credit card cheques/i,
           /Excludes: promotional balance transfers/i, /Indicates eligible grocery purchases that may qualify for/i,
@@ -760,6 +813,7 @@ window.bankUtils.processPDFFile = async function(file) {
 // This function processes the text content (either manually entered or from PDF)
 // and populates the HTML table.
 // New and improved processData function to handle both single-line and multi-line BMO formats
+// --- Main Data Processing Function (Updated to show only first date) ---
 function processData() {
   const input = document.getElementById('inputText').value.trim();
   const yearInput = document.getElementById('yearInput').value.trim();
@@ -825,15 +879,15 @@ function processData() {
           };
           expectingPostingDate = true;
         } else if (expectingPostingDate) {
-          // This is the second date, the posting date
+          // This is the second date, the posting date - we'll ignore it for output
           currentTransaction.postingDate = line;
           expectingPostingDate = false;
         } else {
           // New transaction, save the old one
           if (currentTransaction.amount) {
             transactions.push({
-              startDate: currentTransaction.transDate.replace('.', ''),
-              endDate: currentTransaction.postingDate.replace('.', ''),
+              // FIX 1: Use only the first date (transDate) in output
+              date: currentTransaction.transDate.replace('.', ''),
               description: currentTransaction.description.join(' ').trim(),
               debit: currentTransaction.isCredit ? '' : parseFloat(currentTransaction.amount.replace(/,/g, '')).toFixed(2),
               credit: currentTransaction.isCredit ? parseFloat(currentTransaction.amount.replace(/,/g, '')).toFixed(2) : ''
@@ -865,8 +919,8 @@ function processData() {
     // Add the last transaction if it exists
     if (currentTransaction && currentTransaction.amount) {
       transactions.push({
-        startDate: currentTransaction.transDate.replace('.', ''),
-        endDate: currentTransaction.postingDate.replace('.', ''),
+        // FIX 1: Use only the first date (transDate) in output
+        date: currentTransaction.transDate.replace('.', ''),
         description: currentTransaction.description.join(' ').trim(),
         debit: currentTransaction.isCredit ? '' : parseFloat(currentTransaction.amount.replace(/,/g, '')).toFixed(2),
         credit: currentTransaction.isCredit ? parseFloat(currentTransaction.amount.replace(/,/g, '')).toFixed(2) : ''
@@ -894,8 +948,8 @@ function processData() {
         }
 
         transactions.push({
-          startDate: date1,
-          endDate: date2,
+          // FIX 1: Use only the first date (date1) in output
+          date: date1,
           description: desc.trim(),
           debit: debitAmount,
           credit: creditAmount
@@ -903,22 +957,22 @@ function processData() {
       }
     });
   }
-
+// Filter out transactions that have no description
+transactions = transactions.filter(tx => {
+  const hasDescription = tx.description && tx.description.trim().length > 0;
+  return hasDescription;
+});
   // Process collected transactions and add to table
   transactions.forEach(tx => {
-    let formattedStartDate = tx.startDate;
-    let formattedEndDate = tx.endDate;
+    let formattedDate = tx.date;
 
     // Append year if provided and dates are just Month Day
-    if (yearInput && /^\w{3}\s\d{1,2}$/.test(tx.startDate)) {
-      formattedStartDate = `${tx.startDate} ${yearInput}`;
-    }
-    if (yearInput && /^\w{3}\s\d{1,2}$/.test(tx.endDate)) {
-      formattedEndDate = `${tx.endDate} ${yearInput}`;
+    if (yearInput && /^\w{3}\s\d{1,2}$/.test(tx.date)) {
+      formattedDate = `${tx.date} ${yearInput}`;
     }
 
-    const dateColumn = formattedStartDate + ' ' + formattedEndDate;
-    const row = [dateColumn, tx.description, tx.debit, tx.credit, '']; // Balance not available
+    // FIX 1: Use only single date column instead of two dates
+    const row = [formattedDate, tx.description, tx.debit, tx.credit, '']; // Balance not available
     rows.push(row);
 
     const tr = document.createElement('tr');

@@ -140,7 +140,7 @@ function parseTransactions(text, allTransactions) {
           break;
         }
         
-        // e-Transfer transactions
+        // e-Transfer transactions - FIXED: Prevent duplication
         else if (word === 'e-Transfer') {
           let direction = '';
           if (i + 1 < words.length && (words[i + 1] === 'Out' || words[i + 1] === 'In')) {
@@ -166,16 +166,26 @@ function parseTransactions(text, allTransactions) {
             }
           }
           
+          // Check for Service Charge but don't duplicate the e-Transfer
           if (i < words.length && words[i] === 'Service' && i + 1 < words.length && words[i + 1] === 'Charge') {
+            // First, add the e-Transfer transaction
+            if (foundTransactionType && transactionParts.length > 1) {
+              allTransactions.push(transactionParts.join(' '));
+              if (companyName.trim()) {
+                allTransactions.push(companyName.trim());
+              }
+            }
+            
+            // Then add the Service Charge as a separate transaction
             i += 2;
             if (i < words.length && amountPattern.test(words[i])) {
-              allTransactions.push(transactionParts.join(' '));
               allTransactions.push(`${date} Service Charge ${words[i]}`);
               i++;
-              foundTransactionType = true;
-              break;
             }
+            foundTransactionType = true;
+            break;
           }
+          
           foundTransactionType = true;
           break;
         }

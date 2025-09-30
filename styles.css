@@ -4109,3 +4109,71 @@ th.selected-cell.editing {
   right: 0;
   z-index: 1001;
 }
+
+/* Bank Specific Messages - Top Right under Method Indicator */
+.bank-specific-message {
+  position: absolute;
+  top: 70px; /* Position under the method indicator */
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-family: monospace;
+  font-size: 14px;
+  font-weight: 600;
+  border: 2px solid;
+  border-radius: 0px;
+  box-shadow: -2px 2px 0 #15191f;
+  white-space: nowrap;
+  z-index: 1000;
+}
+
+.pdf-upload-only {
+  background-color: #fff5f5;
+  color: #dc2626;
+  border-color: #dc2626;
+}
+
+.image-script {
+  background-color: #f0f9ff;
+  color: #0369a1;
+  border-color: #0369a1;
+}
+
+.bank-specific-message i {
+  font-size: 14px;
+}
+
+/* Make method indicator same size as bank messages */
+.method-indicator {
+  padding: 8px 12px;
+  height: auto;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  border: 2px solid #475569;
+  border-radius: 0px;
+  box-shadow: -2px 2px 0 #15191f;
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] .pdf-upload-only {
+  background-color: #431313;
+  color: #fca5a5;
+  border-color: #dc2626;
+}
+
+[data-theme="dark"] .image-script {
+  background-color: #0c4a6e;
+  color: #7dd3fc;
+  border-color: #0369a1;
+}
+
+[data-theme="dark"] .method-indicator {
+  border-color: #3a3a3a;
+  box-shadow: -2px 2px 0 #000000;
+}
