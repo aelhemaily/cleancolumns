@@ -161,6 +161,11 @@ function parseTransactions(lines) {
     const text = raw.text;
     const date = raw.date;
 
+    // Skip transactions that are just a dash (fake transactions)
+    if (text.trim() === '-' || text.trim() === '') {
+      continue;
+    }
+
     // Find all amounts
     const amountRegex = /\d{1,3}(,\d{3})*\.\d{2}/g;
     const amounts = [];
@@ -191,6 +196,19 @@ function parseTransactions(lines) {
       if (pendingDesc) {
         desc = pendingDesc + (desc ? ' ' + desc : '');
         pendingDesc = '';
+      }
+
+      // Skip transactions that are just a dash (fake transactions)
+      if (desc.trim() === '-' || desc.trim() === '') {
+        // This is a fake transaction, add the amount to the previous transaction as balance
+        if (transactions.length > 0) {
+          const lastTxn = transactions[transactions.length - 1];
+          if (lastTxn.amounts.length < 2) {
+            lastTxn.amounts.push(amt.value);
+          }
+        }
+        lastEnd = amt.index + amt.value.length;
+        continue;
       }
 
       // Determine if this is a new transaction
