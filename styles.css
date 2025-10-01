@@ -1587,7 +1587,7 @@ th {
 
 /* Add to styles.css */
 #output {
-  margin-left: 50px; /* Adjust based on toolbar width */
+  margin-right: 100px; /* Adjust based on toolbar width */
   min-width: calc(100% - 60px); /* Ensures table doesn't get cut off */
   overflow-x: auto; /* Allows horizontal scrolling if table is too wide */
 }
@@ -5186,4 +5186,75 @@ h2 {
   box-shadow: 
     0 1px 2px rgba(30, 58, 138, 0.3),
     inset 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+}
+/* Instruction Box Styles */
+.instruction-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  transition: all 0.3s ease;
+}
+
+.instruction-text {
+  flex: 1;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #475569;
+  font-family: 'Inter', sans-serif;
+  margin: 0;
+  font-weight: 700;
+}
+
+.copy-instruction-btn {
+  background: #475569;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.copy-instruction-btn:hover {
+  background: #374151;
+  transform: translateY(-1px);
+}
+
+.copy-instruction-btn:active {
+  transform: translateY(0);
+}
+
+.copy-instruction-btn.copied {
+  background: #10b981;
+}
+
+.copy-instruction-btn.copied i::before {
+  content: "\f00c";
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] .instruction-box {
+  background: #2d2d2d;
+  border-color: #3a3a3a;
+}
+
+[data-theme="dark"] .instruction-text {
+  color: #e0e0e0;
+}
+
+[data-theme="dark"] .copy-instruction-btn {
+  background: #3a3a3a;
+}
+
+[data-theme="dark"] .copy-instruction-btn:hover {
+  background: #4a4a4a;
 }

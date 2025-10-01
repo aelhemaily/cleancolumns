@@ -181,6 +181,37 @@ function setupToolsMenu() {
     }
   }
 }
+
+// Add instruction copy functionality
+function setupInstructionCopy() {
+  const copyInstructionBtn = document.querySelector('.copy-instruction-btn');
+  const instructionText = document.querySelector('.instruction-text');
+  
+  if (copyInstructionBtn && instructionText) {
+    copyInstructionBtn.addEventListener('click', () => {
+      const textToCopy = instructionText.textContent.trim();
+      
+      navigator.clipboard.writeText(textToCopy).then(() => {
+        // Visual feedback
+        const originalHTML = copyInstructionBtn.innerHTML;
+        copyInstructionBtn.classList.add('copied');
+        
+        setTimeout(() => {
+          copyInstructionBtn.classList.remove('copied');
+          copyInstructionBtn.innerHTML = originalHTML;
+        }, 2000);
+        
+        showToast('Instruction copied!', 'success');
+      }).catch(err => {
+        console.error('Failed to copy instruction:', err);
+        showToast('Failed to copy instruction', 'error');
+      });
+    });
+  }
+}
+
+// Call this function in your DOMContentLoaded event listener
+setupInstructionCopy();
 // Call this function in your DOMContentLoaded event listener
 setupToolsMenu();
 // Add this function to initialize the amount sorter
@@ -1504,19 +1535,7 @@ window.bankUtils.processPDFFile = async function(file) {
     }
   }
 
-  function copyNumberColumn() {
-    const table = document.querySelector('#output table');
-    if (!table) return;
-
-    const numbers = Array.from(table.rows)
-      .slice(1) // Skip header
-      .map(row => row.cells[0]?.textContent || '')
-      .join('\n');
-
-    navigator.clipboard.writeText(numbers)
-      .then(() => showToast('Number column copied!', 'success'))
-      .catch(err => console.error('Copy failed:', err));
-  }
+ 
   // ======== END NUMBERED COLUMN ======== //
 
   // ======== IMPROVED UNDO/REDO SYSTEM ======== //
