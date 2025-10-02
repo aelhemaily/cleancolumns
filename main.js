@@ -63,11 +63,133 @@ function setupCustomSelect() {
 let amountSorterSection = null;
 let keywordInput = null;
 let sortAmountsBtn = null;
-// Tools Menu Functionality
-// Enhanced Tools Menu Functionality
-// Enhanced Tools Menu Functionality
-// Enhanced Tools Menu Functionality
-// Enhanced Tools Menu Functionality
+// Tool information data - pulled from your QZEE TOOLS.html
+const toolDescriptions = {
+  'cleancolumns': {
+    title: 'Clean Columns',
+    description: 'This tool is our main bank statement converter that transforms messy data into clean, organized columns ready for excel.'
+  },
+  'numbersorter': {
+    title: 'Number Sorter', 
+    description: 'This tool sorts columns containing both positive and negative numbers into two columns (credit/debit format).'
+  },
+  'rowcleaner': {
+    title: 'Row Cleaner',
+    description: 'This tool automatically removes empty rows from Excel or CSV files to clean up datasets.'
+  },
+  'datefilter': {
+    title: 'Date Filter',
+    description: 'This tool helps to edit date pairs to remove one, change year and reformat.'
+  },
+  'regopad': {
+    title: 'Regopad',
+    description: 'This tool is used to delete or control text. It can delete text before/after a keyword and much more.'
+  },
+  'ttrimmer': {
+    title: 'Transaction Trimmer', 
+    description: 'This tool finds a date with the format mm/dd or dd/mm, deletes it and the text before it.'
+  }
+};
+
+// Setup tool info functionality
+function setupToolInfo() {
+  const toolInfoModal = document.getElementById('toolInfoModal');
+  const toolInfoTitle = document.getElementById('toolInfoTitle');
+  const toolInfoDescription = document.getElementById('toolInfoDescription');
+  const toolInfoClose = document.getElementById('toolInfoClose');
+  
+  if (!toolInfoModal) return;
+  
+  // Close modal when clicking X
+  toolInfoClose.addEventListener('click', (e) => {
+    e.stopPropagation(); // Prevent event bubbling
+    toolInfoModal.classList.remove('show');
+  });
+  
+ // Close modal when clicking outside content - FIXED: Only close if clicking the backdrop
+toolInfoModal.addEventListener('click', (e) => {
+  if (e.target === toolInfoModal) {
+    toolInfoModal.classList.remove('show');
+    // NEW: Stop the click from bubbling up to the document, which would close the tools menu.
+    e.stopPropagation(); 
+  }
+});
+  
+  // Close modal with Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && toolInfoModal.classList.contains('show')) {
+      toolInfoModal.classList.remove('show');
+      // FIX 1: Stop event from triggering tools menu keydown listener
+      e.stopImmediatePropagation(); 
+    }
+  });
+  
+  // Prevent clicks inside the modal content from closing the modal
+  const toolInfoContent = toolInfoModal.querySelector('.tool-info-content');
+  if (toolInfoContent) {
+    toolInfoContent.addEventListener('click', (e) => {
+      e.stopPropagation(); // Prevent click from bubbling to modal backdrop
+    });
+  }
+}
+
+// Add info buttons to tools
+function addToolInfoButtons() {
+  const toolItems = document.querySelectorAll('.tool-item');
+  
+  toolItems.forEach(toolItem => {
+    // Extract tool key from href
+    const link = toolItem.getAttribute('href');
+    if (!link) return;
+    
+    const toolMatch = link.match(/github\.io\/([^\/]+)/);
+    if (!toolMatch) return;
+    
+    const toolKey = toolMatch[1].toLowerCase();
+    const toolInfo = toolDescriptions[toolKey];
+    
+    if (toolInfo) {
+      // Create info button
+      const infoBtn = document.createElement('button');
+      infoBtn.className = 'tool-info-btn';
+      infoBtn.innerHTML = '?';
+      infoBtn.title = `Learn about ${toolInfo.title}`;
+      
+      // Add click event
+      infoBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation(); // Prevent triggering tool link
+        showToolInfo(toolInfo.title, toolInfo.description);
+      });
+      
+      // Position relative for the absolute positioned button
+      toolItem.style.position = 'relative';
+      toolItem.appendChild(infoBtn);
+    }
+  });
+}
+
+// Show tool info modal
+function showToolInfo(title, description) {
+  const toolInfoModal = document.getElementById('toolInfoModal');
+  const toolInfoTitle = document.getElementById('toolInfoTitle');
+  const toolInfoDescription = document.getElementById('toolInfoDescription');
+  
+  if (toolInfoModal && toolInfoTitle && toolInfoDescription) {
+    toolInfoTitle.textContent = title;
+    toolInfoDescription.textContent = description;
+    toolInfoModal.classList.add('show');
+  }
+}
+
+// Call these functions in your DOMContentLoaded event listener
+// Add these lines where you initialize other components:
+setupToolInfo();
+
+// Also call addToolInfoButtons after the tools menu is created
+// You might need to call this after a short delay or when the menu is opened
+setTimeout(addToolInfoButtons, 1000);
+
 function setupToolsMenu() {
   const toolArea = document.getElementById('toolArea');
   const toolsMenu = document.getElementById('toolsMenu');
@@ -990,6 +1112,7 @@ function showSampleStatement() {
     const allowedTypes = {
       boa: ['card'],
       cdt: ['card'],
+      coastcapital: ['account'],
       cra: ['history', 'payroll'],
       tangerine: ['account'],
       td: ['account', 'card', 'inPerson', 'history'],
@@ -1359,7 +1482,7 @@ function setupBankSpecificMessages() {
   const pdfOnlyBanks = ['boaCard', 'amexCard', 'craHistory', 'craPayroll'];
   
   // Image Script banks  
-  const imageScriptBanks = ['tdHistory', 'tdinPerson'];
+  const imageScriptBanks = ['tdHistory', 'tdinPerson', 'coastcapitalAccount'];
 
   if (pdfOnlyBanks.includes(bankKey)) {
     const messageDiv = document.createElement('div');
@@ -1374,7 +1497,7 @@ function setupBankSpecificMessages() {
   } else if (imageScriptBanks.includes(bankKey)) {
     const messageDiv = document.createElement('div');
     messageDiv.className = 'bank-specific-message image-script';
-    messageDiv.innerHTML = '<i class="fas fa-camera"></i> Image Script';
+    messageDiv.innerHTML = '<i class="fas fa-camera"></i> Image Script - Use AI';
     
     // Insert after the method indicator
     const methodIndicator = document.getElementById('methodIndicator');
@@ -3047,38 +3170,39 @@ function addColumnBeforeACC() {
 
 // ======== METHOD INDICATOR ======== //
 window.bankUtils.allocationMethods = {
-  // Big 5
-  'bmoAccount':'Balance',
-  'bmoCard':'CR Marker',
-  'bmoLoc':'CR Marker',
-  'cibcAccount':'Balance',
-  'cibcCard':'-ve Marker',
-  'rbcAccount':'Keywords/Balance',
-  'rbcCard':'-ve Marker',
-  'rbcLoc':'-ve Marker',
-  'scotiaAccount':'Balance',
-  'scotiaCard':'-ve Marker',
-  'tdAccount':'Balance/Keywords',
-  'tdCard':'-ve Marker',
-  'tdinPerson':'Balance',
-  'tdHistory':'DR/CR Marker',
-  // Others
-  'cdtCard':'-ve Marker',
-  'craHistory':'CR Marker',
-  'craPayroll':'DR/CR Marker',
-  'eqCard':'-ve Marker',
-  'firstontarioAccount':'Balance',
-  'meridianAccount':'-ve Marker (reversed)',
-  'nbcAccount':'Balance',
-  'nbcCard':'-ve Marker',
-  'simpliiAccount':'Balance',
-  'tangerineAccount':'Brackets Marker',
-  'triangleCard':'-ve Marker',
-  'wallmartCard':'-ve Marker',
-  // U.S.
-  'amexCard':'-ve Marker',
-  'boaCard':'-ve Marker',
-  'wellsfargoAccount':'Keywords'
+ // Big 5
+ 'bmoAccount':'Balance',
+ 'bmoCard':'CR Marker',
+ 'bmoLoc':'CR Marker',
+ 'cibcAccount':'Balance',
+ 'cibcCard':'-ve Marker',
+ 'rbcAccount':'Keywords/Balance',
+ 'rbcCard':'-ve Marker',
+ 'rbcLoc':'-ve Marker',
+ 'scotiaAccount':'Balance',
+ 'scotiaCard':'-ve Marker',
+ 'tdAccount':'Balance/Keywords',
+ 'tdCard':'-ve Marker',
+ 'tdinPerson':'Balance',
+ 'tdHistory':'DR/CR Marker',
+ // Others
+ 'cdtCard':'-ve Marker',
+ 'coastcapitalAccount':'Balance',
+ 'craHistory':'CR Marker',
+ 'craPayroll':'DR/CR Marker',
+ 'eqCard':'-ve Marker',
+ 'firstontarioAccount':'Balance',
+ 'meridianAccount':'-ve Marker (reversed)',
+ 'nbcAccount':'Balance',
+ 'nbcCard':'-ve Marker',
+ 'simpliiAccount':'Balance',
+ 'tangerineAccount':'Brackets Marker',
+ 'triangleCard':'-ve Marker',
+ 'wallmartCard':'-ve Marker',
+ // U.S.
+ 'amexCard':'-ve Marker',
+ 'boaCard':'-ve Marker',
+ 'wellsfargoAccount':'Keywords'
 };
 
 function updateMethodIndicator() {

@@ -1,0 +1,399 @@
+// coastcapitalAccount.js - Parser for Coast Capital bank statements
+
+// Ensure window.bankUtils exists to house bank-specific utilities
+window.bankUtils = window.bankUtils || {};
+
+// Main data processing function for text input
+function processData() {
+  const input = document.getElementById('inputText').value.trim();
+  const yearInput = document.getElementById('yearInput').value.trim();
+  const lines = input.split('\n').filter(l => l.trim());
+  const outputDiv = document.getElementById('output');
+  outputDiv.innerHTML = '';
+
+  // Show the file list container if we have processed files
+  const fileListContainer = document.getElementById('fileListContainer');
+  if (lines.length > 0) {
+    fileListContainer.style.display = 'block';
+  }
+
+  const headers = ['Date', 'Description', 'Debit', 'Credit', 'Balance'];
+  const rows = [];
+
+  const table = document.createElement('table');
+
+  // Copy buttons row (always render for consistency)
+  const copyRow = document.createElement('tr');
+  headers.forEach((_, index) => {
+    const th = document.createElement('th');
+    const div = document.createElement('div');
+    div.className = 'copy-col';
+
+    const btn = document.createElement('button');
+    btn.textContent = `Copy`;
+    btn.className = 'copy-btn';
+    // Assumes copyColumn is available in window.bankUtils, as per main.js interaction
+    btn.onclick = () => window.bankUtils.copyColumn(index);
+
+    div.appendChild(btn);
+    th.appendChild(div);
+    copyRow.appendChild(th);
+  });
+  table.appendChild(copyRow);
+
+  // Header row (always render for consistency)
+  const headerRow = document.createElement('tr');
+  headers.forEach(headerText => {
+    const th = document.createElement('th');
+    th.textContent = headerText;
+    headerRow.appendChild(th);
+  });
+  table.appendChild(headerRow);
+
+  let currentYear = new Date().getFullYear(); // Default to current year
+
+  if (yearInput) {
+    currentYear = parseInt(yearInput);
+    if (isNaN(currentYear)) {
+      displayStatusMessage('Invalid Year Input. Please enter a valid year (e.g., 2023).', 'error');
+      return;
+    }
+  }
+
+  // Date pattern for Coast Capital format: "01 OCT 22"
+  const isNewTransaction = (line) => {
+    const datePattern = /^\d{1,2}\s+[A-Z]{3}\s+\d{2}/;
+    const validMonths = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    const match = line.match(datePattern);
+    if (!match) return false;
+    const parts = match[0].split(' ');
+    return validMonths.includes(parts[1].toUpperCase()) && parseInt(parts[0]) >= 1 && parseInt(parts[0]) <= 31;
+  };
+
+  // Process each line as a separate transaction (Coast Capital format has one transaction per line)
+  let previousBalance = null;
+
+  lines.forEach(line => {
+    // Skip empty lines
+    if (!line.trim()) return;
+
+    // Extract date in format "01 OCT 22"
+    const dateMatch = line.match(/^(\d{1,2}\s+[A-Z]{3}\s+\d{2})/);
+    let date = dateMatch ? dateMatch[1] : '';
+    
+    // Convert date to standard format and handle year - FIXED YEAR LOGIC
+    if (date) {
+      const [day, month, year] = date.split(' ');
+      // Use user-provided year if available, otherwise use the year from the statement
+      const fullYear = yearInput ? currentYear : '20' + year;
+      date = `${day} ${month} ${fullYear}`;
+    }
+
+    // Get the part of the line after the date
+    const contentAfterDate = dateMatch ? line.substring(dateMatch[0].length).trim() : line;
+
+    // Regex to find all amount-like numbers (with commas and decimal)
+    const amountPattern = /-?\d{1,3}(?:,\d{3})*\.\d{2}/g;
+    const allAmountMatches = [...contentAfterDate.matchAll(amountPattern)];
+
+    let desc = '';
+    let debit = '';
+    let credit = '';
+    let balance = '';
+
+    if (allAmountMatches.length >= 2) {
+      // The last match is typically the balance, the one before is the transaction amount
+      const balanceMatch = allAmountMatches[allAmountMatches.length - 1];
+      const transactionAmountMatch = allAmountMatches[allAmountMatches.length - 2];
+
+      balance = parseFloat(balanceMatch[0].replace(/,/g, ''));
+      const amount = parseFloat(transactionAmountMatch[0].replace(/,/g, ''));
+
+      // The description is the part of the string before the transaction amount
+      desc = contentAfterDate.substring(0, transactionAmountMatch.index).trim();
+
+      // Determine debit/credit based on balance change
+      if (previousBalance !== null) {
+        const delta = +(balance - previousBalance).toFixed(2);
+        if (Math.abs(delta - amount) < 0.01) {
+          credit = amount.toFixed(2);
+        } else if (Math.abs(delta + amount) < 0.01) {
+          debit = amount.toFixed(2);
+        } else {
+          // If delta doesn't match +/- amount, check if amount is positive or negative
+          if (amount > 0) {
+            credit = amount.toFixed(2);
+          } else {
+            debit = Math.abs(amount).toFixed(2);
+          }
+        }
+      } else {
+        // For first transaction, check if amount is positive or negative
+        if (amount > 0) {
+          credit = amount.toFixed(2);
+        } else {
+          debit = Math.abs(amount).toFixed(2);
+        }
+      }
+
+    } else if (allAmountMatches.length === 1) {
+      // This case handles lines with only a balance (e.g., "Balance Forward")
+      balance = parseFloat(allAmountMatches[0][0].replace(/,/g, ''));
+      desc = contentAfterDate.substring(0, allAmountMatches[0].index).trim();
+
+      // Skip balance forward lines from the output table
+      if (/balance forward/i.test(desc)) {
+        previousBalance = balance;
+        return; // Skip adding this row to the output table
+      }
+    } else {
+      // No amounts found, skip this line as it's not a valid transaction for our table
+      return;
+    }
+
+    const row = [date, desc, debit, credit, balance.toFixed(2)];
+    rows.push(row);
+    previousBalance = balance;
+  });
+
+  if (rows.length > 0) {
+    rows.forEach(rowData => {
+      const tr = document.createElement('tr');
+      rowData.forEach(cellData => {
+        const td = document.createElement('td');
+        td.textContent = cellData;
+        tr.appendChild(td);
+      });
+      table.appendChild(tr);
+    });
+    outputDiv.appendChild(table);
+    table.dataset.rows = JSON.stringify(rows); // Ensure rows are stored in dataset
+
+    // Assuming updateTableCursor is available globally from main.js or other script
+    if (typeof window.updateTableCursor === 'function') {
+        window.updateTableCursor();
+    }
+    displayStatusMessage('Data processed successfully!', 'success');
+
+  } else {
+    displayStatusMessage('No data parsed. Please check the input format or ensure the correct bank is selected.', 'error');
+  }
+}
+
+// Export processData globally (as main.js seems to call it directly)
+window.processData = processData;
+
+// PDF Processing Function for Coast Capital statements
+window.bankUtils.processPDFFile = async function(file) {
+  const reader = new FileReader();
+  return new Promise((resolve, reject) => {
+    reader.onload = async function(event) {
+      const arrayBuffer = event.target.result;
+      try {
+        // pdfjsLib is expected to be loaded globally by index.html
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+        let allLines = [];
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const textContent = await page.getTextContent();
+          const pageText = textContent.items.map(item => item.str.trim()).filter(Boolean);
+          allLines.push(...pageText);
+        }
+
+        // Find the specific starting point for Coast Capital statements
+        let contentStartLineIndex = -1;
+        for (let i = 0; i < allLines.length; i++) {
+            // Look for transaction lines starting with date pattern "01 OCT 22"
+            if (allLines[i].match(/^\d{1,2}\s+[A-Z]{3}\s+\d{2}/)) {
+                contentStartLineIndex = i;
+                break;
+            }
+        }
+
+        if (contentStartLineIndex !== -1) {
+            // Slice the array to start from the first transaction line
+            allLines = allLines.slice(contentStartLineIndex);
+        }
+
+        const transactionLines = [];
+        const dateRegex = /^\d{1,2}\s+[A-Z]{3}\s+\d{2}/;
+        const skipPatterns = [
+          /Page \d+ of \d+/i, // Page numbers
+          /Closing balance/i, // Summary line
+          /Account summary/i, // Summary header
+          /Transaction history/i, // Header
+          /Date\s+Description/i, // Column headers
+          /Amount\s+Balance/i, // Column headers
+          /Account number:/i, // Account information
+          /Coast Capital Savings/i, // Bank name
+          /For the period/i, // Period information
+          /^\d{1,2}\s+[A-Z]{3}\s+\d{4}\s+to\s+\d{1,2}\s+[A-Z]{3}\s+\d{4}/i, // Date range
+          /Member card:/i, // Member information
+          /Branch:/i, // Branch information
+        ];
+
+        for (let i = 0; i < allLines.length; i++) {
+          const line = allLines[i];
+
+          // Skip lines that are part of the general header/footer or summary
+          if (skipPatterns.some(pattern => pattern.test(line))) {
+            continue;
+          }
+
+          // If it's a transaction line (starts with a date)
+          if (dateRegex.test(line)) {
+            transactionLines.push(line);
+          }
+        }
+        resolve(transactionLines.join('\n'));
+      } catch (error) {
+        console.error("Error parsing PDF:", error);
+        displayStatusMessage("Failed to parse PDF file. " + error.message, 'error');
+        reject(new Error("Failed to parse PDF file. " + error.message));
+      }
+    };
+    reader.onerror = (error) => reject(error);
+    reader.readAsArrayBuffer(file);
+  });
+};
+
+// Function to handle file uploads and display them
+window.bankUtils.handleFiles = async function(files) {
+  const fileList = document.getElementById('fileList');
+  const inputText = document.getElementById('inputText');
+  const fileListContainer = document.getElementById('fileListContainer');
+
+  fileListContainer.style.display = 'block'; // Ensure container is shown when files are handled
+
+  for (const file of files) {
+    if (file.type === 'application/pdf') {
+      const fileItem = document.createElement('div');
+      fileItem.className = 'file-item';
+      fileItem.draggable = true;
+      fileItem.dataset.fileName = file.name;
+
+      const fileNameSpan = document.createElement('span');
+      fileNameSpan.className = 'file-item-name';
+      fileNameSpan.textContent = file.name;
+
+      const actionsDiv = document.createElement('div');
+      actionsDiv.className = 'file-item-actions';
+
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'file-item-btn';
+      removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+      removeBtn.onclick = () => fileItem.remove();
+
+      actionsDiv.appendChild(removeBtn);
+      fileItem.appendChild(fileNameSpan);
+      fileItem.appendChild(actionsDiv);
+      fileList.appendChild(fileItem);
+
+      try {
+        // Call the bank-specific PDF processor defined above
+        const processedText = await window.bankUtils.processPDFFile(file);
+        if (inputText.value) {
+          inputText.value += '\n\n' + processedText;
+        } else {
+          inputText.value = processedText;
+        }
+      } catch (error) {
+        console.error('Error processing PDF:', error);
+        // Error message handled by processPDFFile already
+      }
+    } else {
+      // Handle non-PDF files if necessary, or show an error
+      console.warn(`File type not supported for direct processing: ${file.name}`);
+      displayStatusMessage(`File type not supported for direct processing: ${file.name}`, 'error');
+    }
+  }
+}
+
+// File Upload and Drag/Drop Handling initialization
+function setupFileUpload() {
+  const dropArea = document.getElementById('dropArea');
+  const fileInput = document.getElementById('pdfUpload');
+  const fileList = document.getElementById('fileList');
+  const inputText = document.getElementById('inputText');
+  const clearAllFiles = document.getElementById('clearAllFiles');
+  const fileListContainer = document.getElementById('fileListContainer');
+
+  // Prevent default drag behaviors
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    dropArea.addEventListener(eventName, preventDefaults, false);
+    document.body.addEventListener(eventName, preventDefaults, false);
+  });
+
+  // Highlight drop area when item is dragged over it
+  ['dragenter', 'dragover'].forEach(eventName => {
+    dropArea.addEventListener(eventName, highlight, false);
+  });
+
+  ['dragleave', 'drop'].forEach(eventName => {
+    dropArea.addEventListener(eventName, unhighlight, false);
+  });
+
+  // Handle dropped files - now calls window.bankUtils.handleFiles
+  dropArea.addEventListener('drop', (e) => {
+    const dt = e.dataTransfer;
+    const files = dt.files;
+    window.bankUtils.handleFiles(files); // Call the bankUtils version
+  }, false);
+
+  // Handle file input changes - now calls window.bankUtils.handleFiles
+  fileInput.addEventListener('change', (e) => {
+    window.bankUtils.handleFiles(e.target.files); // Call the bankUtils version
+  });
+
+  // Clear all files
+  clearAllFiles.addEventListener('click', () => {
+    fileList.innerHTML = '';
+    inputText.value = '';
+    fileListContainer.style.display = 'none';
+  });
+
+  function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  function highlight() {
+    dropArea.classList.add('highlight');
+  }
+
+  function unhighlight() {
+    dropArea.classList.remove('highlight');
+  }
+
+  // Make file list sortable
+  new Sortable(fileList, {
+    animation: 150,
+    handle: '.file-item-name',
+    onEnd: () => {
+      // This part might require more complex logic to re-process files
+      // or to ensure the inputText accurately reflects the combined content
+      // after reordering. For now, it's a placeholder as in the original.
+    }
+  });
+}
+
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+  setupFileUpload();
+});
+
+// Status message function
+function displayStatusMessage(message, type) {
+  const statusMessageDiv = document.querySelector('.status-message');
+  if (statusMessageDiv) {
+    statusMessageDiv.textContent = message;
+    statusMessageDiv.className = `status-message ${type}`;
+    statusMessageDiv.style.display = 'block';
+    setTimeout(() => {
+        statusMessageDiv.style.display = 'none'; // Hide after a few seconds
+    }, 5000); // Hide after 5 seconds
+  } else {
+    console.log(`Status (${type}): ${message}`);
+  }
+}

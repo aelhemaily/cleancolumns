@@ -4443,31 +4443,6 @@ h2 {
   flex-shrink: 0;
 }
 
-/* Keep the colorful gradient backgrounds */
-.deepseek-icon {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-}
-
-.gemini-icon {
-  background: linear-gradient(135deg, #4285f4 0%, #34a853 50%, #fbbc05 100%);
-  color: white;
-}
-
-.smallpdf-icon {
-  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
-  color: white;
-}
-
-.ilovepdf-icon {
-  background: linear-gradient(135deg, #4834d4 0%, #686de0 100%);
-  color: white;
-}
-
-.placeholder-icon {
-  background: linear-gradient(135deg, #a4b0be 0%, #747d8c 100%);
-  color: white;
-}
 
 .tool-name {
   font-size: 9px; /* Smaller font to fit longer names */
@@ -4899,47 +4874,22 @@ h2 {
 }
 
 /* Floating Glass Morphism - No Big Box */
-.tool-icon {
-  width: 34px !important;
-  height: 34px !important;
-  border-radius: 10px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  font-size: 15px !important;
-  backdrop-filter: blur(10px) !important;
-  -webkit-backdrop-filter: blur(10px) !important;
-  border: 1px solid rgba(255,255,255,0.2) !important;
-  box-shadow: 
-    0 4px 12px rgba(0,0,0,0.1),
-    inset 0 1px 0 rgba(255,255,255,0.2) !important;
-  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
-  position: relative !important;
-  overflow: hidden !important;
-}
+
 
 .tool-icon::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
   border-radius: 10px;
   z-index: -1;
 }
 
 .tool-item:hover .tool-icon {
   transform: translateY(-2px) scale(1.05) !important;
-  box-shadow: 
-    0 6px 16px rgba(0,0,0,0.15),
-    inset 0 1px 0 rgba(255,255,255,0.3) !important;
+
 }
 
-/* Semi-transparent backgrounds with vibrant text */
-.deepseek-icon { background: rgba(102, 126, 234, 0.12) !important; color: #667eea !important; }
-.gemini-icon { background: rgba(66, 133, 244, 0.12) !important; color: #4285f4 !important; }
-.smallpdf-icon { background: rgba(255, 107, 107, 0.12) !important; color: #ff6b6b !important; }
-.ilovepdf-icon { background: rgba(72, 52, 212, 0.12) !important; color: #4834d4 !important; }
-.placeholder-icon { background: rgba(164, 176, 190, 0.12) !important; color: #a4b0be !important; }
+
 
 /* Tools Menu Header Buttons Layout - Side by Side */
 .tools-menu-header {
@@ -5202,7 +5152,7 @@ h2 {
 
 .instruction-text {
   flex: 1;
-  font-size: 12px;
+  font-size: 20px;
   line-height: 1.4;
   color: #475569;
   font-family: 'Inter', sans-serif;
@@ -5257,4 +5207,259 @@ h2 {
 
 [data-theme="dark"] .copy-instruction-btn:hover {
   background: #4a4a4a;
+}
+
+/* Tool Info Button Styles */
+.tool-info-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+  color: white;
+  border: 2px solid white;
+  border-radius: 12px;
+  width: 24px;
+  height: 24px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+  font-family: 'Inter', sans-serif;
+}
+
+.tool-item:hover .tool-info-btn {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+.tool-info-btn:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%);
+  transform: scale(1.2);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.5);
+}
+
+.tool-info-btn:active {
+  transform: scale(1.05);
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] .tool-info-btn {
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+  border-color: #2d2d2d;
+  box-shadow: 0 2px 8px rgba(96, 165, 250, 0.4);
+}
+
+[data-theme="dark"] .tool-info-btn:hover {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  box-shadow: 0 4px 12px rgba(96, 165, 250, 0.6);
+}
+
+/* Tool Info Modal Styles */
+.tool-info-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 3000;
+  backdrop-filter: blur(8px);
+}
+
+.tool-info-modal.show {
+  display: flex;
+}
+
+.tool-info-content {
+  background: var(--container-bg);
+  border: 3px solid #475569;
+  border-radius: 16px;
+  padding: 30px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: -8px 8px 0 #15191f, 0 20px 40px rgba(0, 0, 0, 0.3);
+  position: relative;
+  animation: modalSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.tool-info-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #475569;
+}
+
+.tool-info-title {
+  font-size: 28px !important;
+  font-weight: 700 !important;
+  color: #475569 !important;
+  margin: 0 !important;
+  font-family: 'Inter', sans-serif !important;
+  letter-spacing: -0.5px;
+}
+
+.tool-info-close {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  font-size: 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.tool-info-close:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+.tool-info-close:active {
+  transform: scale(1.05);
+}
+
+.tool-info-description {
+  font-size: 20px !important;
+  line-height: 1.6 !important;
+  color: var(--text-color) !important;
+  margin: 0 !important;
+  font-family: 'Inter', sans-serif !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.2px;
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] .tool-info-content {
+  background: #2d2d2d;
+  border-color: #3a3a3a;
+  box-shadow: -8px 8px 0 #000000, 0 20px 40px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .tool-info-title {
+  color: #e0e0e0 !important;
+}
+
+[data-theme="dark"] .tool-info-description {
+  color: #e0e0e0 !important;
+}
+
+[data-theme="dark"] .tool-info-header {
+  border-bottom-color: #3a3a3a;
+}
+
+/* Tool Info Modal Close Button - Match Tools Menu Style */
+.tool-info-close {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+  color: white !important;
+  border: 2px solid #dc2626 !important;
+  box-shadow:
+    0 2px 4px rgba(220, 38, 38, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+  border-radius: 6px !important;
+  /* B I G G E R */
+  width: 36px !important;
+  height: 36px !important;
+  font-size: 18px !important;
+  /* END B I G G E R */
+  cursor: pointer;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.2s ease !important;
+  position: static !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.tool-info-close:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
+  border-color: #b91c1c !important;
+  box-shadow:
+    0 3px 6px rgba(220, 38, 38, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+  transform: translateY(-1px) !important;
+}
+
+.tool-info-close:active {
+  transform: translateY(0) !important;
+  box-shadow:
+    0 1px 2px rgba(220, 38, 38, 0.3),
+    inset 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] .tool-info-close {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+  border-color: #dc2626 !important;
+  box-shadow:
+    0 2px 4px rgba(220, 38, 38, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+}
+
+[data-theme="dark"] .tool-info-close:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
+  border-color: #b91c1c !important;
+}
+
+.tool-info-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  background: transparent;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 700;
+  border: 1px solid #475569;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.tool-info-btn:hover {
+  background: #475569;
+  color: #fff;
+}
+
+.tools-grid img {
+  width: 100%; 
+  height: 100%;
+  /* Drop shadow arguments:
+     1st: horizontal offset (right)
+     2nd: vertical offset (down)
+     3rd: blur radius
+     4th: color 
+  */
+  filter: drop-shadow(4px 4px 6px rgba(0, 0, 0, 0.2));
+}
+
+.tool-icon {
+  filter: drop-shadow(4px 4px 6px rgba(0, 0, 0, 0.4));
 }

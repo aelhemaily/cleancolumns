@@ -36,6 +36,7 @@
     </optgroup>
     <optgroup label="Others" class="optgroup">
       <option value="cdt">CDT</option>
+      <option value="coastcapital">Coast Capital</option>
       <option value="cra">CRA</option>
       <option value="eq">EQ</option>
       <option value="firstontario">First Ontario</option>
@@ -61,9 +62,11 @@
     <option value="rbc">RBC</option>
     <option value="scotia">Scotia</option>
     <option value="td">TD</option>
+    
   </optgroup>
   <optgroup label="Others">
     <option value="cdt">CDT</option>
+    <option value="coastcapital">Coast Capital</option>
     <option value="cra">CRA</option>
     <option value="eq">EQ</option>
     <option value="firstontario">First Ontario</option>
@@ -122,7 +125,7 @@
     <div class="tools-grid">
       <a href="https://aelhemaily.github.io/cleancolumns/" target="_blank" class="tool-item" title="Clean Columns">
         <div class="tool-icon qzee-icon">
-          <i class="fas fa-columns"></i>
+          <img src="images/icons/cleancolumns.png" alt="Clean Columns Icon">
         </div>
         <span class="tool-name">Clean Columns</span>
       </a>
@@ -159,14 +162,24 @@
     </div>
   </div>
 
-
+  <div class="tools-category">
+    <h4>PDF Tools</h4>
+    <div class="tools-grid">
+      <a href="https://www.ilovepdf.com/organize-pdf" target="_blank" class="tool-item" title="Merge PDF's">
+        <div class="tool-icon qzee-icon">
+          <img src="images/icons/ilovepdf.png" alt="I Love PDF">
+        </div>
+        <span class="tool-name">Merge PDF's</span>
+      </a>
+    </div>
+  </div>
 
 <div class="tools-category">
     <h4>AI Tools</h4>
     <div class="tools-category">
   <div class="instruction-box">
     <div class="instruction-text">
-      Please extract all the transactions from the pdf files uploaded and put them out in plain text form in the same exact format as they appear in the pdf files.
+      Please extract all the transactions from the pdf files uploaded and put them out in plain text form in the same exact format as they appear in the pdf files. No chatting, only data in one snippet.
     </div>
     <button class="copy-instruction-btn" title="Copy instruction">
       <i class="fas fa-copy"></i>
@@ -176,41 +189,35 @@
     <div class="tools-grid">
       <a href="https://chat.deepseek.com/" target="_blank" class="tool-item" title="DeepSeek AI">
         <div class="tool-icon deepseek-icon">
-          <i class="fas fa-brain"></i>
+       <img src="images/icons/deepseek.png" alt="Deepseek">
         </div>
         <span class="tool-name">DeepSeek</span>
       </a>
       <a href="https://gemini.google.com/" target="_blank" class="tool-item" title="Gemini AI">
         <div class="tool-icon gemini-icon">
-          <i class="fas fa-robot"></i>
+         <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="256" height="256" viewBox="0 0 256 256" xml:space="preserve">
+<g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)">
+	<linearGradient id="SVGID_2" gradientUnits="userSpaceOnUse" x1="60.0525" y1="33.3396" x2="34.8444" y2="52.867">
+<stop offset="0%" style="stop-color:rgb(145,104,192);stop-opacity: 1"/>
+<stop offset="34.300000000000004%" style="stop-color:rgb(86,132,209);stop-opacity: 1"/>
+<stop offset="67.2%" style="stop-color:rgb(27,161,227);stop-opacity: 1"/>
+</linearGradient>
+<path d="M 90 45.09 C 65.838 46.573 46.573 65.838 45.09 90 h -0.18 C 43.43 65.837 24.163 46.57 0 45.09 v -0.18 C 24.163 43.43 43.43 24.163 44.91 0 h 0.18 C 46.573 24.162 65.838 43.427 90 44.91 V 45.09 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: url(#SVGID_2); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round"/>
+</g>
+</svg>
         </div>
         <span class="tool-name">Gemini</span>
       </a>
       <!-- You can add more AI tools here -->
     </div>
+    
+  </div>
   </div>
   
 
+  
 
-<div class="tools-category">
-    <h4>PDF Tools</h4>
-    <div class="tools-grid">
-      <a href="https://smallpdf.com/pdf-ocr" target="_blank" class="tool-item" title="SmallPDF OCR">
-        <div class="tool-icon smallpdf-icon">
-          <i class="fas fa-file-pdf"></i>
-        </div>
-        <span class="tool-name">SmallPDF</span>
-      </a>
-      <a href="https://www.ilovepdf.com/ocr-pdf" target="_blank" class="tool-item" title="ILovePDF OCR">
-        <div class="tool-icon ilovepdf-icon">
-          <i class="fas fa-file-alt"></i>
-        </div>
-        <span class="tool-name">ILovePDF</span>
-      </a>
-      <!-- You can add more PDF tools here -->
-    </div>
-  </div>
-</div>
+      
 
 
 <!-- Add this right after the PDF upload section -->
@@ -378,6 +385,15 @@
     </div>
   </div>
 </div>
-
+<!-- Tool Info Modal -->
+<div id="toolInfoModal" class="tool-info-modal">
+  <div class="tool-info-content">
+    <div class="tool-info-header">
+      <h3 id="toolInfoTitle" class="tool-info-title">Tool Information</h3>
+-     <button id="toolInfoClose" class="tool-info-close">&times;</button>
+    </div>
+    <p id="toolInfoDescription" class="tool-info-description"></p>
+  </div>
+</div>
 </body>
 </html>
