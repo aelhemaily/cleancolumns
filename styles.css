@@ -5451,15 +5451,10 @@ h2 {
 .tools-grid img {
   width: 100%; 
   height: 100%;
-  /* Drop shadow arguments:
-     1st: horizontal offset (right)
-     2nd: vertical offset (down)
-     3rd: blur radius
-     4th: color 
-  */
-  filter: drop-shadow(4px 4px 6px rgba(0, 0, 0, 0.2));
+ 
+  filter: drop-shadow(2px 2px 2px rgba(0, 0, 0, 0.2));
 }
 
 .tool-icon {
-  filter: drop-shadow(4px 4px 6px rgba(0, 0, 0, 0.4));
+    filter: drop-shadow(2px 2px 2px rgba(0, 0, 55, 0.5));
 }
