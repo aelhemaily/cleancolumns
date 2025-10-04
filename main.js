@@ -91,6 +91,326 @@ const toolDescriptions = {
   }
 };
 
+
+// AI Prompt System
+function setupAIPromptSystem() {
+  const aiPromptText = document.getElementById('aiPromptText');
+  const copyAiPromptBtn = document.getElementById('copyAiPrompt');
+  const currentScriptName = document.getElementById('currentScriptName');
+  const aiBankSelector = document.getElementById('aiBankSelector');
+  
+  // AI Prompts for each script
+  const aiPrompts = {
+    // Big 5 Banks
+    'bmoAccount': 'Convert this BMO bank account statement to clean columns with Date, Description, DR, CR, and Balance. Extract transactions accurately.',
+    'bmoCard': 'Process this BMO credit card statement. Separate transactions into Date, Description, DR, CR columns. Handle negative amounts correctly.',
+    'bmoLoc': 'Convert this BMO Line of Credit statement. Extract transaction data with proper debit/credit separation.',
+    
+    'cibcAccount': 'Transform this CIBC bank account statement into structured columns: Date, Description, DR, CR, Balance.',
+    'cibcCard': 'Parse this CIBC credit card statement. Create clean columns for Date, Description, and amount fields.',
+    
+    'rbcAccount': 'Convert this RBC bank account statement using keyword-based allocation. Separate into Date, Description, DR, CR, Balance columns.',
+    'rbcCard': 'Process this RBC credit card statement with negative amount markers. Extract transaction data accurately.',
+    'rbcLoc': 'Transform this RBC Line of Credit statement. Handle negative amounts and separate into proper columns.',
+    
+    'scotiaAccount': 'Convert this Scotia bank account statement to structured format with Date, Description, DR, CR, Balance.',
+    'scotiaCard': 'Process this Scotia credit card statement with negative amount indicators.',
+    
+    'tdAccount': 'Transform this TD bank account statement using balance and keyword allocation. Create Date, Description, DR, CR, Balance columns.',
+    'tdCard': 'Process this TD credit card statement with negative amount markers.',
+    'tdinPerson': 'Convert this TD in-person statement using balance-based allocation.',
+    'tdHistory': 'Process this TD history statement with DR/CR markers.',
+    
+    // Other Canadian Banks
+    'cdtCard': 'Convert this CDT credit card statement with negative amount markers.',
+    'coastcapitalAccount': 'Transform this Coast Capital savings account statement.',
+    'craHistory': 'Process this CRA history statement with CR markers.',
+    'craPayroll': 'Convert this CRA payroll statement with DR/CR markers.',
+    'eqCard': 'Process this EQ credit card statement with negative amounts.',
+    'firstontarioAccount': 'Convert this First Ontario account statement.',
+    'meridianAccount': 'Transform this Meridian account statement with reversed negative markers.',
+    'nbcAccount': 'Process this NBC bank account statement.',
+    'nbcCard': 'Convert this NBC credit card statement with negative amounts.',
+    'simpliiAccount': 'Transform this Simplii financial account statement.',
+    'tangerineAccount': 'Process this Tangerine account statement with bracket amount markers.',
+    'triangleCard': 'Convert this Triangle credit card statement.',
+    'wallmartCard': 'Process this Walmart credit card statement.',
+    
+    // US Banks
+    'amexCard': 'Convert this American Express statement with negative amount indicators.',
+    'boaCard': 'Process this Bank of America credit card statement.',
+    'wellsfargoAccount': 'Transform this Wells Fargo account statement using keyword-based allocation.'
+  };
+
+  // Initialize AI bank selector with same options as main app
+  function initializeAIBankSelector() {
+    const mainBankSelector = document.getElementById('bankSelector');
+    aiBankSelector.innerHTML = mainBankSelector.innerHTML;
+    
+    // Set initial value to match current bank from main app
+    const currentMainBank = mainBankSelector.value;
+    const currentMainType = document.getElementById('typeSelector').value;
+    
+    aiBankSelector.value = currentMainBank;
+    
+    // Update type selector based on current bank
+    updateAITypeSelector(currentMainBank);
+    
+    // Set type to match main app
+    const aiTypeSelector = document.getElementById('aiTypeSelector');
+    setTimeout(() => {
+      aiTypeSelector.value = currentMainType;
+      updateAIPrompt();
+    }, 100);
+  }
+
+  function updateAITypeSelector(bank) {
+    const aiTypeSelector = document.getElementById('aiTypeSelector');
+    const allowedTypes = {
+      boa: ['card'],
+      cdt: ['card'],
+      coastcapital: ['account'],
+      cra: ['history', 'payroll'],
+      tangerine: ['account'],
+      td: ['account', 'card', 'inPerson', 'history'],
+      firstontario: ['account'],
+      meridian: ['account'],
+      simplii: ['account'],
+      wellsfargo: ['account'],
+      amex: ['card'],
+      eq: ['card'],
+      triangle: ['card'],
+      wallmart: ['card'],
+      nbc: ['account', 'card'],
+      bmo: ['account', 'card', 'loc'],
+      rbc: ['account', 'card', 'loc'],
+      cibc: ['account', 'card'],
+      scotia: ['account', 'card']
+    };
+
+    const allTypes = {
+      account: 'Account',
+      card: 'Card',
+      inPerson: 'In-Person',
+      loc: 'LOC',
+      history: 'History',
+      payroll: 'Payroll'
+    };
+
+    const allowed = allowedTypes[bank] || ['account', 'card'];
+    aiTypeSelector.innerHTML = '';
+    
+    allowed.forEach(type => {
+      const option = document.createElement('option');
+      option.value = type;
+      option.textContent = allTypes[type];
+      aiTypeSelector.appendChild(option);
+    });
+  }
+
+  function getCombinedKeyForAI() {
+    const bank = aiBankSelector.value;
+    const type = document.getElementById('aiTypeSelector').value;
+    
+    if (bank === 'td' && type === 'inPerson') {
+      return 'tdinPerson';
+    }
+    if (bank === 'cra' && type === 'payroll') {
+      return 'craPayroll';
+    }
+    if (bank === 'cra' && type === 'history') {
+      return 'craHistory';
+    }
+    return bank + capitalizeFirstLetter(type);
+  }
+
+  function capitalizeFirstLetter(str) {
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+
+  function updateAIPrompt() {
+    const combinedKey = getCombinedKeyForAI();
+    const prompt = aiPrompts[combinedKey] || `Process this ${combinedKey} bank statement and convert it to clean columns with proper formatting.`;
+    
+    // Update the hidden textarea
+    aiPromptText.value = prompt;
+    
+    // Update the displayed script name
+    currentScriptName.textContent = combinedKey;
+    
+    // Show visual feedback
+    currentScriptName.style.animation = 'none';
+    setTimeout(() => {
+      currentScriptName.style.animation = 'highlight 0.5s ease';
+    }, 10);
+  }
+
+  // Copy AI Prompt functionality
+  copyAiPromptBtn.addEventListener('click', () => {
+    navigator.clipboard.writeText(aiPromptText.value).then(() => {
+      // Visual feedback
+      const originalHTML = copyAiPromptBtn.innerHTML;
+      copyAiPromptBtn.classList.add('copied');
+      copyAiPromptBtn.innerHTML = '<i class="fas fa-check"></i>';
+      
+      setTimeout(() => {
+        copyAiPromptBtn.classList.remove('copied');
+        copyAiPromptBtn.innerHTML = originalHTML;
+      }, 2000);
+      
+      showToast('AI Prompt copied!', 'success');
+    }).catch(err => {
+      console.error('Failed to copy AI prompt:', err);
+      showToast('Failed to copy AI prompt', 'error');
+    });
+  });
+
+  // Event listeners for bank/type changes
+  aiBankSelector.addEventListener('change', (e) => {
+    updateAITypeSelector(e.target.value);
+    updateAIPrompt();
+  });
+
+  document.getElementById('aiTypeSelector').addEventListener('change', updateAIPrompt);
+
+  // Initialize the system
+  initializeAIBankSelector();
+
+  // Set up custom select for AI bank selector
+  setupAICustomSelect();
+}
+
+function setupAICustomSelect() {
+  const aiCustomSelect = document.querySelector('.ai-custom-select');
+  const aiSelectSelected = document.querySelector('#aiBankSelectorDisplay');
+  const aiSelectItems = aiCustomSelect.querySelector('.select-items');
+  const aiBankSearch = document.getElementById('aiBankSearch');
+  const aiBankSelector = document.getElementById('aiBankSelector');
+
+  // Set initial display
+  const currentOption = Array.from(aiBankSelector.options).find(opt => opt.value === aiBankSelector.value);
+  if (currentOption) {
+    aiSelectSelected.textContent = currentOption.textContent;
+  }
+
+  // Toggle dropdown
+  aiSelectSelected.addEventListener('click', function(e) {
+    e.stopPropagation();
+    const isCurrentlyOpen = !aiSelectItems.classList.contains('select-hide');
+    closeAllSelect(this);
+    
+    if (!isCurrentlyOpen) {
+      this.classList.add('select-arrow-active');
+      aiSelectItems.classList.remove('select-hide');
+      setTimeout(() => aiBankSearch.focus(), 10);
+    } else {
+      this.classList.remove('select-arrow-active');
+      aiSelectItems.classList.add('select-hide');
+    }
+  });
+
+  // Filter options
+  aiBankSearch.addEventListener('input', function() {
+    const filter = this.value.toLowerCase();
+    const options = aiSelectItems.querySelectorAll('option');
+    const optgroups = aiSelectItems.querySelectorAll('optgroup');
+
+    options.forEach(option => {
+      const text = option.textContent.toLowerCase();
+      option.style.display = text.includes(filter) ? 'block' : 'none';
+    });
+
+    optgroups.forEach(optgroup => {
+      const visibleOptions = Array.from(optgroup.querySelectorAll('option'))
+        .some(option => option.style.display !== 'none');
+      optgroup.style.display = visibleOptions ? 'block' : 'none';
+    });
+  });
+
+  // Handle option selection
+  aiSelectItems.addEventListener('click', function(e) {
+    if (e.target.tagName === 'OPTION') {
+      const value = e.target.value;
+      const text = e.target.textContent;
+
+      aiSelectSelected.textContent = text;
+      aiSelectSelected.classList.remove('select-arrow-active');
+      aiSelectItems.classList.add('select-hide');
+
+      aiBankSelector.value = value;
+      aiBankSearch.value = '';
+
+      // Reset all options to visible
+      const options = aiSelectItems.querySelectorAll('option');
+      const optgroups = aiSelectItems.querySelectorAll('optgroup');
+      options.forEach(option => option.style.display = 'block');
+      optgroups.forEach(optgroup => optgroup.style.display = 'block');
+
+      // Trigger change event
+      const event = new Event('change');
+      aiBankSelector.dispatchEvent(event);
+    }
+  });
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', function(e) {
+    if (!aiCustomSelect.contains(e.target)) {
+      aiSelectSelected.classList.remove('select-arrow-active');
+      aiSelectItems.classList.add('select-hide');
+    }
+  });
+}
+
+function closeAllSelect(elmnt) {
+  const selectItems = document.getElementsByClassName('select-items');
+  const selectSelected = document.getElementsByClassName('select-selected');
+
+  for (let i = 0; i < selectSelected.length; i++) {
+    if (elmnt !== selectSelected[i]) {
+      selectSelected[i].classList.remove('select-arrow-active');
+    }
+  }
+
+  for (let i = 0; i < selectItems.length; i++) {
+    if (elmnt !== selectItems[i]) {
+      selectItems[i].classList.add('select-hide');
+    }
+  }
+}
+
+// Add highlight animation
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes highlight {
+    0% { background-color: transparent; }
+    50% { background-color: rgba(59, 130, 246, 0.2); }
+    100% { background-color: transparent; }
+  }
+`;
+document.head.appendChild(style);
+
+// Initialize the AI Prompt system when tools menu is shown
+function initializeAIPromptWhenReady() {
+  const toolsMenu = document.getElementById('toolsMenu');
+  if (toolsMenu) {
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+          if (toolsMenu.classList.contains('show')) {
+            setupAIPromptSystem();
+            observer.disconnect();
+          }
+        }
+      });
+    });
+    
+    observer.observe(toolsMenu, { attributes: true });
+  }
+}
+
+// Call this in your DOMContentLoaded
+initializeAIPromptWhenReady();
+
 // Setup tool info functionality
 function setupToolInfo() {
   const toolInfoModal = document.getElementById('toolInfoModal');
@@ -3586,6 +3906,6 @@ function setupRefreshButton() {
 // Call this function in your DOMContentLoaded event listener
 // Add this line where you initialize other components:
 setupRefreshButton();
-
+initializeAIPromptWhenReady();
 
 });
