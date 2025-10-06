@@ -100,47 +100,556 @@ function setupAIPromptSystem() {
   const aiBankSelector = document.getElementById('aiBankSelector');
   
   // AI Prompts for each script
-  const aiPrompts = {
-    // Big 5 Banks
-    'bmoAccount': 'Convert this BMO bank account statement to clean columns with Date, Description, DR, CR, and Balance. Extract transactions accurately.',
-    'bmoCard': 'Process this BMO credit card statement. Separate transactions into Date, Description, DR, CR columns. Handle negative amounts correctly.',
-    'bmoLoc': 'Convert this BMO Line of Credit statement. Extract transaction data with proper debit/credit separation.',
-    
-    'cibcAccount': 'Transform this CIBC bank account statement into structured columns: Date, Description, DR, CR, Balance.',
-    'cibcCard': 'Parse this CIBC credit card statement. Create clean columns for Date, Description, and amount fields.',
-    
-    'rbcAccount': 'Convert this RBC bank account statement using keyword-based allocation. Separate into Date, Description, DR, CR, Balance columns.',
-    'rbcCard': 'Process this RBC credit card statement with negative amount markers. Extract transaction data accurately.',
-    'rbcLoc': 'Transform this RBC Line of Credit statement. Handle negative amounts and separate into proper columns.',
-    
-    'scotiaAccount': 'Convert this Scotia bank account statement to structured format with Date, Description, DR, CR, Balance.',
-    'scotiaCard': 'Process this Scotia credit card statement with negative amount indicators.',
-    
-    'tdAccount': 'Transform this TD bank account statement using balance and keyword allocation. Create Date, Description, DR, CR, Balance columns.',
-    'tdCard': 'Process this TD credit card statement with negative amount markers.',
-    'tdinPerson': 'Convert this TD in-person statement using balance-based allocation.',
-    'tdHistory': 'Process this TD history statement with DR/CR markers.',
-    
-    // Other Canadian Banks
-    'cdtCard': 'Convert this CDT credit card statement with negative amount markers.',
-    'coastcapitalAccount': 'Transform this Coast Capital savings account statement.',
-    'craHistory': 'Process this CRA history statement with CR markers.',
-    'craPayroll': 'Convert this CRA payroll statement with DR/CR markers.',
-    'eqCard': 'Process this EQ credit card statement with negative amounts.',
-    'firstontarioAccount': 'Convert this First Ontario account statement.',
-    'meridianAccount': 'Transform this Meridian account statement with reversed negative markers.',
-    'nbcAccount': 'Process this NBC bank account statement.',
-    'nbcCard': 'Convert this NBC credit card statement with negative amounts.',
-    'simpliiAccount': 'Transform this Simplii financial account statement.',
-    'tangerineAccount': 'Process this Tangerine account statement with bracket amount markers.',
-    'triangleCard': 'Convert this Triangle credit card statement.',
-    'wallmartCard': 'Process this Walmart credit card statement.',
-    
-    // US Banks
-    'amexCard': 'Convert this American Express statement with negative amount indicators.',
-    'boaCard': 'Process this Bank of America credit card statement.',
-    'wellsfargoAccount': 'Transform this Wells Fargo account statement using keyword-based allocation.'
-  };
+ const aiPrompts = {
+  // Big 5 Banks
+  'bmoAccount':
+`Sep 12 Opening balance 811.05
+Sep 12 Debit Card Purchase, ESSO CIRCLE K 3.72 807.33
+Sep 12 Debit Card Purchase, TIM HORTONS #02 8.66 798.67
+Sep 12 Debit Card Purchase, SOBEYS #4719 20.83 777.84
+Sep 12 Debit Card Purchase, MCDONALD'S #405 7.10 770.74
+Sep 13 INTERAC e-Transfer Sent 50.00 720.74
+Sep 13 Debit Card Purchase, KABUL FARMS SUP 22.24 698.50
+Sep 13 Pre-Authorized Payment, CONSUMER LOANS
+LNS/PRE
+175.69 522.81
+Sep 16 Online Transfer, TF 0005191230231502577 150.00 372.81
+Sep 16 Debit Card Purchase, KABUL FARMS SUP 44.53 328.28
+
+Make sure to include the opening balance, but not closing balance.
+`,
+
+  'bmoCard':
+`Dec 16 Dec 18 APPLE.COM/BILL 866-712-7753 ON 4.51
+Dec 16 Dec 18 UBER CANADA/UBEREATS TORONTO ON 57.46
+Dec 16 Dec 18 UBER CANADA/UBEREATS TORONTO ON 41.72
+Dec 17 Dec 18 Amazon.ca Prime Member amazon.ca/priBC 11.29
+Dec 18 Dec 18 Shelbys Oakville ON 7.10
+Dec 18 Dec 19 UPS*5522302120 888-520-9090 NB 127.65
+Dec 17 Dec 19 TELUS COMM. WEB EDMONTON AB 71.03
+Dec 18 Dec 19 TIM HORTONS #0375 MISSISSAUGA ON 2.17
+Dec 19 Dec 20 UPS*V1589RDRSNB 888-520-9090 NB 71.41
+Dec 19 Dec 20 UPS*V1589RFQ4LD 888-520-9090 NB 56.24
+Dec 17 Dec 20 SOBEYS #4719 MILTON ON 24.27
+Dec 19 Dec 20 HALTON DSB BURLINGTON ON 46.25
+Dec 20 Dec 20 Nike-ESW-CAD Vancouver BC 112.65
+Dec 19 Dec 20 TRSF FROM/DE ACCT/CPT 3482-XXXX-164 1,000.00 CR
+Dec 20 Dec 21 HALTON DSB BURLINGTON ON 54.00
+Dec 21 Dec 22 TIM HORTONS #0375 MISSISSAUGA ON 10.95
+Dec 22 Dec 22 APPLE.COM/BILL 866-712-7753 ON 3.38
+Dec 22 Dec 25 LAURA/MELANIE LYNE WEB LAVAL QC 176.27 CR
+`,
+
+  'bmoLoc':
+`Jan. 20 Jan. 20 AUTOMATIC PAYMENT RECEIVED - THANK YOU 200.00CR
+Jan. 20 Jan. 20 PAYMENT RECEIVED - THANK YOU 200.00CR
+Jan. 27 Jan. 27 PAYMENT RECEIVED - THANK YOU 200.00CR
+Jan. 27 Jan. 27 PAYMENT RECEIVED - THANK YOU 500.00CR
+Jan. 29 Jan. 29 PAYMENT RECEIVED - THANK YOU 500.00CR
+Feb. 3 Feb. 3 AUTOMATIC PAYMENT RECEIVED - THANK YOU 200.00CR
+Feb. 3 Feb. 3 PAYMENT RECEIVED - THANK YOU 200.00CR
+Feb. 3 Feb. 3 PAYMENT RECEIVED - THANK YOU 300.00CR
+Feb. 10 Feb. 10 PAYMENT RECEIVED - THANK YOU 200.00CR
+Feb. 17 Feb. 17 PAYMENT RECEIVED - THANK YOU 200.00CR
+Feb. 17 Feb. 17 AUTOMATIC PAYMENT RECEIVED - THANK YOU 200.00CR`,
+
+  'cibcAccount':
+`Dec 1 Opening balance   -$2.89
+
+Dec 1 RETAIL PURCHASE   733415757398
+TIM HORTONS #06
+3.55   -6.44
+
+Dec 4 RETAIL PURCHASE   352001001091
+7 ELEVEN STORE
+1.80   -8.24
+
+Dec 5 DEPOSIT   IBB
+WESTWOOD SQUARE BANKING CENTRE
+35.00 26.76
+
+Dec 5 DEPOSIT   IBB
+WESTWOOD SQUARE BANKING CENTRE
+33.08 59.84
+
+Dec 5 INTERNET BILL PAY 000000285133
+MASTERCARD, CAPITAL ONE
+49.84 10.00
+
+Dec 18 RETAIL PURCHASE   735012920478
+COFFEE CULTURE
+2.30 7.70
+
+Dec 18 RETAIL PURCHASE   735018657131
+TIM HORTONS #07
+5.28 2.42
+
+Dec 20 E-TRANSFER   100403366968
+GIFTCASH INC.
+80.00 82.42
+
+Dec 20 Balance forward   $82.42
+
+Dec 21 RETAIL PURCHASE   735421229600
+SECOND CUP 9198
+4.92 77.50
+
+Make sure to include the opening balance and any balance forward, but not the closing balance.`,
+
+  'cibcCard':
+`Jul 11 Jul 12 PAYMENT THANK YOU/PAIEMENT MERCI 2,739.90
+Aug 07 Aug 07 REGULAR PURCHASES 19.99% 4.28
+Jul 17 Jul 19 CDN TIRE STORE #00425 LONDON ON Home and Office Improvement 146.89
+Jul 22 Jul 25 CIBC AD - #46 MISSISSAUGA ON Professional and Financial Services 24.43
+Jul 26 Jul 28 MANULIFE TRAVEL INS WATERLOO ON Professional and Financial Services -1,268.19
+Jul 26 Jul 28 MANULIFE TRAVEL INS WATERLOO ON Professional and Financial Services -1,268.19
+Jul 30 Aug 02 FOOD LANDS SUPERMARKET LONDON ON Retail and Grocery 191.92
+Aug 01 Aug 03 CDN TIRE STORE #00208 LONDON ON Home and Office Improvement 175.92`,
+
+  'rbcAccount':
+`Opening balance 820.99
+03 Dec Regular transaction fee 2 Drs @ 1.25 2.50
+03 Dec Electronic transaction fee 9 Drs @ 0.75 6.75
+04 Dec Interac purchase - 4283 WAL-MART #1061 10.88 800.86
+05 Dec Interac purchase - 2093 MTO RUS-SO BRAM 120.00
+05 Dec Interac purchase - 4802 FIRST CHOICE AU 160.00 520.86
+07 Dec Funds transfer credit TT HUMAYUN FASI 1,985.00
+07 Dec Contactless Interac purchase - 1653 SUBWAY # 43141 4.96
+07 Dec Funds transfer fee TT HUMAYUN FASI 17.00 2,483.90
+11 Dec Contactless Interac purchase - 5146 SHOPPERS DRUG M 2.03 2,481.87
+12 Dec e-Transfer received SAMYA MIR 350.00 2,831.87
+12 Dec Funds transfer credit TT HUMAYUN FASI 2,000.00
+12 Dec 12 Dec Contactless Interac purchase - 0280 KWALITY SWEETS 2.36
+12 Dec Funds transfer fee TT HUMAYUN FASI 17.00 4,812.51
+14 Dec Online Transfer to Deposit Account-6652 3,951.00 861.51
+17 Dec Funds transfer credit TT HUMAYUN FASI 2,000.00
+17 Dec Contactless Interac purchase - 8462 TIM HORTONS #32 1.60
+17 Dec Contactless Interac purchase - 6926 CANADIAN TIRE G 15.68
+
+Make sure to include the opening balance, but not closing balance (but keep the running balances at the end of transactions as shown above).`,
+
+  'rbcCard':
+`JAN 04 JAN 05 BELL MOBILITY VERDUN QC 74064493004820173611692 $204.53
+JAN 04 JAN 05 TIM HORTONS #1669 HORNBY ON 74703413004105279447315 $7.94
+JAN 05 JAN 06 BELL CANADA (OB) MONTREAL QC 74064493005820173321309 $232.72
+JAN 05 JAN 06 TIM HORTONS #1669 HORNBY ON 74703413005106053590147 $7.94
+JAN 05 JAN 06 RCSS #2811 GEORGETOWN ON 74500013005463643784562 $31.56
+JAN 05 JAN 23 CASH BACK REWARD 06829028651 -$249.59
+JAN 06 JAN 09 TIM HORTONS #1669 HORNBY ON 74703413006106804790243 $7.94
+JAN 06 JAN 09 BREAKAWAY RIVERMONT RD BRAMPTON ON 74500013007461695669903 $73.15
+JAN 07 JAN 09 NESPRESSO MAPLEVIEW BURLINGTON ON 74099863007000336710133 $86.60
+JAN 07 JAN 09 TIM HORTONS #1669 HORNBY ON 74703413007107571785464 $7.38
+JAN 07 JAN 09 RCSS #2811 GEORGETOWN ON 74500013007463615694961 $19.00
+JAN 07 JAN 11 WAL-MART SUPERCENTER#3034GEORGETOWN ON 74529003009900430595705 $18.12
+JAN 07 JAN 09 PAYMENT - THANK YOU / PAIEMENT - MERCI 74510203009619987802200 -$3181.98
+JAN 09 JAN 10 BEST BUY #617 TORONTO ON 74500013009617019999403 $372.89`,
+
+  'rbcLoc':
+`Jun 24 Jun 21 Withdrawal $250.00 $27,150.00
+Jun 25 Jun 24 Withdrawal $750.00 $27,900.00
+Jun 27 Jun 17 Reversal of Payment $2,000.00 $29,900.00
+Jun 27 Jun 17 Payment -$2,000.00 $28,414.38
+Jun 28 Jun 27 Withdrawal $250.00 $28,664.38
+Jul 03 Jul 02 Withdrawal $1,335.62 $30,000.00
+Jul 05 Jul 04 Payment -$1,250.00 $28,750.00
+Jul 08 Jul 05 Withdrawal $250.00 $29,000.00
+Jul 09 Jul 08 Payment -$1,000.00 $28,000.00`,
+
+  'scotiaAccount':
+`12/04/2017 TRANSFER TO 41962 05915 21 26981332 MB-TRANSFER 5,000.00 129,906.11
+12/04/2017 DEBIT MEMO 26985483 MB-EMAIL MONEY TRF 259.58 129,646.53
+12/04/2017 DEBIT MEMO 26988146 MB-EMAIL MONEY TRF 259.58 129,386.95
+12/04/2017 SERVICE CHARGE MB-EMAIL MONEY TRF 1.00 129,385.95
+12/04/2017 SERVICE CHARGE MB-EMAIL MONEY TRF 1.00 129,384.95
+12/05/2017 DEPOSIT HAMILTON ON 93310 490 36336427 MB-DEP 1,448.70 130,833.65
+12/05/2017 DEPOSIT HAMILTON ON 93310 490 36339715 MB-DEP 1,088.81 131,922.46
+12/05/2017 DEPOSIT HAMILTON ON 93310 490 36343413 MB-DEP 1,937.20 133,859.66`,
+
+  'scotiaCard':
+`001 Mar 13 Mar 13 PAYMENT-THANK YOU SCOTIABANK TRANSIT 82362 WESTON ON 10.00-
+002 Mar 20 Mar 20 INTEREST CHARGES-PURCHASE 0.41
+003 Mar 10 Mar 13 MCDONALD'S F5709 EAST AURORA NY AMT 5.32 UNIT ED STATES DOL LAR 7.54
+004 Mar 10 Mar 13 JOE'S KWIK MARTS #0461 ELMA NY AMT 25.44 UNIT ED STATES DOL LAR 36.15
+005 Mar 10 Mar 13 SHELL C21803 LONDON ON 41.37
+006 Mar 10 Mar 13 MCDONALD'S F5709 EAST AURORA NY AMT 48.58 UNIT ED STATES DOL LAR 68.91
+007 Mar 13 Mar 14 GREENBELT LIQUORS GREENBELT MD AMT 1.26 UNIT ED STATES DOL LAR 1.79
+008 Mar 13 Mar 14 GREENBELT LIQUORS GREENBELT MD AMT 51.21 UNIT ED STATES DOL LAR 72.78
+009 Mar 14 Mar 14 SIRIUSXM.CA/ACCT 888-539-7474 ON 8.81
+010 Mar 18 Mar 20 FREEDOM MOBILE 877-946-3184 ON 16.95`,
+
+  'tdAccount':
+`STARTING BALANCE JUN28 326.46OD
+E-TRANSFER ***UXW 10.00 JUL02 316.46OD
+GST GST 129.75 JUL05
+BELL MOBILITY _V 15.00 JUL05
+NON-TD ATM W/D 43.00 JUL05
+BELL MOBILITY _V 22.00 JUL05
+BELL MOBILITY _V 10.00 JUL05
+BELL MOBILITY _V 9.68 JUL05
+BELL MOBILITY _V 5.00 JUL05
+BELL MOBILITY _V 5.00 JUL05
+BELL MOBILITY _V 2.00 JUL05
+BELL MOBILITY _V 1.50 JUL05
+BELL MOBILITY _V 0.11 JUL05 300.00OD
+GC 2864-DEPOSIT 20.00 JUL09
+BELL MOBILITY _V 18.00 JUL09
+BELL MOBILITY _V 2.00 JUL09
+E-TRANSFER ***RaV 100.00 JUL09`,
+
+  'tdCard':
+`JUL 12 JUL 13 HAIR FLAIR LONDON $135.60
+JUL 13 JUL 14 STAPLESPRINT.CA RICHMOND HIL $51.05
+JUL 17 JUL 18 Adobe Inc 800-8336687 $29.37
+JUL 17 JUL 19 GOOGLE*GOOGLE STORAGE $3.15
+G.CO/HELPPAY
+JUL 24 JUL 25 SHOPIFY INC/188813620 OTTAWA $308.39
+FOREIGN CURRENCY 227.43 USD
+@EXCHANGE RATE 1.35597
+JUL 26 JUL 27 PST*happy returns 951-2344425 $29.35
+FOREIGN CURRENCY 21.67 USD
+@EXCHANGE RATE 1.35440
+JUL 27 JUL 28 EVENTBRITE/NATESMITH SAINT JOHN $129.10
+AUG 1 AUG 2 PAYMENT - THANK YOU -$2,795.02
+AUG 2 AUG 3 ENCORE AUCTIONS 519-659-8725 $85.79
+AUG 2 AUG 3 PAYMENT - THANK YOU -$30.00
+AUG 3 AUG 4 GRAMMARLY CO4FCAOFS $82.30
+GRAMMARLY.CO
+FOREIGN CURRENCY 60.00 USD
+@EXCHANGE RATE 1.37166
+AUG 5 AUG 8 PST*happy returns 951-2344425 $81.01
+FOREIGN CURRENCY 58.99 USD
+@EXCHANGE RATE 1.37328`,
+
+  'tdinPerson':
+`Jan 31,2024 PAPER STMT FEE 3.00 $243,689.42
+Jan 31,2024 ACCT BAL REBATE 19.00 $243,692.42
+Jan 31,2024 MONTHLY PLAN FEE 19.00 $243,673.42
+Jan 26, 2024 MONEY MART #629 299.99 $243,692.42
+Jan 26, 2024 GC 0110-CASH WITHDRA 300.00 $243,992.41
+Jan 26, 2024 GC 0110-TRANSFER 2,000.00 $244 292.41
+Jan 26, 2024 CREDIT CARD PAYMENT 1,000.00 $246,292.41
+Jan 26, 2024 GC 0110-DEPOSIT 6,152.86 $247,292.41
+Jan 22, 2024 64068 MACS CONV 23.38 $241,139.55
+Jan 22, 2024 DARRYLL & TRACY 101.12 $241,162.93
+Jan 16, 2024 TRANSFER 2,000.00 $241,264.05
+Jan 16, 2024 CREDIT CARD PAYMENT 422.51 $243,264.05
+Jan 16, 2024 CREDIT CARD PAYMENT 1,000.00 $243,686.56`,
+
+  'tdHistory':
+`11/14/2023 E-TRANSFER ***fGC 30.00 CR 818.75
+11/30/2023 MONTHLY PLAN FEE 5.00 DR 813.75
+12/18/2023 E-TRANSFER ***ewr 450.00 CR 1,263.75
+12/19/2023 TD ATM W/D 000152 200.00 DR 1,063.75
+12/29/2023 MONTHLY PLAN FEE 5.00 DR 1,058.75
+01/02/2024 TD ATM W/D 005070 300.00 DR 758.75
+01/29/2024 E-TRANSFER ***yUq 500.00 CR 758.75
+01/29/2024 TD ATM W/D 004782 500.00 DR 758.75
+01/31/2024 MONTHLY PLAN FEE 5.00 DR 753.75
+02/29/2024 MONTHLY PLAN FEE 5.00 DR 748.75
+03/04/2024 E-TRANSFER ***618 250.00 CR 998.75`,
+
+  // Other Canadian Banks
+  'cdtCard':
+`Dec 08 Dec 09 CDN TIRE STORE #00130 LONDON ON -1,000.00
+Dec 20 Dec 21 CDN TIRE STORE #00010 BRAMPTON ON -3,000.00
+Dec 30 Jan 02 CDN TIRE STORE #00104 STRATHROY ON -5,000.00
+Dec 15 Dec 19 WAL-MART # 1157 LONDON ON -22.57
+Dec 14 Dec 16 WAL-MART # 1157 LONDON ON 34.96
+Dec 15 Dec 16 TIM HORTONS #1739 LONDON ON 2.61
+Dec 17 Dec 19 CDN TIRE GASBAR #01648 LONDON ON 68.13
+Dec 18 Dec 19 BATTERIES AND GADGETS BRAMPTON ON 50.84
+Dec 19 Dec 19 ROGERS ******7306 888-764-3771 ON 141.40
+Dec 19 Dec 20 CDN TIRE GASBAR #01331 BRAMPTON ON 70.98
+Dec 19 Dec 20 TIM HORTONS #7591 CALEDONIA ON 1.59
+Dec 21 Dec 21 FREEDOM MOBILE 877-946-3184 ON 107.66
+Dec 20 Dec 21 407-ETR-WEB WOODBRIDGE ON 133.57
+Dec 22 Dec 23 CDN TIRE GASBAR #01648 LONDON ON 71.69
+
+Make sure to bring in ALL transactions from ALL pages and ALL sections of the statement.`,
+
+  'coastcapitalAccount':
+`01 OCT 22 Balance Forward 6,403.00
+02 OCT 22 Online Transfer Out CRA Paystub Deduction 1,300.00 5,103.00
+02 OCT 22 Direct Deposit DIVERSITY BUSINESS SOLUTIONS SQUARE NAD 2,626.89 7,729.89
+03 OCT 22 Pre-Auth Debit BDC DIVERSITY BUSINESS SOLUTIONS BANQUE DEVELOPPEMENT DU CANADA 2,173.10 5,556.79
+03 OCT 22 Pre-Auth Debit BDC DIVERSITY BUSINESS SOLUTIONS BANQUE DEVELOPPEMENT DU CANADA 1,820.47 3,736.32
+03 OCT 22 Pre-Auth Debit BDC DIVERSITY BUSINESS SOLUTIONS BANQUE DEVELOPPEMENT DU CANADA 478.08 3,258.24
+03 OCT 22 Pre-Auth Debit DIVERSITY BUSINESS SOLUTIONS VW CREDIT CAN 537.04 2,721.20
+04 OCT 22 Cheque 386 2,999.62 -278.42
+04 OCT 22 Cheque 385 3,728.83 -4,007.25
+04 OCT 22 Cheque 384 2,999.62 -7,006.87`,
+
+  'craHistory':
+`May 01, 2025 Payment 732.24 CR
+May 01, 2025 Payment Applied 732.24
+May 01, 2025 Net Tax 732.24
+May 01, 2025 Payment Applied 732.24 CR
+May 01, 2025 Failure to file penalty 7.32
+May 01, 2025 Arrears Interest 0.16
+May 01, 2025 Administrative adjustment 7.48 CR`,
+
+  'craPayroll':
+`May 22, 2024 Interest charged on 18.13Dr 0.05 DR
+May 21, 2024 Arrears payment 18.18 CR
+May 10, 2024 Assessed late remitting penalty 18.13 DR
+May 10, 2024 Interest charged on 101.82Dr 0.06 DR
+May 09, 2024 Late year-end payment 2023 681.36 CR
+May 09, 2024 Arrears payment 101.88 CR
+May 06, 2024 Interest charged on 100.00Dr 1.82 DR
+May 06, 2024 Assessed late filing penalty 100.00 DR
+May 02, 2024 T4 Type Information Return 2023 15947.19 DR
+October 06, 2023 Payment Sept 2023 800.00 CR
+September 07, 2023 Payment Aug 2023 1771.91 CR
+August 04, 2023 Payment July 2023 1771.91 CR
+July 20, 2023 Interest charged on 154.38Dr 0.08 DR
+July 19, 2023 Arrears payment 154.46 CR
+July 14, 2023 Assessed late remitting penalty 635.95 DR
+July 14, 2023 Late remitting penalty adjustment 481.57 CR`,
+
+  'eqCard':
+`Sep 28 PRESTO ETIK/HSR****2590, TORON -$5.60
+Sep 27 MICROSOFT*STORE, MISSISSAUGA, -$1.13
+Sep 27 ARHA VARIETY, HAMILTON, ON -$3.83
+Sep 27 LOCMYPARCEL INFO, ESCALDEES EN -$0.75
+Sep 26 ARHA VARIETY, HAMILTON, ON -$6.09
+Sep 25 HASTY MARKET #4, HAMILTON, CAN -$27.09
+Sep 25 Transfer from Linked account * $10.00
+Sep 24 Transfer from Linked account * $10.00
+Sep 24 Transfer from Linked account * $20.00
+Sep 24 PC GAME SUPPLY, CALGARY, CAN -$42.76
+Sep 24 Transfer from Linked account * $5.00
+Sep 24 Transfer from Linked account * $30.00
+Sep 24 PC GAME SUPPLY, CALGARY, CAN -$141.76
+Sep 24 Transfer from Linked account * $150.00
+Sep 24 PC GAME SUPPLY, CALGARY, CAN -$70.95`,
+
+  'firstontarioAccount':
+`Balance Forward: 96,699.98
+Jan 10 Preauthorized Debit First Ontario 365.70 96,334.28
+Jan 12 Cheque #754 1,000.00 95,334.28
+Jan 16 Cheque #757 4,980.00 90,354.28
+Jan 19 Cheque #755 491.55 89,862.73
+Jan 19 Online Transfer Out 11.50 89,851.23
+Jan 19 Online Transfer Out 3,955.00 85,896.23
+Jan 26 Online Transfer In 4.50 85,900.73
+Jan 26 eTransfer CERTAPAY 1,000.00 84,900.73
+Jan 26 Charge - Capitalise ETRANSFER IMMEDIATE CHARGE 1.50 84,899.23
+Jan 26 eTransfer CERTAPAY 2,835.12 82,064.11
+Jan 26 Charge - Capitalise ETRANSFER IMMEDIATE CHARGE 1.50 82,062.61
+Jan 26 eTransfer CERTAPAY 2,164.14 79,898.47
+Jan 26 Charge - Capitalise ETRANSFER IMMEDIATE CHARGE 1.50 79,896.97
+Jan 31 Interest - Capitalize 323.67 80,220.64
+
+Make sure to include Balance Forward at the beginning and any subsequent balance forwards.
+`,
+
+  'meridianAccount':
+`31-Dec-2022 Balance Forward 10,393.42
+03-Jan-2023 Pre-Authorized # 9303 5,525.03 15,918.45
+Uber Holdings C
+03-Jan-2023 Pre-Authorized # 9303 -45.72 15,872.73
+BELL CANADA EFT
+03-Jan-2023 Cheque # 28 -3,678.53 12,194.20
+04-Jan-2023 Cheque # 48 -1,000.00 11,194.20
+04-Jan-2023 Cheque # 47 -2,144.55 9,049.65
+05-Jan-2023 Pre-Authorized # 9205 1,572.50 10,622.15
+SKIPTHEDISHES
+06-Jan-2023 Service Charge -1.50
+06-Jan-2023 e-Transfer Out # 204842947 -3,000.00 7,620.65
+10-Jan-2023 Pre-Authorized # 9310 4,148.57 11,769.22
+Uber Holdings C
+12-Jan-2023 Pre-Authorized # 9212 912.89 12,682.11
+SKIPTHEDISHES
+16-Jan-2023 Cheque # 49 -2,291.68 10,390.43
+17-Jan-2023 Pre-Authorized # 9317 3,612.35 14,002.78
+Uber Holdings C
+
+Make sure to bring balance forward in.`,
+
+  'nbcAccount':
+`07 31 PREVIOUS BALANCE 12156.02
+08 01 C/PURCHASE 00105761613 LABRADOR HEALTH 14.27 12141.75
+08 02 PAYROLL DEPOSIT AUGURY HEALTHCA 21390.00 33531.75
+08 05 INTERAC E-TRANSFER 1000.00 32531.75
+08 05 INTERAC E-TRANSFER 3000.00 29531.75
+08 05 C/PURCHASE 00105761613 LABRADOR HEALTH 9.41 29522.34
+08 07 INTERAC E-TRANSFER 5000.00 24522.34
+08 09 C/PURCHASE 00105761613 LABRADOR HEALTH 9.46 24512.88
+08 13 C/PURCHASE 00105761613 LABRADOR HEALTH 13.46 24499.42
+08 14 C/PURCHASE 00105761613 LABRADOR HEALTH 8.31 24491.11
+08 15 C/PURCHASE 00105761613 LABRADOR HEALTH 18.07 24473.04
+08 15 C/PURCHASE 00105761613 LABRADOR HEALTH 14.33 24458.71
+08 16 INTERAC E-TRANSFER 5000.00 19458.71
+08 16 PAYROLL DEPOSIT AUGURY HEALTHCA 20166.25 39624.96
+08 19 INTERAC E-TRANSFER 1000.00 38624.96
+08 20 G/WITHDRAW 00105761613 63.00 38561.96
+08 20 G/SERVICE CHARGE 2.00 38559.96
+08 22 ACCOUNT PAYABLE M/CARD AFFAIRES 3064.43 35495.53
+08 28 INTERAC E-TRANSFER 4000.00 31495.53
+08 30 PAYROLL DEPOSIT AUGURY HEALTHCA 23589.27 55084.80
+
+Make sure to include previous balance at the top.`,
+
+  'nbcCard':
+`07 22 I204078732 07 23 PAYMENT VIA ELECTRONIC TRANSFER 386.08-
+07 02 I184386385 07 03 ANNUAL FEE 125.00
+07 02 I184386386 07 03 ANNUAL FEE 50.00
+07 03 U396222596 07 04 CANCO PETROLEUM #702 L LONDON ON 15.13
+07 04 U036435582 07 05 WAL-MART #3049 LONDON ON 58.97
+07 04 U396269598 07 05 PIONEER STN #131 LONDON ON 15.51
+07 05 U396283904 07 08 FOOD BASICS 670 LONDON ON 54.93
+07 07 U036451118 07 09 WAL-MART #3049 LONDON ON 240.62
+07 08 U396259816 07 09 PIONEER 43368 LONDON ON 31.84
+07 09 U036479690 07 11 WAL-MART #3049 LONDON ON 6.97
+07 12 U036420796 07 15 WAL-MART #3049 LONDON ON 149.72
+07 12 U396234540 07 15 PIONEER 43368 LONDON ON 30.73
+07 13 U372672846 07 15 STORYBOOK GARDENS LONDON ON 29.38`,
+
+  'simpliiAccount':
+`Aug 28 BALANCE FORWARD 7,847.73
+Aug 28 Tangerine 100.00 7,747.73
+Aug 28 Tangerine 52.50 7,695.23
+Aug 28 Tangerine 10.00 7,685.23
+Aug 28 Tangerine 115.00 7,570.23
+Sep 02 PIONEER #263 41.00 7,529.23
+Sep 02 ABM WITHDRAWAL 20.00 7,509.23
+Sep 02 Manulife Bank o 50.00 7,459.23
+Sep 02 Manulife Bank o 50.00 7,409.23
+Sep 02 Tangerine 10.00 7,399.23
+Sep 02 Tangerine 10.00 7,389.23
+Sep 02 Tangerine 150.00 7,239.23
+Sep 02 Tangerine 10.00 7,229.23
+Sep 02 Tangerine 50.00 7,179.23
+Sep 02 Tangerine 10.00 7,169.23
+Sep 04 MARKHAM STOUFFVILLE HOSPITAL 507.11 7,676.34
+Sep 03 Tangerine 10.00 7,666.34
+Sep 04 ABM WITHDRAWAL 500.00 7,166.34
+Sep 04 GIANT TIGER #14 24.86 7,141.48
+Sep 04 Tangerine 10.00 7,131.48
+Sep 04 Brandes 50.00 7,081.48
+Sep 04 Brandes 50.00 7,031.48
+Sep 05 ABM DEPOSIT 450.00 7,481.48
+
+Make sure to include BALANCE FORWARD at the top.`,
+
+  'tangerineAccount':
+`
+01 Jan 2023 Opening Balance 0.00 1,272.86
+03 Jan 2023 EFT Withdrawal to HYUNDAI PMNT CT 290.36 982.50
+03 Jan 2023 EFT Withdrawal to MVLCC945 71.00 911.50
+10 Jan 2023 EFT Withdrawal to AVIVA-HOME/AUTO 51.30 860.20
+10 Jan 2023 EFT Withdrawal to FN 1,900.56 (1,040.36)
+10 Jan 2023 Overdraft Fee 5.00 (1,045.36)
+11 Jan 2023 EFT Withdrawal to Hydro One 101.09 (1,453.98)
+13 Jan 2023 INTERAC e-Transfer From: CONOR ELLIOTT 1,200.00 (253.98)
+16 Jan 2023 EFT Withdrawal to Vista Credit 55.25 (309.23)
+16 Jan 2023 EFT Withdrawal to AVIVA-HOME/AUTO 137.39 (446.62)
+16 Jan 2023 EFT Withdrawal to HYUNDAI PMNT CT 290.36 (736.98)
+23 Jan 2023 EFT Withdrawal to Enbridge Gas 109.41 (846.39)
+27 Jan 2023 INTERAC e-Transfer From: CONOR ELLIOTT 1,200.00 353.61
+30 Jan 2023 EFT Withdrawal to QUADRO COMMUNIC 124.24 229.37
+30 Jan 2023 EFT Withdrawal to HYUNDAI PMNT CT 290.36 (60.99)
+31 Jan 2023 Overdraft Interest Charged (J anuary 2023@19.00%) 6.97 (67.96)
+
+Make sure to include Opening Balance at the top.`,
+
+  'triangleCard':
+`Feb 16 CIBC BANK PMT/PAIEMENT BCIC  -40.00
+Feb 16 FINANCE CHARGE CREDIT ADJUSTMENT  -0.03
+Feb 16 MCDONALD'S #10494 STONEY CREEK ON 2.10 
+Feb 16 WAL-MART # 3096 HAMILTON ON 5.09 
+Feb 19 SHELL C21842 MISSISSAUGA ON 20.00 
+Feb 19 J & S CONVENIENCE STONEY CREEK ON 26.15 
+Feb 19 MCDONALD'S #8898 Q04 MISSISSAUGA ON 7.54 
+Feb 20 GOOGLE *Gameberry Labs g.co/helppay#NS 4.73 
+Feb 20 GOOGLE *Gameberry Labs g.co/helppay#NS 1.57 
+Mar 13 CIBC BANK PMT/PAIEMENT BCIC  -35.00
+Mar 13 CIBC BANK PMT/PAIEMENT BCIC  -55.00
+Mar 16 INTEREST CHARGES 8.41 
+
+Make sure to include ALL transactions from ALL pages and ALL sections of the statement.`,
+
+  'wallmartCard':
+`1 Apr 23 Apr 24 GOOGLE *GOOGLE STORAGE $3.15
+2 Apr 23 Apr 24 LHSC-UH PRESCRIPTION C LONDON ON $10.00
+3 Apr 25 Apr 29 CANCO PETROLEUM #702 L LONDON ON $2.81
+4 Apr 28 Apr 30 WAL-MART #3049 LONDON ON $28.42
+5 Apr 29 Apr 30 LHSC-UH PRESCRIPTION C LONDON ON -$10.00 $6
+6 Apr 30 May 01 PIONEER 43368 LONDON ON $25.00
+7 Apr 30 May 01 EUREST-VIC HOSP-23145 LONDON ON $7.13
+8 May 01 May 01 AMZN MKTP CA*L13QM64D3 $67.79
+9 May 01 May 02 EUREST-VIC HOSP-23145 LONDON ON $7.80
+10 May 02 May 03 LAWDEPOT 8775094398 AB $762.75
+11 May 03 May 06 EUREST-VIC FAYES-23143 LONDON ON $4.03
+12 May 04 May 06 EUREST-VIC FAYES-23143 LONDON ON $2.02
+13 May 08 May 09 NETFLIX.COM 866-716-0414 ON $18.63
+14 May 09 May 09 GOOGLE *DISNEY PLUS 650-253-0000 NS $13.55
+15 May 09 May 10 EUREST-VIC HOSP-23145 LONDON ON $7.13
+16 May 10 May 13 EUREST-VIC HOSP-23145 LONDON ON $7.81
+17 May 13 May 14 VIRGIN PLUS VERDUN QC $215.84
+18 May 13 May 14 PAYMENT - THANK YOU -$1,640.00 $195.84`,
+
+  // US Banks
+  'amexCard':
+`Mar 8 Mar 8 PAYMENT RECEIVED - THANK YOU -200.00
+Mar 8 Mar 8 PAYMENT RECEIVED - THANK YOU -300.00
+Feb 25 Feb 27 KOODO AIRTIME KOODO AIR SCARBOROUGH 169.18
+Mar 2 Mar 4 NAILSOLUTION 0848700221 GILBERT UNITED STATES DOLLAR 65.19 @1.39423 90.89
+Mar 6 Mar 7 CANCO PETROLEUM #702 L LONDON 75.00
+Mar 9 Mar 9 ALIBABA.COM SINGAPORE UNITED STATES DOLLAR 103.49 @1.38071 142.89
+Mar 17 Mar 18 *RFBT-MASONVILLE PLACE LONDON 9.59
+Mar 22 Mar 23 CANCO PETROLEUM #702 L LONDON 75.00`,
+
+  'boaCard':
+`11/01/24 Monthly Fee Business Adv Fundamentals
+-16.00
+11/04/24 Zelle payment from SOFTECH COMMUNICATION, LLC Conf# j9we50pyb
+3,528.00
+11/12/24 M MERCHANT DES:MERCH DEP ID:217201100053462 INDN:AMZMENTORS CO ID:1217422108 CCD PMT INFO:AMZMENTORS
+5,850.00
+11/27/24 M MERCHANT DES:MERCH DEP ID:217201100053462 INDN:AMZMENTORS CO ID:1217422108 CCD PMT INFO:AMZMENTORS
+450.00
+11/04/24 M MERCHANT DES:MERCH FEES ID:217201100053462 INDN:AMZMENTORS CO ID:1217422108 CCD
+-225.36
+11/04/24 AUTHNET GATEWAY DES:BILLING ID:XXXXXXXXX INDN:AMZ MENTORS LLC CO ID:1870568569 CCD
+-25.00
+11/07/24 GATEWAY SERVICES DES:WEBPAYMENT ID: INDN:AMZMENTORMAVERICK CO ID:4460522024 WEB
+-89.49
+11/12/24 M MERCHANT DES:DLY DISC S ID:217201100053462 INDN:AMZMENTORS CO ID:1217422108 CCD
+-259.35
+11/14/24 Mobile transfer to CHK 6413 Confirmation# nivwb8e9k
+-1,390.00
+11/27/24 Zelle payment to VISIONARY TECH DIGITALS LLC Conf# mwlruutkj
+-2,120.00
+11/27/24 Zelle payment to VISIONARY TECH DIGITALS LLC Conf# mwd533rkg
+-1,400.00
+11/27/24 M MERCHANT DES:DLY DISC S ID:217201100053462 INDN:AMZMENTORS CO ID:1217422108 CCD
+-19.95
+11/29/24 WIRE TYPE:FX OUT DATE:241129 TIME:0454 ET TRN:2024112900072755 FX:CAD 273.86 1.3693 BNF:11317261 CANADA LIMITED ID:30585036482 BNF BK: THE TORONTO-DOMINION BA ID:CC000430582 PMT DET:PGL GCA6EJ POP Services /FXREF/te-2-4-162678161
+-200.00
+11/12/24 BKOFAMERICA ATM 11/11 #000009874 WITHDRWL TONAWANDA TONAWANDA NY
+-1,000.00
+11/12/24 CHECKCARD 1111 UNION MART CHEEKTOWAGA NY CKCD 5541 XXXXXXXXXXXX7830 XXXX XXXX XXXX 7830
+-44.99`,
+
+  'wellsfargoAccount':
+`12/18 Zelle From Phyziques LLC on 12/16 Ref # Pp0Rsslfrf December 2,600.00
+12/18 WT 2023121400601953 Isybank S.P.A /Org=Iaf Network S.P.A. Srf# 2023121400601953 Trn#231218003961 Rfb# 19,970.00
+12/18 Edeposit IN Branch 12/18/23 02:47:32 Pm 7290 S Durango Dr Las Vegas NV 6191 13,606.00
+12/18 Wire Trans Svc Charge - Sequence: 231218003961 Srf# 2023121400601953 Trn#231218003961 Rfb# 15.00
+12/18 Purchase authorized on 12/15 Lvac Tap Acct 702-7348944 NV S383349618667396 Card 6191 32.00
+12/18 Purchase authorized on 12/15 Bar Zazu Las Vegas NV S463350131004544 Card 6191 253.50
+12/18 Purchase authorized on 12/15 Rwlv Theaters Bars Las Vegas NV S463350153465043 Card 6191 204.61
+12/18 Purchase authorized on 12/16 Uber Eats Help.Uber.Com CA S463350443007887 Card 6191 38.35
+12/18 Purchase authorized on 12/16 Uber Eats Help.Uber.Com CA S303350496013159 Card 6191 6.32
+12/18 Purchase authorized on 12/16 Wal-Mart Super Center Las Vegas NV P000000585274150 Card 6191 54.40
+12/16 Wal-Mart Super Center Las Vegas NV P000000979155153 Card 6191 175.85
+12/18 Purchase Bank Check OR Draft 3.00
+12/19 Purchase authorized on 12/18 Uber Eats Help.Uber.Com CA S463352358686775 Card 6191 61.03
+12/19 Purchase authorized on 12/18 Uber Eats Help.Uber.Com CA S463352420554577 Card 6191 6.82
+12/20 Zelle to Shamir on 12/20 Ref #Rp0Rt3Bxv5 Medical 120.00
+12/20 1001Check 16,392.50`
+};
 
   // Initialize AI bank selector with same options as main app
   function initializeAIBankSelector() {
@@ -228,22 +737,28 @@ function setupAIPromptSystem() {
     return str.charAt(0).toUpperCase() + str.slice(1);
   }
 
-  function updateAIPrompt() {
-    const combinedKey = getCombinedKeyForAI();
-    const prompt = aiPrompts[combinedKey] || `Process this ${combinedKey} bank statement and convert it to clean columns with proper formatting.`;
-    
-    // Update the hidden textarea
-    aiPromptText.value = prompt;
-    
-    // Update the displayed script name
-    currentScriptName.textContent = combinedKey;
-    
-    // Show visual feedback
-    currentScriptName.style.animation = 'none';
-    setTimeout(() => {
-      currentScriptName.style.animation = 'highlight 0.5s ease';
-    }, 10);
-  }
+ function updateAIPrompt() {
+  const combinedKey = getCombinedKeyForAI();
+  const basePrompt = aiPrompts[combinedKey] || `Process this ${combinedKey} bank statement and convert it to clean columns with proper formatting.`;
+  
+  // Universal header that gets prepended to EVERY prompt automatically
+  const universalHeader = 'Extract the transactions from the uploaded PDF File(s). No Chatting and simply produce all the transactions, make sure to include all descriptions even if they span multiple lines, in one snippet in the following format\n\n';
+  
+  // Combine: universal header + existing bank-specific prompt
+  const fullPrompt = universalHeader + basePrompt;
+  
+  // Update the hidden textarea
+  aiPromptText.value = fullPrompt;
+  
+  // Update the displayed script name
+  currentScriptName.textContent = combinedKey;
+  
+  // Show visual feedback
+  currentScriptName.style.animation = 'none';
+  setTimeout(() => {
+    currentScriptName.style.animation = 'highlight 0.5s ease';
+  }, 10);
+}
 
   // Copy AI Prompt functionality
   copyAiPromptBtn.addEventListener('click', () => {
