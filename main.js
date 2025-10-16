@@ -569,7 +569,7 @@ Mar 16 INTEREST CHARGES 8.41
 
 Make sure to include ALL transactions from ALL pages and ALL sections of the statement.`,
 
-  'wallmartCard':
+  'walmartCard':
 `1 Apr 23 Apr 24 GOOGLE *GOOGLE STORAGE $3.15
 2 Apr 23 Apr 24 LHSC-UH PRESCRIPTION C LONDON ON $10.00
 3 Apr 25 Apr 29 CANCO PETROLEUM #702 L LONDON ON $2.81
@@ -689,7 +689,7 @@ Mar 22 Mar 23 CANCO PETROLEUM #702 L LONDON 75.00`,
       amex: ['card'],
       eq: ['card'],
       triangle: ['card'],
-      wallmart: ['card'],
+      walmart: ['card'],
       nbc: ['account', 'card'],
       bmo: ['account', 'card', 'loc'],
       rbc: ['account', 'card', 'loc'],
@@ -1958,7 +1958,7 @@ function showSampleStatement() {
       amex: ['card'],
       eq: ['card'],
       triangle: ['card'],
-      wallmart: ['card'],
+      walmart: ['card'],
       nbc: ['account', 'card'],
       bmo: ['account', 'card', 'loc'],
       rbc: ['account', 'card', 'loc']
@@ -4033,7 +4033,7 @@ window.bankUtils.allocationMethods = {
  'simpliiAccount':'Balance',
  'tangerineAccount':'Brackets Marker',
  'triangleCard':'-ve Marker',
- 'wallmartCard':'-ve Marker',
+ 'walmartCard':'-ve Marker',
  // U.S.
  'amexCard':'-ve Marker',
  'boaCard':'-ve Marker',
