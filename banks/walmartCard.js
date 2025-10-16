@@ -1,4 +1,4 @@
-// wallmartCard.js - Integrated PDF processing and Walmart Card statement parsing
+// walmartCard.js - Integrated PDF processing and Walmart Card statement parsing
 
 // Ensure window.bankUtils exists to house bank-specific utilities
 window.bankUtils = window.bankUtils || {};
@@ -38,7 +38,7 @@ function clearMessage() {
   }
 }
 
-// --- PDF Parsing Logic (Adapted from wallmartparser.html) ---
+// --- PDF Parsing Logic (Adapted from walmartparser.html) ---
 
 /**
  * Parses transactions from Walmart Mastercard PDF text.
@@ -168,7 +168,7 @@ window.bankUtils.processPDFFile = async function(file) {
 };
 
 
-// --- Main Data Processing Function (Existing wallmartCard.js logic) ---
+// --- Main Data Processing Function (Existing walmartCard.js logic) ---
 function processData() {
   const input = document.getElementById('inputText').value.trim();
   const yearInput = document.getElementById('yearInput').value.trim();
