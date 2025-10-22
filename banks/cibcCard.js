@@ -282,6 +282,13 @@ function cleanAndParseTransactions(text) {
     /^Do not staple or attach correspondence\.$/i,
     /^MR MUHAMMAD HARIS ABBASI$/i, // Specific name from the PDF
     /^\d{3}-\d{7}$/i, // e.g., 188-024464
+/^\d{3}-\d{6}$/i, 
+  /^\*\d{10}\*$/i,  
+
+  /^\d{3}-\d{6}$/i,  // e.g., 120-001302
+/^Prepared for:.*$/i, // "Prepared for: MR RANDY HOUGH November 9 to December 8, 2014"
+/^Account number: \d{4} \d{4} \d{4} \d{4}$/i, // "Account number: 4500 0400 0076 5068"
+/^November \d{1,2} to December \d{1,2}, \d{4}$/i, // Date range footer
 
     // Specific problematic merged lines identified from user's output
     // These patterns are designed to catch the *entire merged line* as noise

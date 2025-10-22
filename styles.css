@@ -1153,9 +1153,7 @@ tr:first-child:hover th::after {
   display: none;
 }
 
-.sample-btn:hover .sample-text {
-  display: inline;
-}
+
 
 /* Image modal styles (unchanged from previous) */
 .image-modal {
@@ -6011,4 +6009,332 @@ h2 {
     height: 28px !important;
     line-height: 1 !important;
     box-sizing: border-box !important;
+}
+
+/* Method Indicator and Bank Message Container */
+.method-indicator-container {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 10;
+  min-width: 200px; /* Minimum width to prevent too small */
+  max-width: 400px; /* Maximum width to prevent too large */
+}
+
+/* Common styles for both method indicator and bank messages */
+.method-indicator,
+.bank-specific-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  font-family: monospace;
+  font-size: 14px;
+  font-weight: 600;
+  border: 2px solid;
+  border-radius: 0px;
+  box-shadow: -2px 2px 0 #15191f;
+  white-space: nowrap;
+  text-align: center;
+  width: 100%; /* Both take full width of container */
+  box-sizing: border-box; /* Include padding in width calculation */
+  flex-shrink: 0; /* Prevent shrinking */
+}
+
+/* Method Indicator specific styles */
+.method-indicator {
+  background-color: #f8fafc;
+  color: #475569;
+  border-color: #475569;
+}
+
+/* PDF Upload Only style */
+.pdf-upload-only {
+  background-color: #fff5f5;
+  color: #dc2626;
+  border-color: #dc2626;
+}
+
+/* Image Script style */
+.image-script {
+  background-color: #f0f9ff;
+  color: #0369a1;
+  border-color: #0369a1;
+}
+
+/* Icons in bank messages */
+.bank-specific-message i {
+  font-size: 14px;
+  margin-right: 6px;
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] .method-indicator {
+  background-color: #2d2d2d;
+  color: #e0e0e0;
+  border-color: #3a3a3a;
+  box-shadow: -2px 2px 0 #000000;
+}
+
+[data-theme="dark"] .pdf-upload-only {
+  background-color: #431313;
+  color: #fca5a5;
+  border-color: #dc2626;
+}
+
+[data-theme="dark"] .image-script {
+  background-color: #0c4a6e;
+  color: #7dd3fc;
+  border-color: #0369a1;
+}
+
+/* Method Indicator and Bank Message Container */
+.method-indicator-container {
+  position: absolute;
+  top: -10px; /* Changed from 20px to -20px to move up 40px total */
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 10;
+  min-width: 200px;
+  max-width: 400px;
+}
+
+/* Font Size Modal Styles */
+.font-size-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.font-size-modal.show {
+  opacity: 1;
+}
+
+.font-size-modal-content {
+  background-color: var(--container-bg);
+  border: 2px solid var(--container-border);
+  border-radius: 0px;
+  box-shadow: -8px 8px 0 var(--shadow-color);
+  width: 320px;
+  max-width: 90%;
+  transform: translateY(-20px);
+  transition: transform 0.3s ease;
+}
+
+.font-size-modal.show .font-size-modal-content {
+  transform: translateY(0);
+}
+
+.font-size-modal-header {
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--container-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: var(--header-bg);
+}
+
+.font-size-modal-header h3 {
+  margin: 0;
+  color: var(--header-text);
+  font-family: monospace;
+  font-size: 18px;
+}
+
+.font-size-modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  font-weight: bold;
+  cursor: pointer;
+  color: var(--header-text);
+  transition: color 0.2s ease;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.font-size-modal-close:hover {
+  color: #ef4444;
+}
+
+.font-size-modal-body {
+  padding: 20px;
+}
+
+.font-size-input-group {
+  margin-bottom: 15px;
+}
+
+.font-size-input-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+#fontSizeInput {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 16px;
+  border: 2px solid var(--select-border);
+  border-radius: 0px;
+  background-color: var(--input-bg);
+  color: var(--text-color);
+  box-shadow: -2px 2px 0 #15191f;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+#fontSizeInput:focus {
+  border-color: var(--select-focus);
+  box-shadow: -1px 1px 0 #000000;
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.font-size-preview {
+  padding: 15px;
+  background-color: var(--zebra-odd);
+  border: 1px solid var(--container-border);
+  text-align: center;
+  margin-top: 10px;
+}
+
+.font-size-modal-footer {
+  padding: 15px 20px;
+  border-top: 1px solid var(--container-border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.font-size-cancel,
+.font-size-apply {
+  padding: 8px 20px;
+  font-family: monospace;
+  font-size: 14px;
+  border: 2px solid;
+  border-radius: 0px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: -2px 2px 0 #15191f;
+}
+
+.font-size-cancel {
+  background-color: var(--container-bg);
+  color: var(--text-color);
+  border-color: var(--select-border);
+}
+
+.font-size-cancel:hover {
+  background-color: var(--hover-bg);
+  transform: translateY(-1px);
+  box-shadow: -3px 3px 0 #15191f;
+}
+
+.font-size-apply {
+  background-color: #3b82f6;
+  color: white;
+  border-color: #2563eb;
+}
+
+.font-size-apply:hover {
+  background-color: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: -3px 3px 0 #15191f;
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] .font-size-modal-content {
+  background-color: var(--container-bg);
+  border-color: var(--container-border);
+  box-shadow: -8px 8px 0 #000000;
+}
+
+[data-theme="dark"] .font-size-cancel {
+  background-color: #3a3a3a;
+  color: #e0e0e0;
+  border-color: #555;
+}
+
+[data-theme="dark"] .font-size-cancel:hover {
+  background-color: #4a4a4a;
+}
+
+[data-theme="dark"] #fontSizeInput {
+  background-color: var(--input-bg);
+  color: var(--text-color);
+  border-color: var(--select-border);
+  box-shadow: -2px 2px 0 #000000;
+}
+
+[data-theme="dark"] #fontSizeInput:focus {
+  border-color: var(--select-focus);
+  box-shadow: -1px 1px 0 #000000;
+}
+.font-size-presets {
+  display: flex;
+  gap: 8px;
+  margin-top: 15px;
+  flex-wrap: wrap;
+}
+
+.font-size-preset,
+.font-size-reset {
+  padding: 6px 12px;
+  font-family: monospace;
+  font-size: 12px;
+  border: 2px solid var(--select-border);
+  border-radius: 0px;
+  background-color: var(--container-bg);
+  color: var(--text-color);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: -1px 1px 0 #15191f;
+  flex: 1;
+  min-width: 60px;
+}
+
+.font-size-preset:hover,
+.font-size-reset:hover {
+  background-color: var(--hover-bg);
+  transform: translateY(-1px);
+  box-shadow: -2px 2px 0 #15191f;
+}
+
+.font-size-reset {
+  background-color: #ef4444;
+  color: white;
+  border-color: #dc2626;
+}
+
+.font-size-reset:hover {
+  background-color: #dc2626;
+}
+
+/* Dark mode adjustments for preset buttons */
+[data-theme="dark"] .font-size-preset {
+  background-color: #3a3a3a;
+  border-color: #555;
+}
+
+[data-theme="dark"] .font-size-preset:hover {
+  background-color: #4a4a4a;
 }

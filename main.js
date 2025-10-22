@@ -569,7 +569,7 @@ Mar 16 INTEREST CHARGES 8.41
 
 Make sure to include ALL transactions from ALL pages and ALL sections of the statement.`,
 
-  'walmartCard':
+  'wallmartCard':
 `1 Apr 23 Apr 24 GOOGLE *GOOGLE STORAGE $3.15
 2 Apr 23 Apr 24 LHSC-UH PRESCRIPTION C LONDON ON $10.00
 3 Apr 25 Apr 29 CANCO PETROLEUM #702 L LONDON ON $2.81
@@ -689,7 +689,7 @@ Mar 22 Mar 23 CANCO PETROLEUM #702 L LONDON 75.00`,
       amex: ['card'],
       eq: ['card'],
       triangle: ['card'],
-      walmart: ['card'],
+      wallmart: ['card'],
       nbc: ['account', 'card'],
       bmo: ['account', 'card', 'loc'],
       rbc: ['account', 'card', 'loc'],
@@ -1958,7 +1958,7 @@ function showSampleStatement() {
       amex: ['card'],
       eq: ['card'],
       triangle: ['card'],
-      walmart: ['card'],
+      wallmart: ['card'],
       nbc: ['account', 'card'],
       bmo: ['account', 'card', 'loc'],
       rbc: ['account', 'card', 'loc']
@@ -2319,25 +2319,21 @@ function setupBankSpecificMessages() {
   // Image Script banks  
   const imageScriptBanks = ['tdHistory', 'tdinPerson', 'coastcapitalAccount'];
 
-  if (pdfOnlyBanks.includes(bankKey)) {
+  if (pdfOnlyBanks.includes(bankKey) || imageScriptBanks.includes(bankKey)) {
     const messageDiv = document.createElement('div');
-    messageDiv.className = 'bank-specific-message pdf-upload-only';
-    messageDiv.innerHTML = '<i class="fas fa-exclamation-triangle"></i> PDF Upload Only!';
     
-    // Insert after the method indicator
-    const methodIndicator = document.getElementById('methodIndicator');
-    if (methodIndicator && methodIndicator.parentNode) {
-      methodIndicator.parentNode.insertBefore(messageDiv, methodIndicator.nextSibling);
+    if (pdfOnlyBanks.includes(bankKey)) {
+      messageDiv.className = 'bank-specific-message pdf-upload-only';
+      messageDiv.innerHTML = '<i class="fas fa-exclamation-triangle"></i> PDF Upload Only!';
+    } else {
+      messageDiv.className = 'bank-specific-message image-script';
+      messageDiv.innerHTML = '<i class="fas fa-camera"></i> Image Script - Use AI';
     }
-  } else if (imageScriptBanks.includes(bankKey)) {
-    const messageDiv = document.createElement('div');
-    messageDiv.className = 'bank-specific-message image-script';
-    messageDiv.innerHTML = '<i class="fas fa-camera"></i> Image Script - Use AI';
     
-    // Insert after the method indicator
-    const methodIndicator = document.getElementById('methodIndicator');
-    if (methodIndicator && methodIndicator.parentNode) {
-      methodIndicator.parentNode.insertBefore(messageDiv, methodIndicator.nextSibling);
+    // Insert into the container (after method indicator)
+    const container = document.querySelector('.method-indicator-container');
+    if (container) {
+      container.appendChild(messageDiv);
     }
   }
 }
@@ -4033,7 +4029,7 @@ window.bankUtils.allocationMethods = {
  'simpliiAccount':'Balance',
  'tangerineAccount':'Brackets Marker',
  'triangleCard':'-ve Marker',
- 'walmartCard':'-ve Marker',
+ 'wallmartCard':'-ve Marker',
  // U.S.
  'amexCard':'-ve Marker',
  'boaCard':'-ve Marker',
@@ -4417,7 +4413,268 @@ function setupRefreshButton() {
     }
   });
 }
+// Font size manipulation tool - Fast version with immediate application
+document.getElementById('fontSizeBtn').addEventListener('click', () => {
+  showFontSizeModal();
+});
 
+// Apply saved font size immediately when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+  applySavedFontSizeImmediately();
+});
+
+function showFontSizeModal() {
+  // Remove any existing font modal
+  const existingModal = document.getElementById('fontSizeModal');
+  if (existingModal) existingModal.remove();
+
+  const currentSize = getCurrentFontSize();
+
+  // Create the modal
+  const modal = document.createElement('div');
+  modal.id = 'fontSizeModal';
+  modal.className = 'font-size-modal';
+  modal.innerHTML = `
+    <div class="font-size-modal-content">
+      <div class="font-size-modal-header">
+        <h3>Font Size</h3>
+        <button class="font-size-modal-close">&times;</button>
+      </div>
+      <div class="font-size-modal-body">
+        <div class="font-size-input-group">
+          <label for="fontSizeInput">Enter font size (pixels):</label>
+          <input type="number" id="fontSizeInput" value="${currentSize}" min="8" max="36" step="1">
+        </div>
+        <div class="font-size-preview">
+          <span style="font-size: ${currentSize}px">Preview Text: AaBbCc 123</span>
+        </div>
+        <div class="font-size-presets">
+          <button class="font-size-preset" data-size="12">Small</button>
+          <button class="font-size-preset" data-size="14">Medium</button>
+          <button class="font-size-preset" data-size="16">Large</button>
+          <button class="font-size-reset">Reset to Default</button>
+        </div>
+      </div>
+      <div class="font-size-modal-footer">
+        <button class="font-size-cancel">Cancel</button>
+        <button class="font-size-apply">Apply</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  // Show modal immediately
+  modal.classList.add('show');
+
+  // Get elements
+  const input = document.getElementById('fontSizeInput');
+  const closeBtn = modal.querySelector('.font-size-modal-close');
+  const cancelBtn = modal.querySelector('.font-size-cancel');
+  const applyBtn = modal.querySelector('.font-size-apply');
+  const preview = modal.querySelector('.font-size-preview span');
+  const presetBtns = modal.querySelectorAll('.font-size-preset');
+  const resetBtn = modal.querySelector('.font-size-reset');
+
+  // Update preview when input changes
+  input.addEventListener('input', () => {
+    const size = input.value;
+    if (size >= 8 && size <= 36) {
+      preview.style.fontSize = `${size}px`;
+    }
+  });
+
+  // Preset button handlers
+  presetBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const size = btn.getAttribute('data-size');
+      input.value = size;
+      preview.style.fontSize = `${size}px`;
+      input.focus();
+    });
+  });
+
+  // Reset button handler
+  resetBtn.addEventListener('click', () => {
+    const defaultSize = 14;
+    input.value = defaultSize;
+    preview.style.fontSize = `${defaultSize}px`;
+    input.focus();
+    // Also clear from storage when resetting to default
+    localStorage.removeItem('tableFontSize');
+    applyFontSizeImmediately(defaultSize);
+    showToast('Font size reset to default', 'success');
+  });
+
+  // Apply font size
+  applyBtn.addEventListener('click', () => {
+    const newSize = input.value.trim();
+    
+    if (newSize && !isNaN(newSize) && newSize >= 8 && newSize <= 36) {
+      applyFontSizeImmediately(newSize);
+      saveFontSizeToStorage(newSize);
+      closeFontSizeModal();
+      showToast(`Font size set to ${newSize}px`, 'success');
+    } else {
+      showToast('Please enter a valid number between 8 and 36', 'error');
+      input.focus();
+    }
+  });
+
+  // Apply on Enter key in input field
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      applyBtn.click();
+    }
+  });
+
+  // Close modal functions
+  const closeFontSizeModal = () => {
+    modal.classList.remove('show');
+    setTimeout(() => {
+      modal.remove();
+    }, 300);
+  };
+
+  closeBtn.addEventListener('click', closeFontSizeModal);
+  cancelBtn.addEventListener('click', closeFontSizeModal);
+
+  // Close on escape key
+  const escapeHandler = (e) => {
+    if (e.key === 'Escape') {
+      closeFontSizeModal();
+      document.removeEventListener('keydown', escapeHandler);
+    }
+  };
+  document.addEventListener('keydown', escapeHandler);
+
+  // Close when clicking outside
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      closeFontSizeModal();
+    }
+  });
+
+  // Focus input and select text
+  input.focus();
+  input.select();
+}
+
+function getCurrentFontSize() {
+  // First check if we have a saved font size
+  const savedSize = localStorage.getItem('tableFontSize');
+  if (savedSize && !isNaN(savedSize) && savedSize >= 8 && savedSize <= 36) {
+    return parseInt(savedSize);
+  }
+  return 14; // Default fallback
+}
+
+function applyFontSizeImmediately(size) {
+  // Remove any existing font size style
+  const existingStyle = document.getElementById('dynamicFontSize');
+  if (existingStyle) existingStyle.remove();
+  
+  // Create new style with !important to override everything
+  const style = document.createElement('style');
+  style.id = 'dynamicFontSize';
+  style.textContent = `
+    #output table,
+    #output table *,
+    #output table th,
+    #output table td,
+    #output table tr,
+    #output table thead,
+    #output table tbody {
+      font-size: ${size}px !important;
+    }
+  `;
+  document.head.appendChild(style);
+  
+  console.log('Font size applied immediately:', size);
+}
+
+function saveFontSizeToStorage(size) {
+  localStorage.setItem('tableFontSize', size.toString());
+  console.log('Font size saved to localStorage:', size);
+}
+
+function applySavedFontSizeImmediately() {
+  const savedSize = localStorage.getItem('tableFontSize');
+  console.log('Checking for saved font size:', savedSize);
+  
+  if (savedSize && !isNaN(savedSize) && savedSize >= 8 && savedSize <= 36) {
+    // Apply immediately without waiting
+    applyFontSizeImmediately(parseInt(savedSize));
+    
+    // Also set up instant application for any future tables
+    setupInstantTableObserver();
+    return true;
+  }
+  return false;
+}
+
+function setupInstantTableObserver() {
+  const outputDiv = document.getElementById('output');
+  if (!outputDiv) return;
+
+  // Use a faster, more direct observer
+  const observer = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      if (mutation.type === 'childList') {
+        for (const node of mutation.addedNodes) {
+          if (node.nodeType === 1 && node.tagName === 'TABLE') { // Element node and TABLE tag
+            const savedSize = localStorage.getItem('tableFontSize');
+            if (savedSize && !isNaN(savedSize) && savedSize >= 8 && savedSize <= 36) {
+              // Re-apply font size immediately to new table
+              applyFontSizeImmediately(parseInt(savedSize));
+            }
+            break; // Found table, no need to check other nodes
+          }
+        }
+      }
+    }
+  });
+  
+  observer.observe(outputDiv, { 
+    childList: true, 
+    subtree: false, // Only watch direct children for performance
+    attributes: false,
+    characterData: false
+  });
+}
+
+// Override the convert button to apply font immediately after conversion
+const originalConvertClick = convertBtn.onclick;
+convertBtn.onclick = async function() {
+  // Store the current saved size before conversion
+  const savedSize = localStorage.getItem('tableFontSize');
+  
+  if (originalConvertClick) {
+    await originalConvertClick.call(this);
+  }
+  
+  // Apply saved font size IMMEDIATELY after conversion completes
+  if (savedSize && !isNaN(savedSize) && savedSize >= 8 && savedSize <= 36) {
+    // Use requestAnimationFrame for the fastest possible application
+    requestAnimationFrame(() => {
+      applyFontSizeImmediately(parseInt(savedSize));
+    });
+  }
+};
+
+// Also hook into the createCopyColumnButtons function directly
+const originalCreateCopyColumnButtons = window.createCopyColumnButtons;
+window.createCopyColumnButtons = function() {
+  if (originalCreateCopyColumnButtons) {
+    originalCreateCopyColumnButtons.apply(this, arguments);
+  }
+  
+  // Apply saved font size in the same execution context
+  const savedSize = localStorage.getItem('tableFontSize');
+  if (savedSize && !isNaN(savedSize) && savedSize >= 8 && savedSize <= 36) {
+    applyFontSizeImmediately(parseInt(savedSize));
+  }
+};
 // Call this function in your DOMContentLoaded event listener
 // Add this line where you initialize other components:
 setupRefreshButton();

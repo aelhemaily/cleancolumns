@@ -45,7 +45,7 @@
       <option value="simplii">Simplii</option>
       <option value="tangerine">Tangerine</option>
       <option value="triangle">Triangle</option>
-      <option value="walmart">Walmart</option>
+      <option value="wallmart">Wallmart</option>
     </optgroup>
     <optgroup label="U.S." class="optgroup">
       <option value="amex">American Express</option>
@@ -75,7 +75,7 @@
     <option value="simplii">Simplii</option>
     <option value="tangerine">Tangerine</option>
     <option value="triangle">Triangle</option>
-    <option value="walmart">Walmart</option>
+    <option value="wallmart">Wallmart</option>
   </optgroup>
   <optgroup label="U.S.">
     <option value="amex">American Express</option>
@@ -84,7 +84,13 @@
   </optgroup>
 </select>
 <!-- Method indicator  -->
-<div id="methodIndicator" class="method-indicator">Method: <span id="methodText">-</span></div>
+<!-- Replace the existing method indicator and bank message elements with this: -->
+<div class="method-indicator-container">
+  <div id="methodIndicator" class="method-indicator">
+    Method: <span id="methodText">-</span>
+  </div>
+  <!-- Bank specific message will be inserted here by JavaScript -->
+</div>
 
   <label for="typeSelector">Select Type:</label>
   <select id="typeSelector"></select>
@@ -204,7 +210,7 @@
               <option value="simplii">Simplii</option>
               <option value="tangerine">Tangerine</option>
               <option value="triangle">Triangle</option>
-              <option value="walmart">walmart</option>
+              <option value="wallmart">Wallmart</option>
             </optgroup>
             <optgroup label="U.S." class="optgroup">
               <option value="amex">American Express</option>
@@ -339,11 +345,12 @@
       <button id="redoBtn" class="toolbar-btn" title="Redo (Ctrl+Y)"><i class="fas fa-redo"></i></button>
       <span class="toolbar-separator"></span>
       <button id="addColumnBtn" class="toolbar-btn" title="Add Column Before ACC"><i class="fas fa-plus-square"></i></button>
-      
+       
 <button id="selectModeToggle" class="toolbar-btn" title="Toggle Select Mode">
 
 </button>
-
+<span class="toolbar-separator"></span>
+<button id="fontSizeBtn" class="toolbar-btn" title="Font Size"><i class="fas fa-text-height"></i></button>
     </div>
   </div>
 
