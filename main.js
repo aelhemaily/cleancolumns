@@ -4675,9 +4675,60 @@ window.createCopyColumnButtons = function() {
     applyFontSizeImmediately(parseInt(savedSize));
   }
 };
+
+function setupClearInputButton() {
+    const inputText = document.getElementById('inputText');
+    if (!inputText) return;
+    
+    // Remove any existing clear button
+    const existingClearBtn = document.querySelector('.clear-input-btn');
+    if (existingClearBtn) {
+        existingClearBtn.remove();
+    }
+    
+    // Create clear button
+    const clearBtn = document.createElement('button');
+    clearBtn.innerHTML = '<i class="fas fa-times"></i>';
+    clearBtn.className = 'clear-input-btn';
+    clearBtn.title = 'Clear all text';
+    clearBtn.type = 'button';
+    
+    // Create container and wrap the textarea
+    const container = document.createElement('div');
+    container.className = 'input-text-container';
+    
+    // Get the current parent and replace with container
+    const parent = inputText.parentNode;
+    parent.insertBefore(container, inputText);
+    container.appendChild(inputText);
+    container.appendChild(clearBtn);
+    
+    // Clear functionality
+    clearBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        inputText.value = '';
+        inputText.focus();
+        showToast('Input cleared', 'info');
+        updateClearButton();
+    });
+    
+    // Show/hide button based on content
+    function updateClearButton() {
+        clearBtn.style.opacity = inputText.value.trim() ? '0.7' : '0';
+        clearBtn.style.pointerEvents = inputText.value.trim() ? 'auto' : 'none';
+    }
+    
+    inputText.addEventListener('input', updateClearButton);
+    updateClearButton();
+}
+
+setupClearInputButton();
 // Call this function in your DOMContentLoaded event listener
 // Add this line where you initialize other components:
 setupRefreshButton();
 initializeAIPromptWhenReady();
+
+
 
 });
