@@ -313,6 +313,10 @@
       <i class="fas fa-image"></i>
       <span class="sample-text">Sample</span>
     </button>
+    <!-- <button id="importPromptBtn" class="sample-btn" title="Import AI Prompt Transactions">
+    <i class="fas fa-download"></i>
+    <span class="sample-text">Import</span>
+  </button> -->
   </div>
 </div>
 
@@ -326,11 +330,29 @@
   <div id="fileList" class="file-list"></div>
 </div>
 
-  <textarea id="inputText" placeholder="Paste your bank statement here..."></textarea>
+<div class="input-text-container">
+    <textarea id="inputText" placeholder="Paste your bank statement here..."></textarea>
+    <div id="dragOverlay" class="drag-overlay">
+        <div class="drag-overlay-content">
+            <div class="drag-overlay-icon">📄</div>
+            <div class="drag-overlay-title">Upload PDF Here</div>
+            <div class="drag-overlay-subtitle">Drop bank statement PDFs</div>
+        </div>
+    </div>
+</div>
 
 
   <div class="form-row">
     <button id="convertBtn">Convert</button>
+     <!-- Add this progress container -->
+  <div id="progressContainer" style="display: none; margin-left: 15px;">
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <div style="width: 150px; height: 20px; background: #f0f0f0; border: 1px solid #ccc; border-radius: 10px; overflow: hidden;">
+        <div id="progressBar" style="width: 0%; height: 100%; background: #3b82f6; transition: width 0.3s ease;"></div>
+      </div>
+      <span id="progressText" style="font-size: 12px; font-family: monospace;">0%</span>
+    </div>
+  </div>
     <button id="refreshBtn" class="refresh-btn" title="Refresh Page">
   <i class="fas fa-refresh"></i>
 </button>
@@ -415,9 +437,14 @@
     <span class="divider">•</span>
     <span>QZee Business & Services Inc.</span>
     <button id="darkModeToggle" class="toolbar-btn" title="Toggle Dark Mode"><i class="fas fa-moon"></i></button>
-      <button id="returnToTop" title="Return to Top">
+     <button id="returnToTop" title="Return to Top">
     <i class="fas fa-arrow-up"></i>
   </button>
+  
+    <button id="scrollToBottom" title="Scroll to Bottom">
+  <i class="fas fa-arrow-down"></i>
+</button>  
+   
   </div>
 </footer>
 

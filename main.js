@@ -780,6 +780,8 @@ Mar 22 Mar 23 CANCO PETROLEUM #702 L LONDON 75.00`,
     });
   });
 
+
+  
   // Event listeners for bank/type changes
   aiBankSelector.addEventListener('change', (e) => {
     updateAITypeSelector(e.target.value);
@@ -922,6 +924,9 @@ function initializeAIPromptWhenReady() {
     observer.observe(toolsMenu, { attributes: true });
   }
 }
+
+
+
 
 // Call this in your DOMContentLoaded
 initializeAIPromptWhenReady();
@@ -1641,6 +1646,38 @@ convertBtn.addEventListener('click', async () => {
 }
 
 
+// Scroll to bottom functionality
+const scrollToBottom = document.getElementById('scrollToBottom');
+
+function updateScrollButtons() {
+  const scrollTop = window.pageYOffset;
+  const windowHeight = window.innerHeight;
+  const documentHeight = document.documentElement.scrollHeight;
+  
+  const returnToTop = document.getElementById('returnToTop');
+  
+  // Show/hide buttons based on scroll position
+  if (scrollTop > 300) {
+    returnToTop.classList.add('show');
+  } else {
+    returnToTop.classList.remove('show');
+  }
+  
+  // Show scroll to bottom button when not at bottom
+  if (scrollTop + windowHeight < documentHeight - 100) {
+    scrollToBottom.classList.add('show');
+  } else {
+    scrollToBottom.classList.remove('show');
+  }
+}
+
+// Scroll to bottom when button is clicked
+scrollToBottom.addEventListener('click', () => {
+  window.scrollTo({
+    top: document.documentElement.scrollHeight,
+    behavior: 'smooth'
+  });
+});
 
 // Call this function in your DOMContentLoaded event listener
 // Add this line where you initialize other components:
@@ -1824,6 +1861,9 @@ function showSampleStatement() {
   sampleBtn.addEventListener('click', showSampleStatement);
   closeModal.addEventListener('click', closeSampleStatement);
 
+
+
+  
   // Close modal on ESC key
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && imageModal.classList.contains('show')) {
@@ -1934,6 +1974,9 @@ function showSampleStatement() {
     return str.charAt(0).toUpperCase() + str.slice(1);
   }
 
+
+
+  
   function getCombinedKey() {
     const bank = bankSelector.value;
     const type = typeSelector.value;
@@ -2107,7 +2150,49 @@ function setupFileUpload() {
     if (dropArea) dropArea.addEventListener(eventName, preventDefaults, false);
     document.body.addEventListener(eventName, preventDefaults, false);
   });
+  // Add drag/drop functionality to input text area
+  const inputText = document.getElementById('inputText');
 
+  // Prevent default drag behaviors
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      inputText.addEventListener(eventName, preventDefaults, false);
+  });
+
+  // Highlight input area when item is dragged over it
+  ['dragenter', 'dragover'].forEach(eventName => {
+      inputText.addEventListener(eventName, highlightInput, false);
+  });
+
+  ['dragleave', 'drop'].forEach(eventName => {
+      inputText.addEventListener(eventName, unhighlightInput, false);
+  });
+
+  // Handle dropped files on input area
+  inputText.addEventListener('drop', handleInputDrop, false);
+
+ function highlightInput() {
+    const dragOverlay = document.getElementById('dragOverlay');
+    if (dragOverlay) {
+        dragOverlay.classList.add('active');
+    }
+}
+
+function unhighlightInput() {
+    const dragOverlay = document.getElementById('dragOverlay');
+    if (dragOverlay) {
+        dragOverlay.classList.remove('active');
+    }
+}
+
+  async function handleInputDrop(e) {
+      const dt = e.dataTransfer;
+      const files = dt.files;
+      
+      if (files.length > 0) {
+          // Use your existing file handling logic
+          handleFiles({ target: { files } });
+      }
+  }
   // Highlight drop area when item is dragged over it
   ['dragenter', 'dragover'].forEach(eventName => {
     if (dropArea) dropArea.addEventListener(eventName, highlight, false);
@@ -4116,13 +4201,7 @@ document.getElementById('addColumnBtn').addEventListener('click', addColumnBefor
   // Return to top functionality
   const returnToTop = document.getElementById('returnToTop');
 
-  window.addEventListener('scroll', () => {
-    if (window.pageYOffset > 300) {
-      returnToTop.classList.add('show');
-    } else {
-      returnToTop.classList.remove('show');
-    }
-  });
+window.addEventListener('scroll', updateScrollButtons);
 
   returnToTop.addEventListener('click', () => {
     window.scrollTo({
@@ -4710,24 +4789,30 @@ function setupClearInputButton() {
         inputText.value = '';
         inputText.focus();
         showToast('Input cleared', 'info');
-        updateClearButton();
+        updateClearButton(); // Update visibility after clearing
     });
     
-    // Show/hide button based on content
+    // Show/hide button based on content - SIMPLE CHECK
     function updateClearButton() {
-        clearBtn.style.opacity = inputText.value.trim() ? '0.7' : '0';
-        clearBtn.style.pointerEvents = inputText.value.trim() ? 'auto' : 'none';
+        const hasContent = inputText.value.trim() !== '';
+        clearBtn.style.opacity = hasContent ? '0.7' : '0';
+        clearBtn.style.pointerEvents = hasContent ? 'auto' : 'none';
     }
     
+    
+    // Monitor user input
     inputText.addEventListener('input', updateClearButton);
+    
+    // Also set up a periodic check for programmatic changes (like PDF uploads)
+    setInterval(updateClearButton, 200); // Check every 500ms
+    
+    // Update initially
     updateClearButton();
 }
-
 setupClearInputButton();
 // Call this function in your DOMContentLoaded event listener
 // Add this line where you initialize other components:
 setupRefreshButton();
-initializeAIPromptWhenReady();
 
 
 

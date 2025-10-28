@@ -6380,4 +6380,329 @@ h2 {
 
 .clear-input-btn {
   margin-right: 20vh;
+  border: solid 2px blue;
+  background-color: #23494733;
 }
+/* 15. Light Inner Glow (Subtle Depth) */
+.clear-input-btn {
+  border: 1px solid #ccc;
+  background-color: #fff;
+  color: #444;
+  padding: 7px 14px;
+  border-radius: 8px;
+  /* Key: Inner shadow for a light-source highlight */
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.6) inset, 0 2px 4px rgba(0, 0, 0, 0.08); 
+  transition: all 0.2s ease;
+}
+
+.clear-input-btn:hover {
+  border-color: #aaa;
+  background-color: #f7f7f7;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.8) inset, 0 3px 6px rgba(0, 0, 0, 0.12);
+}
+
+.clear-input-btn:active {
+  background-color: #e6e6e6;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.1) inset; /* Full inset on press */
+  transform: translateY(1px);
+}
+/* Add this to your existing footer button styles */
+#scrollToBottom {
+  display: none; /* Hidden by default */
+}
+
+#scrollToBottom.show {
+  display: flex; /* Show when needed */
+}
+/* Scroll to Bottom Button - Same as Return to Top but positioned to its left */
+#scrollToBottom {
+  position: fixed;
+  right: 40px; /* Positioned to the left of return to top */
+  bottom: 5px; /* Same bottom position */
+  background-color: var(--container-bg);
+  color: var(--text-color);
+  border: 1px solid var(--select-border);
+  border-color: #000000;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 6px var(--shadow-color);
+  z-index: 1000;
+  transition: all 0.2s ease;
+  opacity: 0.7;
+  padding: 0;
+  box-shadow: -2px 2px 0 #15191f;
+}
+
+#scrollToBottom i {
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#scrollToBottom:hover {
+  transform: scale(1.1);
+  opacity: 1;
+}
+
+#scrollToBottom.show {
+  display: flex;
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] #scrollToBottom {
+  background-color: var(--container-bg);
+  border-color: #3a3a3a;
+  box-shadow: -2px 2px 0 #000000;
+}
+
+.clear-input-btn {
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 50%;
+ background: radial-gradient(circle at 30% 30%, #1e3a8a, #1e1b4b);
+  box-shadow: 
+    0 2px 15px rgba(30, 58, 138, 0.45),
+    inset 0 -2px 5px rgba(0,0,0,0.35),
+    inset 0 1px 2px rgba(255,255,255,0.1);
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 1.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.clear-input-btn:hover {
+  transform: rotate(135deg);
+}
+
+/* PDF Drag & Drop Styles */
+.input-text-container {
+    position: relative;
+    width: 100%;
+}
+
+.drag-overlay {
+    position: absolute;
+  
+ 
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    border: 2px dashed #3b82f6;
+    border-radius: 8px;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    pointer-events: none;
+}
+
+.drag-overlay.active {
+    display: flex;
+}
+
+.drag-overlay-content {
+    text-align: center;
+    background: rgba(59, 130, 246, 0.95);
+    color: white;
+    padding: 10px 15px;
+    border-radius: 6px;
+    border: 2px solid white;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    backdrop-filter: blur(10px);
+}
+
+.drag-overlay-icon {
+    font-size: 16px;
+    margin-bottom: 4px;
+}
+
+.drag-overlay-title {
+    font-size: 12px;
+    font-weight: bold;
+    margin-bottom: 2px;
+    white-space: nowrap;
+}
+
+.drag-overlay-subtitle {
+    font-size: 10px;
+    opacity: 0.9;
+    white-space: nowrap;
+}
+
+[data-theme="dark"] .drag-overlay {
+    background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+    border-color: #60a5fa;
+}
+
+[data-theme="dark"] .drag-overlay-content {
+    background: rgba(96, 165, 250, 0.95);
+    border-color: #1e40af;
+}
+
+#inputText.drag-over {
+    border-color: transparent !important;
+}
+
+/* Force overlay to shrink to textarea size */
+.drag-overlay {
+    transform: scale(0.98) !important;
+    width: 80% !important;
+    height: 98% !important;
+    top: 2% !important;
+    left: 10% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+}
+
+/* Compact and Attractive PDF Upload Area Redesign */
+#pdfUploadSection {
+  display: flex;
+  justify-content: center;
+  margin: 20px auto;
+  max-width: 400px;
+}
+
+.drop-area {
+  width: 300px;
+  height: 80px;
+  border: 3px dashed #475569;
+  border-radius: 16px;
+  padding: 0;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 
+    -4px 4px 0 #15191f,
+    inset 0 0 0 2px rgba(255, 255, 255, 0.8);
+  margin: 0 auto;
+}
+
+.drop-area::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.1), transparent);
+  transition: left 0.6s ease;
+}
+
+.drop-area:hover {
+  transform: translateY(-2px) scale(1.02);
+  border-color: #3b82f6;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  box-shadow: 
+    -6px 6px 0 #1e40af,
+    inset 0 0 0 2px rgba(255, 255, 255, 0.9),
+    0 8px 25px rgba(59, 130, 246, 0.15);
+}
+
+.drop-area:hover::before {
+  left: 100%;
+}
+
+.drop-area.highlight {
+  border-color: #10b981;
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: translateY(-2px) scale(1.02); }
+  50% { transform: translateY(-1px) scale(1.01); }
+}
+
+.drop-area i {
+  font-size: 24px;
+  margin-bottom: 6px;
+  color: #475569;
+  transition: all 0.3s ease;
+  z-index: 2;
+}
+
+.drop-area:hover i {
+  color: #3b82f6;
+  transform: scale(1.1);
+}
+
+.drop-area p {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #475569;
+  font-family: 'Inter', sans-serif;
+  z-index: 2;
+  transition: all 0.3s ease;
+}
+
+.drop-area:hover p {
+  color: #1e40af;
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] .drop-area {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border-color: #475569;
+  box-shadow: 
+    -4px 4px 0 #000000,
+    inset 0 0 0 2px rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .drop-area:hover {
+  border-color: #60a5fa;
+  background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+  box-shadow: 
+    -6px 6px 0 #000000,
+    inset 0 0 0 2px rgba(255, 255, 255, 0.1),
+    0 8px 25px rgba(96, 165, 250, 0.2);
+}
+
+[data-theme="dark"] .drop-area i,
+[data-theme="dark"] .drop-area p {
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .drop-area:hover i,
+[data-theme="dark"] .drop-area:hover p {
+  color: #60a5fa;
+}
+
+/* File list container positioning */
+#fileListContainer {
+  margin: 15px auto;
+  max-width: 600px;
+}
+
+/* Remove the old margin-left from drop area */
+.file-upload-container {
+  margin-left: 0 !important;
+  justify-content: center;
+}
+
+body {
+  cursor: url('cursor.png'), auto !important;
+}
+
+a, button, [onclick] {
+  cursor: url('pointer.png'), pointer !important;
+}
+

@@ -73,8 +73,8 @@ window.processData = function() {
 
     let rest = fullLine.slice(rawDate.length).trim();
 
-    // Balance regex
-    const balanceRegex = /(?:-?\s*\$|(?:\s*\$)?-)\s*([\d,]+\.\d{2})(OD)?$/i;
+    // Enhanced balance regex to handle parentheses for negative balances - keep original format
+    const balanceRegex = /(\(\$?[\d,]+\.\d{2}\)|\$?[\d,]+\.\d{2}(?:\s*OD)?)$/i;
     const balanceMatch = rest.match(balanceRegex);
 
     if (!balanceMatch) {
@@ -82,15 +82,17 @@ window.processData = function() {
       return;
     }
 
-    const balanceNumericPart = balanceMatch[1];
-    const isOverdraftFlag = balanceMatch[2] ? true : false;
-
+    // Keep the original balance format as it appears in the input
+    const originalBalance = balanceMatch[0];
+    
+    // For calculation purposes, parse the numeric value
+    const balanceNumericPart = originalBalance.replace(/[\(\)\$OD\s]/gi, '');
     let balanceNum = parseFloat(balanceNumericPart.replace(/,/g, ''));
-
-    if (balanceMatch[0].includes('-') || isOverdraftFlag) {
+    
+    // If balance has parentheses, it's negative for calculation
+    const isNegative = originalBalance.includes('(');
+    if (isNegative) {
       balanceNum = -Math.abs(balanceNum);
-    } else {
-      balanceNum = Math.abs(balanceNum);
     }
 
     rest = rest.slice(0, rest.lastIndexOf(balanceMatch[0])).trim();
@@ -148,7 +150,8 @@ window.processData = function() {
 
     lastBalance = balanceNum;
 
-    const row = [date, description, debit, credit, balanceNum.toFixed(2)];
+    // Use the original balance format in the output, not the parsed number
+    const row = [date, description, debit, credit, originalBalance];
     rows.push(row);
 
     buffer = [];
