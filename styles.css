@@ -6698,11 +6698,11 @@ h2 {
   justify-content: center;
 }
 
-body {
+/* body {
   cursor: url('cursor.png'), auto !important;
 }
 
 a, button, [onclick] {
   cursor: url('pointer.png'), pointer !important;
 }
-
+ */
