@@ -69,6 +69,10 @@ const toolDescriptions = {
     title: 'Clean Columns',
     description: 'This tool is our main bank statement converter that transforms messy data into clean, organized columns ready for excel.'
   },
+   'qzeedatabase': {
+    title: 'Qzee Database',
+    description: 'This is our client database where you can store data and search for clients by various attributes.'
+  },
   'numbersorter': {
     title: 'Number Sorter', 
     description: 'This tool sorts columns containing both positive and negative numbers into two columns (credit/debit format).'
@@ -974,37 +978,53 @@ toolInfoModal.addEventListener('click', (e) => {
 }
 
 // Add info buttons to tools
+// Add info buttons to tools
 function addToolInfoButtons() {
   const toolItems = document.querySelectorAll('.tool-item');
   
   toolItems.forEach(toolItem => {
-    // Extract tool key from href
+    // Extract tool key from href or other attribute
     const link = toolItem.getAttribute('href');
     if (!link) return;
     
-    const toolMatch = link.match(/github\.io\/([^\/]+)/);
-    if (!toolMatch) return;
+    let toolKey = '';
     
-    const toolKey = toolMatch[1].toLowerCase();
+    // Check for different URL patterns
+    if (link.includes('github.io')) {
+      // GitHub Pages links (most tools)
+      const toolMatch = link.match(/github\.io\/([^\/]+)/);
+      if (toolMatch) {
+        toolKey = toolMatch[1].toLowerCase();
+      }
+    } else if (link.includes('qzee-database')) {
+      // Database tool
+      toolKey = 'qzeedatabase';
+    } else if (link.includes('cleancolumns')) {
+      // Current tool (might be on different domain)
+      toolKey = 'cleancolumns';
+    }
+    
     const toolInfo = toolDescriptions[toolKey];
     
     if (toolInfo) {
-      // Create info button
-      const infoBtn = document.createElement('button');
-      infoBtn.className = 'tool-info-btn';
-      infoBtn.innerHTML = '?';
-      infoBtn.title = `Learn about ${toolInfo.title}`;
-      
-      // Add click event
-      infoBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation(); // Prevent triggering tool link
-        showToolInfo(toolInfo.title, toolInfo.description);
-      });
-      
-      // Position relative for the absolute positioned button
-      toolItem.style.position = 'relative';
-      toolItem.appendChild(infoBtn);
+      // Create info button (only if it doesn't already exist)
+      if (!toolItem.querySelector('.tool-info-btn')) {
+        const infoBtn = document.createElement('button');
+        infoBtn.className = 'tool-info-btn';
+        infoBtn.innerHTML = '?';
+        infoBtn.title = `Learn about ${toolInfo.title}`;
+        
+        // Add click event
+        infoBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation(); // Prevent triggering tool link
+          showToolInfo(toolInfo.title, toolInfo.description);
+        });
+        
+        // Position relative for the absolute positioned button
+        toolItem.style.position = 'relative';
+        toolItem.appendChild(infoBtn);
+      }
     }
   });
 }

@@ -6698,11 +6698,26 @@ h2 {
   justify-content: center;
 }
 
-/* body {
-  cursor: url('cursor.png'), auto !important;
+/* Fix spacing between stacked selectors in minimized mode */
+.tools-menu.collapsed .ai-prompt-selector {
+  flex-direction: column;
+  gap: 12px !important; /* Add proper spacing between them */
 }
 
-a, button, [onclick] {
-  cursor: url('pointer.png'), pointer !important;
+.tools-menu.collapsed .selector-group {
+  margin-bottom: 0 !important;
 }
- */
+
+.tools-menu.collapsed .ai-custom-select .select-items {
+  max-height: 120px !important;
+  font-size: 10px !important;
+}
+
+.tools-menu.collapsed .ai-custom-select .select-items div {
+  padding: 4px 6px !important;
+  font-size: 10px !important;
+}
+
+.tools-menu.collapsed .selector-group {
+  margin-left: 5px;
+}
