@@ -1,120 +1,107 @@
-// nbcCard.js - Integrated PDF processing and NBC Card statement parsing
+// nbcCard.js - National Bank Credit Card PDF processing
 
 // Ensure window.bankUtils exists to house bank-specific utilities
 window.bankUtils = window.bankUtils || {};
 
 // Set up PDF.js worker source
-// This line must be present to allow PDF.js to function
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-// --- UI Utility Functions (Copied from pars.html for direct use) ---
-/**
- * Displays a message in the message box.
- * Assumes a div with id 'messageBox' exists in the HTML.
- * @param {string} message - The message to display.
- * @param {string} type - The type of message (e.g., 'error', 'info').
- */
+// --- UI Utility Functions ---
 function showMessage(message, type = 'info') {
   const messageBox = document.getElementById('messageBox');
   if (messageBox) {
     messageBox.textContent = message;
     messageBox.className = `message-box show bg-${type === 'error' ? 'red' : 'yellow'}-100 border-${type === 'error' ? 'red' : 'yellow'}-400 text-${type === 'error' ? 'red' : 'yellow'}-700`;
-  } else {
-    console.warn("Message box not found in DOM.");
   }
 }
 
-/**
- * Clears the message box.
- * Assumes a div with id 'messageBox' exists in the HTML.
- */
 function clearMessage() {
   const messageBox = document.getElementById('messageBox');
   if (messageBox) {
     messageBox.textContent = '';
     messageBox.classList.remove('show');
-  } else {
-    console.warn("Message box not found in DOM.");
   }
 }
 
-// --- PDF Parsing Logic (Adapted from parsernbccard.html) ---
-
-/**
- * Processes a PDF file to extract transaction data.
- * @param {File} file - The PDF file to process.
- * @returns {Promise<string>} - A promise that resolves with the extracted text, or an empty string on error.
- */
+// --- PDF Parsing Logic ---
 window.bankUtils.processPDFFile = async function(file) {
-  clearMessage(); // Clear any previous messages
+  clearMessage();
   showMessage('Processing PDF... Please wait.', 'info');
 
   if (!file || file.type !== 'application/pdf') {
     showMessage('Please upload a valid PDF file.', 'error');
-    return ""; // Return empty string if not a PDF
+    return "";
   }
 
   try {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
-    const transactionSet = new Set(); // Use a Set to store unique transactions
+    const transactions = [];
 
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
       const textItems = textContent.items.map(item => item.str);
       const pageText = textItems.join(' ');
+      
+      console.log(`Page ${i} raw text:`, pageText); // Debug log
 
-      // Regex to capture transaction patterns from NBC Business Credit Card statements
-      // This regex captures:
-      // Group 1: Transaction Month (1-2 digits)
-      // Group 2: Transaction Day (1-2 digits)
-      // Group 3: Reference Code (alphanumeric)
-      // Group 4: Posted Month (1-2 digits)
-      // Group 5: Posted Day (1-2 digits)
-      // Group 6: Description (any characters, including spaces, commas, etc., non-greedy)
-      // Group 7: Amount (digits, commas, decimal, optional hyphen at the end)
-      const transactionRegex = /(\d{1,2})\s+(\d{1,2})\s+([A-Za-z0-9]+)\s+(\d{1,2})\s+(\d{1,2})\s+([A-Z0-9\s.,'#&-]+?)\s+([\d,]+\.\d{2}-?)/g;
+      // Extract transactions using the pattern that works: MM DD REFERENCE MM DD DESCRIPTION AMOUNT
+      const transactionRegex = /(\d{2})\s+(\d{2})\s+([A-Z0-9]+)\s+(\d{2})\s+(\d{2})\s+([A-Za-z0-9\s*.#/-]+?)\s+([\d,]+\.\d{2})(\s*-)?/g;
+      
       let match;
-
       while ((match = transactionRegex.exec(pageText)) !== null) {
-        // Extracting captured groups
-        const transactionMonth = match[1].padStart(2, '0');
-        const transactionDay = match[2].padStart(2, '0');
+        const transMonth = match[1];
+        const transDay = match[2];
         const reference = match[3];
-        const postedMonth = match[4].padStart(2, '0');
-        const postedDay = match[5].padStart(2, '0');
-        const description = match[6].trim().replace(/\s+/g, ' '); // Normalize spaces
-        const amount = match[7].replace(/,/g, ''); // Keep the hyphen if present
-
-        // Construct the transaction string in the desired format
-        const transactionString = `${transactionMonth} ${transactionDay} ${reference} ${postedMonth} ${postedDay} ${description} ${amount}`;
+        const postMonth = match[4];
+        const postDay = match[5];
+        let description = match[6].trim();
+        let amount = match[7].replace(/,/g, '');
+        const negativeMarker = match[8]; // Capture the optional minus sign
         
-        // Add to set to ensure uniqueness
-        transactionSet.add(transactionString);
+        // Skip header lines and summary information
+        if (description.includes('INFINOPUS LTD') || 
+            description.includes('SUMMARY FOR ACCOUNT') ||
+            description.includes('Credit limit') ||
+            description.includes('879 COURT BRIAR') ||
+            description.match(/^\d+$/)) { // Skip lines that are just numbers
+          continue;
+        }
+
+        // Add negative sign if present
+        if (negativeMarker && negativeMarker.includes('-')) {
+          amount = '-' + amount;
+        }
+
+        const transactionString = `${transMonth} ${transDay} ${reference} ${postMonth} ${postDay} ${description} ${amount}`;
+        console.log("Found transaction:", transactionString);
+        transactions.push(transactionString);
       }
     }
 
-    if (transactionSet.size > 0) {
-      showMessage('PDF processed successfully!', 'success');
-      return Array.from(transactionSet).join('\n');
+    // Remove duplicates while preserving order
+    const uniqueTransactions = [...new Set(transactions)];
+
+    if (uniqueTransactions.length > 0) {
+      const result = uniqueTransactions.join('\n');
+      console.log("Final transactions:", result);
+      showMessage(`PDF processed successfully! Found ${uniqueTransactions.length} transactions.`, 'info');
+      return result;
     } else {
-      showMessage('No transactions found or could not parse the document from PDF.', 'error');
-      return ''; // Return empty string if no transactions found
+      showMessage('No transactions found in PDF.', 'error');
+      return '';
     }
 
   } catch (error) {
     console.error('Error processing PDF:', error);
-    showMessage(`An error occurred during PDF processing: ${error.message}`, 'error');
-    return ''; // Return empty string on error
+    showMessage(`Error processing PDF: ${error.message}`, 'error');
+    return '';
   }
 };
 
-
-// --- Main Data Processing Function (Existing nbcCard.js logic) ---
-// This function processes the text content (either manually entered or from PDF)
-// and populates the HTML table.
+// --- Main Data Processing Function ---
 function processData() {
   const input = document.getElementById('inputText').value.trim();
   const yearInput = document.getElementById('yearInput').value.trim();
@@ -135,12 +122,8 @@ function processData() {
   });
   table.appendChild(headerRow);
 
-  // Updated regex to capture both dates, ignoring the reference code, and the rest of the line
-  // This regex is specifically for the format output by the PDF parser:
-  // MM DD REFERENCE MM DD DESCRIPTION AMOUNT-
-  const transactionLineRegex = /^(\d{1,2})\s+(\d{1,2})\s+([A-Za-z0-9]+)\s+(\d{1,2})\s+(\d{1,2})\s+(.*)\s+([\d,]+\.\d{2})(-?)$/;
-  // Regex to find an amount, potentially with a trailing minus sign
-  const amountRegex = /([\d,]+\.\d{2})(-?)$/; // Changed to end of line to be more specific
+  // Transaction regex for NBC format: MM DD REFERENCE MM DD DESCRIPTION AMOUNT
+  const transactionLineRegex = /^(\d{2})\s+(\d{2})\s+([A-Z0-9]+)\s+(\d{2})\s+(\d{2})\s+(.+?)\s+(-?[\d,]+\.\d{2})$/;
 
   const monthMap = {
     '01': 'Jan', '02': 'Feb', '03': 'Mar', '04': 'Apr', '05': 'May', '06': 'Jun',
@@ -153,54 +136,47 @@ function processData() {
     const match = line.match(transactionLineRegex);
 
     if (!match) {
-      // If the line doesn't match the expected transaction format, it's noise.
-      // This could happen if the PDF parser didn't extract correctly, or if manual input
-      // is not in the expected format.
       console.warn("Skipping line due to format mismatch:", line);
       return;
     }
 
-    const firstMonthNum = match[1];
-    const firstDayNum = match[2];
-    const referenceCode = match[3]; // Captured reference code
-    const secondMonthNum = match[4];
-    const secondDayNum = match[5];
-    let descriptionPart = match[6].trim(); // This contains description
-    const rawAmount = match[7]; // The number part of the amount
-    const sign = match[8];     // The optional minus sign
+    const transMonth = match[1];
+    const transDay = match[2];
+    const reference = match[3];
+    const postMonth = match[4];
+    const postDay = match[5];
+    const description = match[6].trim();
+    const rawAmount = match[7];
 
-    const formattedFirstDate = `${monthMap[firstMonthNum]} ${firstDayNum}`;
-    const formattedSecondDate = `${monthMap[secondMonthNum]} ${secondDayNum}`;
+    // Format dates
+    const formattedTransDate = `${monthMap[transMonth]} ${transDay}`;
+    const formattedPostDate = `${monthMap[postMonth]} ${postDay}`;
 
     let formattedDate = '';
     if (yearInput) {
-      // If year is provided, append it to both dates
-      formattedDate = `${formattedFirstDate} ${yearInput} ${formattedSecondDate} ${yearInput}`;
+      formattedDate = `${formattedTransDate} ${yearInput} ${formattedPostDate} ${yearInput}`;
     } else {
-      // Otherwise, just use the month and day
-      formattedDate = `${formattedFirstDate} ${formattedSecondDate}`;
+      formattedDate = `${formattedTransDate} ${formattedPostDate}`;
     }
 
+    // Process amount - handle negative amounts
     let debit = '', credit = '';
-    const amountVal = parseFloat(rawAmount.replace(/,/g, '')); // Remove commas for parsing
+    const amountVal = parseFloat(rawAmount.replace(/,/g, ''));
 
-    if (sign === '-') {
-      credit = amountVal.toFixed(2);
+    if (amountVal < 0) {
+      credit = Math.abs(amountVal).toFixed(2); // Negative amount = credit (refund/payment)
     } else {
-      debit = amountVal.toFixed(2);
+      debit = amountVal.toFixed(2); // Positive amount = debit (purchase)
     }
-    
-    // The description is already extracted as descriptionPart, no need to re-extract from restOfLine
-    let description = descriptionPart;
 
-    // Check for duplicates (case-insensitive description and amount)
-    const signature = `${description.toLowerCase()}|${debit || credit}`;
+    // Check for duplicates
+    const signature = `${description.toLowerCase()}|${debit}|${credit}`;
     const isDuplicate = seen.has(signature);
     if (!isDuplicate) seen.add(signature);
 
-    const row = [formattedDate, description, debit, credit, '']; // Balance is always empty for now
+    const row = [formattedDate, description, debit, credit, ''];
     const tr = document.createElement('tr');
-    if (isDuplicate) tr.style.backgroundColor = '#ffcccc'; // Highlight duplicates
+    if (isDuplicate) tr.style.backgroundColor = '#ffcccc';
 
     row.forEach(cellContent => {
       const td = document.createElement('td');
@@ -215,36 +191,28 @@ function processData() {
   outputDiv.appendChild(table);
   table.dataset.rows = JSON.stringify(rows);
 
-  // Update UI elements from main.js (assuming they are globally available or imported)
-  // These functions are expected to be present in main.js
-  if (typeof document.getElementById('toolbar') !== 'undefined') {
-    document.getElementById('toolbar').classList.add('show');
+  // Update UI elements
+  const toolbar = document.getElementById('toolbar');
+  if (toolbar) {
+    toolbar.classList.add('show');
   }
+  
+  // Safely call utility functions
   if (typeof window.bankUtils.setupCellSelection === 'function') {
     window.bankUtils.setupCellSelection(table);
   }
   if (typeof window.bankUtils.setupTableContextMenu === 'function') {
     window.bankUtils.setupTableContextMenu(table);
   }
-  if (typeof window.bankUtils.setupCellDragAndDrop === 'function') {
-    window.bankUtils.setupCellDragAndDrop(table);
-  }
-  if (typeof window.bankUtils.setupColumnResizing === 'function') {
-    window.bankUtils.setupColumnResizing(table);
-  }
-  if (typeof saveState === 'function') { // saveState is defined in main.js
+  if (typeof saveState === 'function') {
     saveState();
   }
-  if (typeof createCopyColumnButtons === 'function') { // createCopyColumnButtons is defined in main.js
+  if (typeof createCopyColumnButtons === 'function') {
     createCopyColumnButtons();
   }
-  if (typeof checkAndRemoveEmptyBalanceColumn === 'function') { // checkAndRemoveEmptyBalanceColumn is defined in main.js
-    checkAndRemoveEmptyBalanceColumn();
-  }
-  if (typeof updateTableCursor === 'function') { // updateTableCursor is defined in main.js
-    updateTableCursor();
-  }
+
+  showMessage(`Processed ${rows.length} transactions successfully!`, 'info');
 }
 
-// Export processData globally so main.js can call it
+// Export processData globally
 window.processData = processData;
