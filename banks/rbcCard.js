@@ -256,21 +256,27 @@ window.bankUtils.parseRBCFormat = function(text) {
  */
 window.bankUtils.parseVisaFormat = function(text) {
     const transactions = [];
-    // Use a positive lookahead to split the text into chunks for each transaction.
-    // Each chunk starts with the 'MMM DD MMM DD' date format.
-    // This correctly groups multi-line transaction details together.
     const textBlocks = text.split(/(?=\n?[A-Z]{3}\s+\d{1,2}\s+[A-Z]{3}\s+\d{1,2})/);
 
     for (const block of textBlocks) {
         let currentBlock = block.trim();
-        // Skip empty blocks or header lines.
         if (currentBlock.length === 0 || currentBlock.startsWith("TRANSACTION")) continue;
 
-        // Truncate the block at summary keywords to remove trailing noise from the last transaction on a page.
+        // Remove foreign currency text from anywhere in the block
+        currentBlock = currentBlock.replace(/Foreign Currency - [A-Z]{3} [\d.,]+ Exchange rate - [\d.]+\s*/g, '');
+        
+        // Remove long number-only lines (transaction IDs)
+        currentBlock = currentBlock.replace(/^\d{20,}$/gm, '');
+
         const summaryKeywords = [
             "SUBTOTAL OF MONTHLY ACTIVITY",
             "NEW BALANCE",
-            "INTEREST RATE CHART"
+            "INTEREST RATE CHART",
+            "Thank you for choosing RBC Royal Bank",
+            "RBC® Visa",
+            "STATEMENT FROM",
+            "AUTHORIZED USER", 
+            "MONTHLY CARD LIMIT"
         ];
         
         for (const keyword of summaryKeywords) {
@@ -281,24 +287,17 @@ window.bankUtils.parseVisaFormat = function(text) {
         }
         
         const trimmedBlock = currentBlock.trim();
-
-        // Skip the block if it's empty after trimming noise
         if (trimmedBlock.length === 0) continue;
 
-        // Use a stricter amount regex that requires a '$' symbol.
-        // This is crucial for correctly identifying the final CAD amount and
-        // ignoring other numbers like foreign currency details.
         const amountRegex = /(-?\$[,\d]+\.\d{2}|[,\d]+\.\d{2}\$)/g;
         const amountMatches = [...trimmedBlock.matchAll(amountRegex)];
 
-        if (amountMatches.length === 0) continue; // Skip if no valid amount is found.
+        if (amountMatches.length === 0) continue;
 
-        // The actual transaction amount is usually the last monetary value in the block.
         const lastMatch = amountMatches[amountMatches.length - 1];
         let amount = lastMatch[0];
         const amountIndex = lastMatch.index;
 
-        // The text before the amount contains the dates and the full description.
         const descriptionAndDates = trimmedBlock.substring(0, amountIndex);
         
         const dateMatch = descriptionAndDates.match(/^([A-Z]{3}\s+\d{1,2})\s+([A-Z]{3}\s+\d{1,2})/);
@@ -307,13 +306,9 @@ window.bankUtils.parseVisaFormat = function(text) {
         const transactionDate = dateMatch[1].trim();
         const postingDate = dateMatch[2].trim();
         
-        // Extract the full description, which is everything between the dates and the amount.
         let description = trimmedBlock.substring(dateMatch[0].length, amountIndex);
-        
-        // Clean up the description by replacing newlines and multiple spaces with a single space.
         description = description.replace(/\s+/g, ' ').trim();
 
-        // Standardize the amount format to ensure consistency (e.g., -$123.45).
         amount = amount.replace(/,/g, '');
         if (amount.endsWith('$')) {
             amount = amount.slice(0, -1);
@@ -323,7 +318,7 @@ window.bankUtils.parseVisaFormat = function(text) {
                 amount = '-$' + amount.substring(1);
             }
         }
-        if (amount.includes('$-')) { // Handle cases like "$-123.45"
+        if (amount.includes('$-')) {
             amount = amount.replace('$-', '-$');
         }
 
