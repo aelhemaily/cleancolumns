@@ -233,17 +233,17 @@ function extractTransactionsFromTextContentParser2(textContent) {
                             finalDescription.toLowerCase() === 'balance' ||
                             finalDescription.length < 3;
 
-            if (finalDescription && finalDate && !isNoise) {
-                let formattedTransaction = finalDescription;
-                if (finalAmount) {
-                    formattedTransaction += ` ${finalAmount}`;
-                }
-                formattedTransaction += ` ${finalDate}`;
-                if (finalBalance) {
-                    formattedTransaction += ` ${finalBalance}`;
-                }
-                extractedTransactions.push(formattedTransaction.trim());
-            }
+         if (finalDescription && finalDate && !isNoise && !finalDescription.includes('CLOSING BALANCE')) {
+    let formattedTransaction = finalDescription;
+    if (finalAmount) {
+        formattedTransaction += ` ${finalAmount}`;
+    }
+    formattedTransaction += ` ${finalDate}`;
+    if (finalBalance) {
+        formattedTransaction += ` ${finalBalance}`;
+    }
+    extractedTransactions.push(formattedTransaction.trim());
+}
         }
     }
     return extractedTransactions;
