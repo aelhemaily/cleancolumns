@@ -6721,3 +6721,87 @@ h2 {
 .tools-menu.collapsed .selector-group {
   margin-left: 5px;
 }
+
+
+/* Balance fields styling */
+.balance-fields {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-left: 15px;
+  height: 40px; /* Match convert button height */
+}
+
+.balance-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+}
+
+.balance-group label {
+  font-size: 14px;
+  font-weight: bold;
+  color: #475569;
+  white-space: nowrap;
+  margin: 0;
+  font-family: monospace;
+}
+
+#openingBalance,
+#closingBalance {
+  width: 90px;
+  height: 32px;
+  padding: 6px 8px;
+  font-size: 12px;
+  font-family: monospace;
+  font-weight: 900;
+  border: 2px solid #475569;
+  border-radius: 0px;
+  background-color: #ffffff;
+  color: #475569;
+  box-shadow: -2px 2px 0 #15191f;
+  transition: all 0.2s ease;
+  text-align: right;
+  line-height: 1;
+  box-sizing: border-box;
+}
+
+#closingBalance {
+  background-color: #f1f5f9;
+  cursor: not-allowed;
+  color: #334155;
+  border-color: #64748b;
+}
+
+#openingBalance:focus {
+  border-color: #475569;
+  box-shadow: -1px 1px 0 #000000;
+  outline: none;
+  transform: translateY(-1px);
+}
+
+/* Compact hover effects */
+#openingBalance:hover {
+  border-color: #374151;
+}
+
+/* Dark mode */
+[data-theme="dark"] #openingBalance,
+[data-theme="dark"] #closingBalance {
+  background-color: #2d2d2d;
+  color: #e0e0e0;
+  border-color: #475569;
+  box-shadow: -2px 2px 0 #000000;
+}
+
+[data-theme="dark"] #closingBalance {
+  background-color: #3a3a3a;
+  color: #cbd5e1;
+  border-color: #64748b;
+}
+
+[data-theme="dark"] #openingBalance:focus {
+  border-color: #60a5fa;
+  box-shadow: -1px 1px 0 #000000;
+}

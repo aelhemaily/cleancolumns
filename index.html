@@ -350,6 +350,20 @@
 
   <div class="form-row">
     <button id="convertBtn">Convert</button>
+
+<!-- Add this right after the #convertBtn -->
+<div class="balance-fields">
+  <div class="balance-group">
+    <label for="openingBalance">Opening:</label>
+    <input type="text" id="openingBalance" placeholder="0.00" value="0.00">
+  </div>
+  <div class="balance-group">
+    <label for="closingBalance">Closing:</label>
+    <input type="text" id="closingBalance" placeholder="0.00" readonly>
+  </div>
+</div>
+
+
      <!-- Add this progress container -->
   <div id="progressContainer" style="display: none; margin-left: 15px;">
     <div style="display: flex; align-items: center; gap: 10px;">
