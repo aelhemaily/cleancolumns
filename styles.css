@@ -6721,3 +6721,209 @@ h2 {
 .tools-menu.collapsed .selector-group {
   margin-left: 5px;
 }
+
+
+/* Balance fields styling */
+.balance-fields {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-left: 15px;
+  height: 40px; /* Match convert button height */
+}
+
+.balance-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+}
+
+.balance-group label {
+  font-size: 14px;
+  font-weight: bold;
+  color: #475569;
+  white-space: nowrap;
+  margin: 0;
+  font-family: monospace;
+}
+
+#openingBalance,
+#closingBalance {
+  width: 90px;
+  height: 32px;
+  padding: 6px 8px;
+  font-size: 12px;
+  font-family: monospace;
+  font-weight: 900;
+  border: 2px solid #475569;
+  border-radius: 0px;
+  background-color: #ffffff;
+  color: #475569;
+  box-shadow: -2px 2px 0 #15191f;
+  transition: all 0.2s ease;
+  text-align: right;
+  line-height: 1;
+  box-sizing: border-box;
+}
+
+#closingBalance {
+  background-color: #f1f5f9;
+  cursor: not-allowed;
+  color: #334155;
+  border-color: #64748b;
+}
+
+#openingBalance:focus {
+  border-color: #475569;
+  box-shadow: -1px 1px 0 #000000;
+  outline: none;
+  transform: translateY(-1px);
+}
+
+/* Compact hover effects */
+#openingBalance:hover {
+  border-color: #374151;
+}
+
+/* Dark mode */
+[data-theme="dark"] #openingBalance,
+[data-theme="dark"] #closingBalance {
+  background-color: #2d2d2d;
+  color: #e0e0e0;
+  border-color: #475569;
+  box-shadow: -2px 2px 0 #000000;
+}
+
+[data-theme="dark"] #closingBalance {
+  background-color: #3a3a3a;
+  color: #cbd5e1;
+  border-color: #64748b;
+}
+
+[data-theme="dark"] #openingBalance:focus {
+  border-color: #60a5fa;
+  box-shadow: -1px 1px 0 #000000;
+}
+
+/* Navigation buttons styles */
+.navigation-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 15px;
+  display: none; /* Hidden by default - THIS LINE HAS A DUPLICATE */
+}
+
+.navigation-buttons.show {
+  display: flex;
+}
+
+/* Fix the duplicate display property - remove the first one */
+.navigation-buttons {
+  display: none; /* Hidden by default */
+  align-items: center;
+  gap: 8px;
+  margin-left: 15px;
+}
+
+.navigation-buttons.show {
+  display: flex;
+}
+
+.nav-button-group {
+  display: flex;
+  gap: 4px;
+}
+
+.nav-buttons-spacer {
+  width: 20px;
+  height: 30px; /* Match button height */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-buttons-spacer::after {
+  content: '';
+  width: 1px;
+  height: 20px;
+  background-color: var(--container-border);
+  opacity: 0.5;
+}
+
+.nav-btn {
+  width: 60px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background-color: var(--container-bg);
+  color: var(--text-color);
+  border: 2px solid #475569;
+  border-radius: 0px;
+  box-shadow: -2px 2px 0 #15191f;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: monospace;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 0 8px;
+  line-height: 1;
+}
+
+.nav-btn:hover {
+  box-shadow: -1px 1px 0 #000000;
+  background-color: #f4f4f4;
+  transform: translateY(-1px);
+}
+
+.nav-btn:active {
+  box-shadow: 0px 0px 0 #000000;
+  transform: translate(-2px, 2px);
+}
+
+.nav-btn-label {
+  font-weight: 700;
+}
+
+.nav-btn i {
+  font-size: 10px;
+}
+
+/* Footer spacer for buttons - FIXED */
+.footer-buttons-spacer {
+  width: 15px;
+  height: 30px; /* Match button height */
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Row highlight animation */
+@keyframes gentleHighlight {
+  0% { background-color: transparent; }
+  20% { background-color: rgba(59, 130, 246, 0.3); }
+  80% { background-color: rgba(59, 130, 246, 0.3); }
+  100% { background-color: transparent; }
+}
+
+.highlighted-row td {
+  animation: gentleHighlight 1.5s ease;
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] .nav-btn {
+  background-color: #2d2d2d;
+  color: #ffffff;
+  border: 2px solid #3a3a3a;
+  box-shadow: -2px 2px 0 #000000;
+}
+
+[data-theme="dark"] .nav-btn:hover {
+  background-color: #3a3a3a;
+}
+
+[data-theme="dark"] .nav-buttons-spacer::after {
+  background-color: #3a3a3a;
+}
