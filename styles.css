@@ -6804,6 +6804,7 @@ h2 {
 [data-theme="dark"] #openingBalance:focus {
   border-color: #60a5fa;
   box-shadow: -1px 1px 0 #000000;
+
 }
 
 /* Navigation buttons styles */
@@ -6926,4 +6927,5 @@ h2 {
 
 [data-theme="dark"] .nav-buttons-spacer::after {
   background-color: #3a3a3a;
+
 }
